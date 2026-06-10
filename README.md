@@ -28,8 +28,9 @@ npm install
 npx prisma migrate deploy
 
 # 4. (optional) Seed the reference data + template library
-#    point SEED_DATA_DIR (in .env) at your seed export, then:
-npm run db:seed
+#    Load the committed snapshot (313 exercises, 153 templates):
+psql "$DATABASE_URL" -f prisma/seed-data.sql
+#    (The legacy `npm run db:seed` rebuilds it from a SEED_DATA_DIR JSON export.)
 
 # 5. Create the first admin account (uses ADMIN_* from .env)
 npm run db:admin
@@ -56,10 +57,58 @@ deload, training volume rises MEV → MRV by muscle-group priority (maintain/gro
 and working weights are clamped to a sane range. All constants live in one file so you can
 adapt the model to your own methodology. See `src/lib/features/README.md` to extend.
 
-## Self-hosting
+## Deployment
 
-`docker-compose.yml` runs Postgres; run the Next app alongside it
-(`npm run build && npm start`). Everything stays on your own machine.
+The app ships as a self-contained Docker image that **bootstraps itself** on first
+start: it waits for Postgres, applies Prisma migrations to build the schema, then —
+only if the database is empty — loads the exercise + program-template library from
+`prisma/seed-data.sql`. No user accounts are seeded; you register your own and start a
+fresh mesocycle with the full library available. The seed gate is idempotent, so
+restarts never re-seed or clobber your data.
+
+```
+docker-entrypoint.sh:  wait for DB → migrate deploy → seed if empty → next start
+```
+
+### Unraid (two containers on br0)
+
+The intended target. `deploy/unraid/` contains importable templates for the Postgres
+and app containers plus a step-by-step guide — see **[`deploy/unraid/README.md`](deploy/unraid/README.md)**.
+In short: `docker login ghcr.io` once on the server, import both XMLs via
+**Docker → Add Container → Template**, start the DB (set `POSTGRES_PASSWORD`), then the
+app (point `DATABASE_URL` at the DB, set a 32+ char `AUTH_SECRET`).
+
+### Any Docker host
+
+```bash
+# 1. Postgres (any reachable instance works)
+docker run -d --name roguemeso-db \
+  -e POSTGRES_USER=roguemeso -e POSTGRES_PASSWORD=<strong-pw> -e POSTGRES_DB=roguemeso \
+  -v roguemeso-db:/var/lib/postgresql/data postgres:17-alpine
+
+# 2. The app (build locally, or pull a published image)
+docker build -t roguemeso .
+docker run -d --name roguemeso -p 3000:3000 --link roguemeso-db \
+  -e DATABASE_URL='postgresql://roguemeso:<strong-pw>@roguemeso-db:5432/roguemeso?schema=public' \
+  -e AUTH_SECRET="$(openssl rand -base64 48)" \
+  roguemeso
+```
+
+Open `http://<host>:3000` and register. Secrets (`POSTGRES_PASSWORD`, `AUTH_SECRET`)
+are passed at runtime and are **never** baked into the image.
+
+### Maintaining the seeded library
+
+`prisma/seed-data.sql` is the durable source for the shipped exercise/template library.
+After curating exercises or templates in a running DB, regenerate it and rebuild:
+
+```bash
+scripts/db-export-seed.sh                 # dump reference/template tables → seed-data.sql
+docker build -t roguemeso .               # rebuild so the image carries the update
+scripts/db-setup.sh                       # (escape hatch) migrate + seed a DB by hand
+```
+
+Existing databases keep their data — the seed only loads into an empty DB.
 
 ## License
 
