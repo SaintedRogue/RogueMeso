@@ -44,6 +44,7 @@ export function DayView({
       )}
       {day.exercises.map((ex) => {
         const color = mgColor(ex.muscleGroup.name);
+        const targetRir = rirForWeek(day.week, meso.weeksCount);
         return (
           <div key={ex.id} className="card overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -57,16 +58,17 @@ export function DayView({
                   </div>
                 </div>
               </div>
-              <StatusPill status={ex.status} />
+              <div className="flex items-center gap-2">
+                {/* On mobile the per-set RIR column is hidden, so surface the target here */}
+                <span className="num whitespace-nowrap text-xs text-muted sm:hidden">
+                  {targetRir == null ? "DL" : `${targetRir} RIR`}
+                </span>
+                <StatusPill status={ex.status} />
+              </div>
             </div>
             <div className="divide-y divide-line/60">
               {ex.sets.map((s) => (
-                <SetLogger
-                  key={s.id}
-                  set={s}
-                  targetRir={rirForWeek(day.week, meso.weeksCount)}
-                  unit={meso.unit}
-                />
+                <SetLogger key={s.id} set={s} targetRir={targetRir} unit={meso.unit} />
               ))}
             </div>
           </div>

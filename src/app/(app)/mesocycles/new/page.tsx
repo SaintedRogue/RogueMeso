@@ -33,7 +33,7 @@ export default async function NewMesoPage() {
           <input name="name" className="input" placeholder="e.g. Summer Block (defaults to template name)" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-muted">Length</label>
             <select name="weeks" className="input" defaultValue="5">

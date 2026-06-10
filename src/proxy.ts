@@ -12,6 +12,9 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except the login page and Next internals.
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"],
+  // Protect everything except the login page, Next internals, and PWA assets
+  // (the manifest is fetched without credentials, so it must stay public).
+  matcher: [
+    "/((?!login|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-192.png|icon-512.png).*)",
+  ],
 };

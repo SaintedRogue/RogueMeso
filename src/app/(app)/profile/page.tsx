@@ -15,7 +15,7 @@ export default async function ProfilePage() {
           <div className="text-xs text-muted">{me.email}</div>
         </div>
 
-        <form action={setDefaultUnit} className="card flex items-end justify-between gap-4 p-6">
+        <form action={setDefaultUnit} className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex-1">
             <label className="mb-1 block text-sm font-medium text-muted">Default units</label>
             <select name="unit" defaultValue={me.unit} className="input">
@@ -27,7 +27,7 @@ export default async function ProfilePage() {
           <button type="submit" className="btn-primary px-4 py-2 text-sm">Save</button>
         </form>
 
-        <form action={changeMyPassword} className="card flex items-end justify-between gap-4 p-6">
+        <form action={changeMyPassword} className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex-1">
             <label className="mb-1 block text-sm font-medium text-muted">Change password</label>
             <input

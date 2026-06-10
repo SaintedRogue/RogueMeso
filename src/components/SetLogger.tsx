@@ -49,7 +49,7 @@ export function SetLogger({ set, targetRir, unit }: Props) {
 
   return (
     <div
-      className={`grid grid-cols-[2rem_1fr_1fr_3.2rem_auto] items-center gap-2 px-3 py-2 text-sm ${
+      className={`grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-2 px-3 py-2 text-sm sm:grid-cols-[2rem_1fr_1fr_3.2rem_auto] ${
         done ? "bg-good/5" : ""
       } ${flash ? "flash-good" : ""}`}
     >
@@ -70,12 +70,14 @@ export function SetLogger({ set, targetRir, unit }: Props) {
         placeholder={set.repsTarget ? `${set.repsTarget} reps` : "reps"}
         aria-label="reps"
       />
-      <span className="num text-center text-xs text-muted">{targetRir == null ? "DL" : `${targetRir} RIR`}</span>
+      <span className="num hidden text-center text-xs text-muted sm:block">
+        {targetRir == null ? "DL" : `${targetRir} RIR`}
+      </span>
       <div className="flex items-center gap-1">
         <button
           onClick={submit}
           disabled={pending}
-          className={`px-2.5 py-1 text-xs disabled:opacity-50 ${
+          className={`px-2.5 py-2.5 text-xs disabled:opacity-50 sm:py-1 ${
             done ? "rounded-md border border-line font-semibold text-muted hover:text-text" : "btn-primary"
           }`}
         >
@@ -86,7 +88,8 @@ export function SetLogger({ set, targetRir, unit }: Props) {
             onClick={() => start(() => skipSet(set.id))}
             disabled={pending}
             title="Skip set"
-            className="px-1 text-muted hover:text-bad"
+            aria-label="Skip set"
+            className="min-h-11 min-w-10 text-muted hover:text-bad sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
           >
             ×
           </button>

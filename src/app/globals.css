@@ -143,3 +143,18 @@ h1, h2, h3 {
 @media (prefers-reduced-motion: reduce) {
   .stagger > *, .flash-good, .btn-primary { animation: none !important; transition: none !important; }
 }
+
+/* Touch devices: interactive controls meet the 44px minimum touch target.
+   .chip-nav opts a navigational/action chip into the larger target (plain
+   .chip stays compact since it's also used for non-interactive status pills). */
+@media (pointer: coarse) {
+  .input,
+  .btn-primary {
+    min-height: 2.75rem;
+  }
+  .chip-nav {
+    min-height: 2.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}

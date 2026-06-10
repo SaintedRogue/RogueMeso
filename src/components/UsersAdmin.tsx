@@ -42,7 +42,7 @@ export function UsersAdmin({ users, meId }: { users: U[]; meId: number }) {
                   const p = prompt(`New password for ${u.email} (min 4 chars):`);
                   if (p) start(() => resetUserPassword(u.id, p));
                 }}
-                className="chip hover:border-accent/50 hover:text-text disabled:opacity-50"
+                className="chip chip-nav hover:border-accent/50 hover:text-text disabled:opacity-50"
               >
                 Reset password
               </button>
@@ -54,7 +54,7 @@ export function UsersAdmin({ users, meId }: { users: U[]; meId: number }) {
                       start(() => deleteUser(u.id));
                     }
                   }}
-                  className="chip text-bad hover:border-bad disabled:opacity-50"
+                  className="chip chip-nav text-bad hover:border-bad disabled:opacity-50"
                   style={{ borderColor: "color-mix(in oklab, var(--color-bad) 40%, transparent)" }}
                 >
                   Delete

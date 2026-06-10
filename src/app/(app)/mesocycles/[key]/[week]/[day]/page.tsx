@@ -34,12 +34,12 @@ export default async function DayPage({
 
       <div className="mb-4 flex items-center justify-between text-sm">
         <div className="flex gap-2">
-          {prevWeek && <Link href={prevWeek} className="chip hover:text-text">↑ prev week</Link>}
-          {nextWeek && <Link href={nextWeek} className="chip hover:text-text">↓ next week</Link>}
+          {prevWeek && <Link href={prevWeek} className="chip chip-nav hover:text-text">↑ prev week</Link>}
+          {nextWeek && <Link href={nextWeek} className="chip chip-nav hover:text-text">↓ next week</Link>}
         </div>
         <div className="flex gap-2">
-          {prev && <Link href={prev} className="chip hover:text-text">← day {pos}</Link>}
-          {next && <Link href={next} className="chip hover:text-text">day {pos + 2} →</Link>}
+          {prev && <Link href={prev} className="chip chip-nav hover:text-text">← day {pos}</Link>}
+          {next && <Link href={next} className="chip chip-nav hover:text-text">day {pos + 2} →</Link>}
         </div>
       </div>
 

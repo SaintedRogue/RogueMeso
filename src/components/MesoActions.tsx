@@ -17,14 +17,14 @@ export function MesoActions({ mesoKey, archived }: { mesoKey: string; archived: 
       <button
         onClick={() => start(() => (archived ? unarchiveMesocycle(mesoKey) : archiveMesocycle(mesoKey)))}
         disabled={pending}
-        className="chip hover:border-accent/50 hover:text-text disabled:opacity-50"
+        className="chip chip-nav hover:border-accent/50 hover:text-text disabled:opacity-50"
       >
         {archived ? "Unarchive" : "Archive"}
       </button>
       <button
         onClick={onDelete}
         disabled={pending}
-        className="chip text-bad hover:border-bad disabled:opacity-50"
+        className="chip chip-nav text-bad hover:border-bad disabled:opacity-50"
         style={{ borderColor: "color-mix(in oklab, var(--color-bad) 40%, transparent)" }}
       >
         Delete
