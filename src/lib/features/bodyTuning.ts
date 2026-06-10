@@ -172,11 +172,11 @@ export function confidenceLabel(weeksOfData: number): "formula" | "personalizing
   return "personalizing";
 }
 
-/** Whole-years age from a birth date as of `now`. */
+/** Whole-years age from a birth date as of `now`. Uses UTC to stay timezone-independent. */
 export function ageFromBirthDate(birthDate: Date, now: Date): number {
-  let age = now.getFullYear() - birthDate.getFullYear();
-  const m = now.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) age--;
+  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
+  const m = now.getUTCMonth() - birthDate.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) age--;
   return age;
 }
 

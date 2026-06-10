@@ -44,9 +44,15 @@ export async function setBiometrics(formData: FormData) {
   const birthStr = String(formData.get("birthDate") ?? "");
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(birthStr) ? new Date(birthStr) : null;
 
+  // Only write fields that parsed successfully, so a partial submit never wipes saved data.
   await prisma.user.update({
     where: { id: me.id },
-    data: { heightCm, bodySex, activityLevel, birthDate },
+    data: {
+      ...(heightCm != null && { heightCm }),
+      ...(bodySex != null && { bodySex }),
+      ...(activityLevel != null && { activityLevel }),
+      ...(birthDate != null && { birthDate }),
+    },
   });
   revalidatePath("/body-tuning");
   revalidatePath("/profile");
@@ -56,7 +62,7 @@ export async function setBiometrics(formData: FormData) {
 export async function setMesoGoal(formData: FormData) {
   const me = await requireUser();
   const mesoId = Number(formData.get("mesoId"));
-  if (!Number.isFinite(mesoId)) return;
+  if (!Number.isInteger(mesoId) || mesoId <= 0) return;
 
   const goalRaw = String(formData.get("nutritionGoal"));
   const nutritionGoal = goalRaw === "cut" || goalRaw === "bulk" || goalRaw === "maintain" ? goalRaw : null;
