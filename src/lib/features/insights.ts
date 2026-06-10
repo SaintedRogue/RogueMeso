@@ -94,10 +94,10 @@ export async function getInsightsMeso(userId: number, key?: string) {
   });
 }
 
-/** Weekly set volume per muscle for one meso. */
-export async function getVolumeData(mesoId: number, weeksCount: number) {
+/** Weekly set volume per muscle for one meso, scoped to its owner. */
+export async function getVolumeData(userId: number, mesoId: number, weeksCount: number) {
   const sets = await prisma.exerciseSet.findMany({
-    where: { status: "complete", dayExercise: { day: { mesoId } } },
+    where: { status: "complete", dayExercise: { day: { mesoId, meso: { userId } } } },
     select: {
       dayExercise: {
         select: {
@@ -119,11 +119,10 @@ export async function getLoggedExercises(userId: number) {
   const rows = await prisma.dayExercise.findMany({
     where: { day: { meso: { userId } }, sets: { some: { status: "complete" } } },
     select: { exerciseId: true, exercise: { select: { name: true } } },
+    distinct: ["exerciseId"],
   });
-  const map = new Map<number, string>();
-  for (const r of rows) map.set(r.exerciseId, r.exercise.name);
-  return [...map.entries()]
-    .map(([id, name]) => ({ id, name }))
+  return rows
+    .map((r) => ({ id: r.exerciseId, name: r.exercise.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
