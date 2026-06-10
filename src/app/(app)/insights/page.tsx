@@ -9,6 +9,7 @@ import {
 } from "@/lib/features/insights";
 import { MEV_SETS, MRV_SETS } from "@/lib/progression";
 import { mgColor, fmtWeight } from "@/lib/format";
+import { Trophy, BarChart3, LineChart } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { VolumeChart, type WeekDatum } from "@/components/charts/VolumeChart";
 import { HistoryChart } from "@/components/charts/HistoryChart";
@@ -88,7 +89,7 @@ export default async function InsightsPage({
             <VolumeChart data={weekData} muscleColors={muscleColors} mev={MEV_SETS} mrv={MRV_SETS} />
           </div>
         ) : (
-          <EmptyState title="No completed sets yet" hint="Log some sets in a mesocycle to see weekly volume." />
+          <EmptyState icon={BarChart3} title="No completed sets yet" hint="Log some sets in a mesocycle to see weekly volume." />
         )}
       </section>
 
@@ -118,7 +119,7 @@ export default async function InsightsPage({
             <HistoryChart data={history} />
           </div>
         ) : (
-          <EmptyState title="No history yet" hint="Complete sets of an exercise to chart its estimated 1RM." />
+          <EmptyState icon={LineChart} title="No history yet" hint="Complete sets of an exercise to chart its estimated 1RM." />
         )}
       </section>
 
@@ -130,7 +131,7 @@ export default async function InsightsPage({
             {prs.map((pr) => (
               <div key={pr.exercise} className="flex items-center justify-between px-4 py-2.5">
                 <div className="flex items-center gap-3">
-                  <span aria-hidden>🏆</span>
+                  <Trophy aria-hidden size={16} className="shrink-0 text-accent" />
                   <span className="text-sm">{pr.exercise}</span>
                   {pr.isNew && (
                     <span className="chip" style={{ color: "var(--color-good)", borderColor: "var(--color-good)" }}>
@@ -149,7 +150,7 @@ export default async function InsightsPage({
             ))}
           </div>
         ) : (
-          <EmptyState title="No records yet" hint="Your best estimated 1RM per exercise will appear here." />
+          <EmptyState icon={Trophy} title="No records yet" hint="Your best estimated 1RM per exercise will appear here." />
         )}
       </section>
     </>

@@ -25,7 +25,7 @@ export function BottomBar() {
               active ? "text-accent" : "text-muted"
             }`}
           >
-            <span aria-hidden className="text-base leading-none">{l.icon}</span>
+            <l.icon aria-hidden size={20} strokeWidth={2} />
             {l.shortLabel}
           </Link>
         );

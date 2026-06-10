@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { BottomBar } from "@/components/BottomBar";
 import { LogoMark, Wordmark } from "@/components/Brand";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { requireUser } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
         <Nav isAdmin={user.role === "admin"} />
         <div className="mt-auto px-2 pt-6">
+          <div className="mb-3 border-t border-line pt-3">
+            <ThemeToggle />
+          </div>
           <div className="truncate text-sm font-medium">{user.name ?? user.email}</div>
           <div className="truncate text-[0.7rem] uppercase tracking-wider text-muted/70">
             {user.role === "admin" ? "Admin · self-hosted" : "Self-hosted"}

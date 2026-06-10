@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, Gauge } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { computeBodyTuning } from "@/lib/features/bodyTuning";
 import { logWeight, setMesoGoal } from "@/lib/bodyTuningActions";
@@ -21,13 +22,14 @@ export default async function BodyTuningPage() {
       <>
         <PageHeader title="Body Tuning" subtitle="Calorie & macro targets" />
         <EmptyState
+          icon={Gauge}
           title="Finish your profile first"
           hint="Add your height, sex, and birth date in Profile & Settings, then log a weigh-in below."
         />
         <div className="mt-4 max-w-lg">
           <WeighInForm unit={me.unit} />
           <p className="mt-3 text-sm text-muted">
-            <Link href="/profile" className="text-accent underline">Go to Profile &amp; Settings →</Link>
+            <Link href="/profile" className="inline-flex items-center gap-1 text-accent underline">Go to Profile &amp; Settings<ArrowRight aria-hidden size={14} /></Link>
           </p>
         </div>
       </>

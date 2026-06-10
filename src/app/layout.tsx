@@ -12,16 +12,32 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0c0a09",
-  colorScheme: "dark",
+  // Match the browser chrome to whichever theme the OS prefers. A manual
+  // override (via the toggle) updates this <meta> at runtime.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0a09" },
+  ],
+  colorScheme: "dark light",
 };
+
+// Runs synchronously in <head>, before first paint, so the correct theme is
+// applied with no flash. Order: stored preference → system preference →
+// default dark (only when the OS expresses no preference). See Next.js guide:
+// "Preventing flash before hydration".
+const themeScript = `(function(){try{var s=localStorage.getItem("theme");var t=(s==="light"||s==="dark")?s:(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",t);}catch(e){}})()`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-screen">{children}</body>
     </html>
   );

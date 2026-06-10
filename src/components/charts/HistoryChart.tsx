@@ -7,12 +7,13 @@ export function HistoryChart({ data }: { data: { date: string; oneRm: number }[]
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={data} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-        <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} tickLine={false} />
-        <YAxis stroke="#9ca3af" fontSize={12} domain={["auto", "auto"]} tickLine={false} />
+        <XAxis dataKey="date" stroke="var(--color-line-2)" tick={{ fill: "var(--color-muted)" }} fontSize={12} tickLine={false} />
+        <YAxis stroke="var(--color-line-2)" tick={{ fill: "var(--color-muted)" }} fontSize={12} domain={["auto", "auto"]} tickLine={false} />
         <Tooltip
-          contentStyle={{ background: "#0b0f14", border: "1px solid #1f2937", borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-line)", borderRadius: 8, fontSize: 12 }}
+          labelStyle={{ color: "var(--color-text)" }}
         />
-        <Line type="monotone" dataKey="oneRm" stroke="#ff6a2b" strokeWidth={2} dot={{ r: 3 }} />
+        <Line type="monotone" dataKey="oneRm" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 3 }} />
       </LineChart>
     </ResponsiveContainer>
   );

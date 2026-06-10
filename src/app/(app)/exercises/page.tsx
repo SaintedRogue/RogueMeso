@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { getExercises, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { PageHeader, MgDot } from "@/components/ui";
@@ -69,9 +70,9 @@ export default async function ExercisesPage({
                   href={`https://www.youtube.com/watch?v=${e.youtubeId}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-accent hover:underline"
                 >
-                  video ↗
+                  video<ExternalLink aria-hidden size={13} />
                 </a>
               )}
             </div>

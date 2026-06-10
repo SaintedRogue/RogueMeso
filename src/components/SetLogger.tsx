@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Check, X } from "lucide-react";
 import { logSet, skipSet, clearSet } from "@/lib/actions";
 import { fmtWeight } from "@/lib/format";
 
@@ -53,7 +54,9 @@ export function SetLogger({ set, targetRir, unit }: Props) {
         done ? "bg-good/5" : ""
       } ${flash ? "flash-good" : ""}`}
     >
-      <span className={`num ${done ? "text-good" : "text-muted"}`}>{done ? "✓" : set.position + 1}</span>
+      <span className={`num flex justify-center ${done ? "text-good" : "text-muted"}`}>
+        {done ? <Check aria-hidden size={16} strokeWidth={2.5} /> : set.position + 1}
+      </span>
       <input
         className="input num py-1"
         inputMode="decimal"
@@ -89,9 +92,9 @@ export function SetLogger({ set, targetRir, unit }: Props) {
             disabled={pending}
             title="Skip set"
             aria-label="Skip set"
-            className="min-h-11 min-w-10 text-muted hover:text-bad sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
+            className="flex min-h-11 min-w-10 items-center justify-center text-muted hover:text-bad sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
           >
-            ×
+            <X aria-hidden size={16} strokeWidth={2.5} />
           </button>
         )}
       </div>

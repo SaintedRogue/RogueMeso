@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { getDay } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
@@ -34,12 +35,12 @@ export default async function DayPage({
 
       <div className="mb-4 flex items-center justify-between text-sm">
         <div className="flex gap-2">
-          {prevWeek && <Link href={prevWeek} className="chip chip-nav hover:text-text">↑ prev week</Link>}
-          {nextWeek && <Link href={nextWeek} className="chip chip-nav hover:text-text">↓ next week</Link>}
+          {prevWeek && <Link href={prevWeek} className="chip chip-nav hover:text-text"><ChevronUp aria-hidden size={14} />prev week</Link>}
+          {nextWeek && <Link href={nextWeek} className="chip chip-nav hover:text-text"><ChevronDown aria-hidden size={14} />next week</Link>}
         </div>
         <div className="flex gap-2">
-          {prev && <Link href={prev} className="chip chip-nav hover:text-text">← day {pos}</Link>}
-          {next && <Link href={next} className="chip chip-nav hover:text-text">day {pos + 2} →</Link>}
+          {prev && <Link href={prev} className="chip chip-nav hover:text-text"><ChevronLeft aria-hidden size={14} />day {pos}</Link>}
+          {next && <Link href={next} className="chip chip-nav hover:text-text">day {pos + 2}<ChevronRight aria-hidden size={14} /></Link>}
         </div>
       </div>
 
