@@ -85,7 +85,7 @@ export async function getInsightsMeso(userId: number, key?: string) {
   const select = { id: true, key: true, name: true, weeksCount: true, userId: true } as const;
   if (key) {
     const m = await prisma.mesocycle.findUnique({ where: { key }, select });
-    return m && m.userId === userId ? m : null;
+    return m && m.userId !== null && m.userId === userId ? m : null;
   }
   return prisma.mesocycle.findFirst({
     where: { userId, status: { not: "archived" } },

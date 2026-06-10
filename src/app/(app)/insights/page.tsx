@@ -51,7 +51,10 @@ export default async function InsightsPage({
   const hasVolume = volume.length > 0;
 
   // --- History: serialize dates to strings for the client chart component ---
-  const history = historyRaw.map((h) => ({ date: h.date.toLocaleDateString(), oneRm: h.oneRm }));
+  const history = historyRaw.map((h) => ({
+    date: h.date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    oneRm: h.oneRm,
+  }));
 
   return (
     <>
@@ -140,7 +143,7 @@ export default async function InsightsPage({
                     {fmtWeight(pr.weight, me.unit)} × {pr.reps}
                   </span>
                   <span className="text-accent">~{pr.oneRm} 1RM</span>
-                  <span>{pr.date.toLocaleDateString()}</span>
+                  <span>{pr.date.toLocaleDateString("en-US")}</span>
                 </div>
               </div>
             ))}
