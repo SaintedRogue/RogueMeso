@@ -54,14 +54,14 @@ export default async function BodyTuningPage() {
               {CONFIDENCE_COPY[bt.confidence]} · {bt.goal}
             </span>
           </div>
-          <div className="text-3xl font-bold">{m.kcal.toLocaleString()} <span className="text-base font-normal text-muted">kcal</span></div>
+          <div className="text-3xl font-bold">{m.kcal.toLocaleString("en-US")} <span className="text-base font-normal text-muted">kcal</span></div>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
             <Macro label="Protein" grams={m.proteinG} />
             <Macro label="Fat" grams={m.fatG} />
             <Macro label="Carbs" grams={m.carbG} />
           </div>
           <p className="mt-4 text-xs text-muted">
-            Maintenance ≈ {bt.adjMaintenance.toLocaleString()} kcal · {bt.weeklySets} sets logged in the last 7 days.
+            Maintenance ≈ {bt.adjMaintenance.toLocaleString("en-US")} kcal · {bt.weeklySets} sets logged in the last 7 days.
           </p>
         </div>
 
@@ -70,10 +70,10 @@ export default async function BodyTuningPage() {
           <form action={setMesoGoal} className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end sm:justify-between">
             <input type="hidden" name="mesoId" value={bt.mesoId} />
             <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-muted">
+              <label htmlFor="nutritionGoal" className="mb-1 block text-sm font-medium text-muted">
                 Goal for {bt.mesoName ?? "current block"}
               </label>
-              <select name="nutritionGoal" defaultValue={bt.goal} className="input">
+              <select id="nutritionGoal" name="nutritionGoal" defaultValue={bt.goal} className="input">
                 <option value="maintain">Maintain</option>
                 <option value="cut">Cut</option>
                 <option value="bulk">Bulk</option>
@@ -117,12 +117,12 @@ function WeighInForm({ unit }: { unit: string }) {
   return (
     <form action={logWeight} className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end">
       <div className="flex-1">
-        <label className="mb-1 block text-sm font-medium text-muted">Today&apos;s weight ({unit})</label>
-        <input name="weight" type="number" step="0.1" min="0" required className="input" placeholder={unit === "kg" ? "80.0" : "176.0"} />
+        <label htmlFor="weight" className="mb-1 block text-sm font-medium text-muted">Today&apos;s weight ({unit})</label>
+        <input id="weight" name="weight" type="number" step="0.1" min="0" required className="input" placeholder={unit === "kg" ? "80.0" : "176.0"} />
       </div>
       <div className="w-28">
-        <label className="mb-1 block text-sm font-medium text-muted">Body fat %</label>
-        <input name="bodyFatPct" type="number" step="0.1" min="0" max="70" className="input" placeholder="optional" />
+        <label htmlFor="bodyFatPct" className="mb-1 block text-sm font-medium text-muted">Body fat %</label>
+        <input id="bodyFatPct" name="bodyFatPct" type="number" step="0.1" min="0" max="70" className="input" placeholder="optional" />
       </div>
       <button type="submit" className="btn-primary px-4 py-2 text-sm">Log</button>
     </form>
