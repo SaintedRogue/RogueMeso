@@ -126,7 +126,7 @@ export function macroTargets(targetKcal: number, p: Profile, goal: Goal): Macros
 }
 
 /** Exponentially weighted moving average — smooths daily water-weight noise. */
-export function ewma(series: number[], alpha = BODY_TUNING_CONSTANTS.EWMA_ALPHA): number[] {
+export function ewma(series: number[], alpha: number = BODY_TUNING_CONSTANTS.EWMA_ALPHA): number[] {
   const out: number[] = [];
   for (let i = 0; i < series.length; i++) {
     out.push(i === 0 ? series[i] : alpha * series[i] + (1 - alpha) * out[i - 1]);
@@ -150,7 +150,7 @@ export function measuredMaintenance(
   formulaMaintenance: number,
   targetRateKg: number,
   observedRateKg: number,
-  ed = BODY_TUNING_CONSTANTS.ADAPT_ENERGY_DENSITY,
+  ed: number = BODY_TUNING_CONSTANTS.ADAPT_ENERGY_DENSITY,
 ): number {
   return formulaMaintenance + ((targetRateKg - observedRateKg) * ed) / 7;
 }
