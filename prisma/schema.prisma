@@ -192,8 +192,8 @@ model MesoDay {
   id             Int       @id @default(autoincrement())
   mesoId         Int
   meso           Mesocycle @relation(fields: [mesoId], references: [id], onDelete: Cascade)
-  week           Int                       // microcycle index (1-based)
-  position       Int                       // day index within the week
+  week           Int                       // microcycle index (0-based)
+  position       Int                       // day index within the week (0-based)
   label          String?
   status         String    @default("pending")
   bodyweight     Float?

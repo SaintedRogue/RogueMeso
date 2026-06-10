@@ -6,6 +6,21 @@ export type Session = { uid: number; exp: number };
 
 const enc = new TextEncoder();
 
+/**
+ * The signing secret, validated on use. We deliberately do NOT fall back to a
+ * default: an empty/weak key would let anyone forge a session cookie for any
+ * user. Fail loudly instead so a misconfigured deploy can't silently run open.
+ */
+function getSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "AUTH_SECRET is missing or too short — set it to a random string of at least 32 characters.",
+    );
+  }
+  return secret;
+}
+
 /** Cast a Uint8Array to BufferSource (TS 5.7+ types TypedArrays generically over ArrayBufferLike). */
 function src(u: Uint8Array): BufferSource {
   return u as unknown as BufferSource;
@@ -31,18 +46,19 @@ async function hmacKey(secret: string) {
 }
 
 /** Create a signed session token for a user, valid for `days`. */
-export async function signSession(secret: string, uid: number, days = 30): Promise<string> {
+export async function signSession(uid: number, days = 30): Promise<string> {
   const payload = b64url(enc.encode(JSON.stringify({ uid, exp: Date.now() + days * 864e5 })));
-  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), src(enc.encode(payload)));
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey(getSecret()), src(enc.encode(payload)));
   return `${payload}.${b64url(sig)}`;
 }
 
 /** Returns the session payload if the token is well-formed, correctly signed, and unexpired. */
-export async function verifySession(token: string | undefined, secret: string): Promise<Session | null> {
+export async function verifySession(token: string | undefined): Promise<Session | null> {
   if (!token || !token.includes(".")) return null;
+  const key = await hmacKey(getSecret());
   const [payload, sig] = token.split(".");
   try {
-    const ok = await crypto.subtle.verify("HMAC", await hmacKey(secret), src(fromB64url(sig)), src(enc.encode(payload)));
+    const ok = await crypto.subtle.verify("HMAC", key, src(fromB64url(sig)), src(enc.encode(payload)));
     if (!ok) return null;
     const data = JSON.parse(new TextDecoder().decode(fromB64url(payload)));
     if (typeof data?.uid !== "number" || typeof data?.exp !== "number" || data.exp <= Date.now()) return null;

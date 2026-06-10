@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getActiveMeso, getMesocycle } from "@/lib/data";
+import { getActiveMeso, getDay } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, EmptyState } from "@/components/ui";
@@ -18,24 +18,26 @@ export default async function Home() {
       </>
     );
   }
-  const meso = await getMesocycle(active.key, me.id);
-  if (!meso) return null;
 
+  // Pick the current day from the shallow status list, then deep-load only that day.
   const current =
-    meso.days.find((d) => !["complete", "skipped"].includes(d.status)) ?? meso.days[0];
+    active.days.find((d) => !["complete", "skipped"].includes(d.status)) ?? active.days[0];
+  if (!current) return null;
+  const day = await getDay(active.key, current.week, current.position, me.id);
+  if (!day) return null;
 
   return (
     <>
       <PageHeader
-        title={meso.name}
-        subtitle={`Week ${current.week + 1} of ${meso.weeksCount} · Day ${current.position + 1}${
+        title={active.name}
+        subtitle={`Week ${current.week + 1} of ${active.weeksCount} · Day ${current.position + 1}${
           current.label ? ` · ${current.label}` : ""
         }`}
       >
         <div className="flex items-center gap-2">
           <StatusPill status={current.status} />
           <Link
-            href={`/mesocycles/${meso.key}`}
+            href={`/mesocycles/${active.key}`}
             className="chip hover:border-accent-dim hover:text-text"
           >
             Full plan →
@@ -43,7 +45,7 @@ export default async function Home() {
         </div>
       </PageHeader>
 
-      <DayView day={current} meso={{ name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }} />
+      <DayView day={day} meso={{ name: active.name, weeksCount: active.weeksCount, unit: active.unit }} />
     </>
   );
 }

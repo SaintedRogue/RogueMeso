@@ -3,8 +3,13 @@ import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pw?: string }>;
+}) {
   const me = await requireUser();
+  const { pw } = await searchParams;
   return (
     <>
       <PageHeader title="Profile & Settings" subtitle={me.role === "admin" ? "Admin · self-hosted" : "Self-hosted"} />
@@ -27,18 +32,30 @@ export default async function ProfilePage() {
           <button type="submit" className="btn-primary px-4 py-2 text-sm">Save</button>
         </form>
 
-        <form action={changeMyPassword} className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex-1">
-            <label className="mb-1 block text-sm font-medium text-muted">Change password</label>
-            <input
-              className="input"
-              type="password"
-              name="password"
-              placeholder="New password (min 4)"
-              autoComplete="new-password"
-            />
+        <form action={changeMyPassword} className="card flex flex-col gap-4 p-6">
+          <label className="block text-sm font-medium text-muted">Change password</label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-1 flex-col gap-3">
+              <input
+                className="input"
+                type="password"
+                name="currentPassword"
+                placeholder="Current password"
+                autoComplete="current-password"
+              />
+              <input
+                className="input"
+                type="password"
+                name="password"
+                placeholder="New password (min 8)"
+                autoComplete="new-password"
+              />
+            </div>
+            <button type="submit" className="btn-primary px-4 py-2 text-sm">Update</button>
           </div>
-          <button type="submit" className="btn-primary px-4 py-2 text-sm">Update</button>
+          {pw === "ok" && <p className="text-xs text-good">Password updated.</p>}
+          {pw === "bad" && <p className="text-xs text-bad">Current password is incorrect.</p>}
+          {pw === "weak" && <p className="text-xs text-bad">New password must be 8–72 characters.</p>}
         </form>
 
         <div className="card flex items-center justify-between p-6">

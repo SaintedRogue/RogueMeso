@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // All queries are scoped to a user. Mesocycles are private; exercises/templates are the shared
@@ -11,16 +12,25 @@ export function getMesocycles(userId: number) {
   });
 }
 
+// Shallow day list (status only) for the home screen, so we can pick the current
+// day without deep-loading every week's exercises and sets.
+const homeDays = {
+  select: { week: true, position: true, status: true, label: true },
+  orderBy: [{ week: "asc" }, { position: "asc" }],
+} satisfies Prisma.Mesocycle$daysArgs;
+
 /** The meso to show on the home/current-workout screen: active one, else most recent. */
 export async function getActiveMeso(userId: number) {
   return (
     (await prisma.mesocycle.findFirst({
       where: { userId, status: { notIn: ["complete", "archived"] }, finishedAt: null },
       orderBy: { createdAt: "desc" },
+      include: { days: homeDays },
     })) ??
     (await prisma.mesocycle.findFirst({
       where: { userId, status: { not: "archived" } },
       orderBy: { createdAt: "desc" },
+      include: { days: homeDays },
     }))
   );
 }

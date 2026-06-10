@@ -16,7 +16,7 @@ export function UsersAdmin({ users, meId }: { users: U[]; meId: number }) {
           <input className="input" name="email" type="email" placeholder="Email" required autoComplete="off" />
           <input className="input" name="name" placeholder="Name (optional)" autoComplete="off" />
         </div>
-        <input className="input" name="password" type="text" placeholder="Temporary password (min 4)" required autoComplete="off" />
+        <input className="input" name="password" type="text" placeholder="Temporary password (min 8)" required autoComplete="off" />
         <button type="submit" className="btn-primary px-4 py-2 text-sm">Create user</button>
       </form>
 
@@ -39,7 +39,7 @@ export function UsersAdmin({ users, meId }: { users: U[]; meId: number }) {
               <button
                 disabled={pending}
                 onClick={() => {
-                  const p = prompt(`New password for ${u.email} (min 4 chars):`);
+                  const p = prompt(`New password for ${u.email} (min 8 chars):`);
                   if (p) start(() => resetUserPassword(u.id, p));
                 }}
                 className="chip chip-nav hover:border-accent/50 hover:text-text disabled:opacity-50"

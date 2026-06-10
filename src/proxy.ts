@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 export async function proxy(req: NextRequest) {
-  const authed = await verifySession(req.cookies.get(SESSION_COOKIE)?.value, process.env.AUTH_SECRET ?? "");
+  const authed = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!authed) {
     return NextResponse.redirect(new URL("/login", req.url));
   }

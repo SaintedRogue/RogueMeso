@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { MgPriority, Unit } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { plannedSets, repsTargetForWeek, rirForWeek } from "@/lib/progression";
+import { DEFAULT_REPS_TARGET, plannedSets, rirForWeek } from "@/lib/progression";
 
 /** Build a full mesocycle (weeks × days × exercises × sets) from a template. Pure builder. */
 export async function generateMesocycle(opts: {
@@ -22,7 +22,10 @@ export async function generateMesocycle(opts: {
   // Only the shared library or the user's own templates are usable.
   if (template.userId !== null && template.userId !== opts.userId) throw new Error("Forbidden");
 
-  const weeks = Math.max(2, Math.min(8, Math.floor(opts.weeks)));
+  // Guard against a non-numeric `weeks` (server actions accept arbitrary input):
+  // a stray NaN would otherwise survive the clamp and generate a 0-day meso.
+  const requestedWeeks = Number.isFinite(opts.weeks) ? Math.floor(opts.weeks) : 5;
+  const weeks = Math.max(2, Math.min(8, requestedWeeks));
   const prio = new Map<number, MgPriority>(template.priorities.map((p) => [p.muscleGroupId, p.priority]));
   const priorityFor = (mgId: number): MgPriority => prio.get(mgId) ?? "maintain";
 
@@ -42,7 +45,7 @@ export async function generateMesocycle(opts: {
               create: Array.from({ length: count }, (_, i) => ({
                 position: i,
                 setType: "regular",
-                repsTarget: repsTargetForWeek(w, weeks),
+                repsTarget: DEFAULT_REPS_TARGET,
                 weightTarget: null,
                 status: "pendingWeight",
                 unit: opts.unit,

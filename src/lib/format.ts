@@ -1,5 +1,9 @@
 // Display helpers: muscle-group colors, status styling, set formatting.
 
+// The RIR schedule is owned by the progression engine; re-exported here so view
+// code has one import for display helpers and the planned/shown RIR can't drift.
+export { rirForWeek } from "@/lib/progression";
+
 export const MG_COLORS: Record<string, string> = {
   Chest: "#f87171",
   Back: "#60a5fa",
@@ -33,13 +37,6 @@ export const STATUS_STYLE: Record<string, { label: string; color: string }> = {
 
 export function statusStyle(s: string) {
   return STATUS_STYLE[s] ?? { label: s, color: "var(--color-muted)" };
-}
-
-/** RIR schedule across a mesocycle: ramp from (weeks-1) RIR down, deload last week. */
-export function rirForWeek(week0: number, weeksCount: number): number | null {
-  if (week0 >= weeksCount - 1) return null; // deload week
-  const start = Math.min(3, weeksCount - 2);
-  return Math.max(0, start - week0);
 }
 
 export function fmtWeight(w: number | null | undefined, unit = "lb"): string {

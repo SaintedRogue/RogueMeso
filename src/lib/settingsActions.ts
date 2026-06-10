@@ -8,5 +8,7 @@ export async function setDefaultUnit(formData: FormData) {
   const me = await requireUser();
   const unit = String(formData.get("unit")) === "kg" ? "kg" : "lb";
   await prisma.user.update({ where: { id: me.id }, data: { unit } });
-  revalidatePath("/", "layout");
+  // The default unit only surfaces on the profile form and the new-meso form.
+  revalidatePath("/profile");
+  revalidatePath("/mesocycles/new");
 }

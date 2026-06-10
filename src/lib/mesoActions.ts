@@ -26,11 +26,18 @@ export async function createMesocycleAction(formData: FormData) {
   redirect(`/mesocycles/${key}`);
 }
 
+/** A meso's status shows on the home screen, the list, and its own detail page. */
+function revalidateMeso(key: string) {
+  revalidatePath("/");
+  revalidatePath("/mesocycles");
+  revalidatePath(`/mesocycles/${key}`);
+}
+
 export async function archiveMesocycle(key: string) {
   const me = await requireUser();
   await assertMesoOwner(key, me.id);
   await prisma.mesocycle.update({ where: { key }, data: { status: "archived" } });
-  revalidatePath("/", "layout");
+  revalidateMeso(key);
 }
 
 export async function unarchiveMesocycle(key: string) {
@@ -41,7 +48,7 @@ export async function unarchiveMesocycle(key: string) {
     where: { key },
     data: { status: m?.finishedAt ? "complete" : "ready" },
   });
-  revalidatePath("/", "layout");
+  revalidateMeso(key);
 }
 
 /** Hard delete — cascades to days/exercises/sets/priorities. */
@@ -49,6 +56,7 @@ export async function deleteMesocycle(key: string) {
   const me = await requireUser();
   await assertMesoOwner(key, me.id);
   await prisma.mesocycle.delete({ where: { key } });
-  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/mesocycles");
   redirect("/mesocycles");
 }
