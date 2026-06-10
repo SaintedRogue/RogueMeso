@@ -49,12 +49,17 @@ model User {
   passwordHash String?
   role         String   @default("user") // "admin" | "user"
   unit         Unit     @default(lb)
+  heightCm      Float?
+  birthDate     DateTime?
+  bodySex       String?   // "M" | "F" — the person's sex (distinct from Template.sex)
+  activityLevel String?   // "sedentary" | "light" | "moderate"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  mesocycles Mesocycle[]
-  exercises  Exercise[] // user-created custom exercises
-  templates  Template[] // user-created templates
+  mesocycles    Mesocycle[]
+  exercises     Exercise[] // user-created custom exercises
+  templates     Template[] // user-created templates
+  weightEntries WeightEntry[]
 }
 
 // ----- Reference data -----
@@ -165,7 +170,9 @@ model Mesocycle {
   status           String    @default("ready")
   generatedFrom    String?
   sourceTemplateId Int?
-  notes            String?
+  notes                String?
+  nutritionGoal        String?   // "cut" | "bulk" | "maintain" — null treated as maintain
+  targetRatePctPerWeek Float?    // optional signed override (fraction of BW/week)
   startedAt        DateTime?
   finishedAt       DateTime?
   createdAt        DateTime  @default(now())
@@ -242,4 +249,18 @@ model ExerciseSet {
   finishedAt      DateTime?
 
   @@index([dayExerciseId])
+}
+
+model WeightEntry {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  date       DateTime @db.Date
+  weightKg   Float
+  bodyFatPct Float?                       // 0..1 fraction
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
