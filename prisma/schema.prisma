@@ -254,7 +254,7 @@ model ExerciseSet {
 model WeightEntry {
   id         Int      @id @default(autoincrement())
   userId     Int
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date       DateTime @db.Date
   weightKg   Float
   bodyFatPct Float?                       // 0..1 fraction
@@ -262,5 +262,4 @@ model WeightEntry {
   createdAt  DateTime @default(now())
 
   @@unique([userId, date])
-  @@index([userId, date])
 }
