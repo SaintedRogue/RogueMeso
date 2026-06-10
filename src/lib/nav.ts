@@ -11,6 +11,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/exercises", label: "Exercises", shortLabel: "Exercises", icon: "✦" },
   { href: "/insights", label: "Insights", shortLabel: "Insights", icon: "▲" },
   { href: "/templates", label: "Templates", shortLabel: "Templates", icon: "❏" },
+  { href: "/body-tuning", label: "Body Tuning", shortLabel: "Tuning", icon: "◐" },
   { href: "/profile", label: "Profile & Settings", shortLabel: "Profile", icon: "◍" },
 ];
 

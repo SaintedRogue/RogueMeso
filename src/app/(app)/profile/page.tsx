@@ -2,6 +2,7 @@ import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
+import { setBiometrics } from "@/lib/bodyTuningActions";
 
 export default async function ProfilePage({
   searchParams,
@@ -30,6 +31,44 @@ export default async function ProfilePage({
             <p className="mt-2 text-xs text-muted">Pre-selected when creating a new mesocycle.</p>
           </div>
           <button type="submit" className="btn-primary px-4 py-2 text-sm">Save</button>
+        </form>
+
+        <form action={setBiometrics} className="card flex flex-col gap-4 p-6">
+          <label className="block text-sm font-medium text-muted">Body Tuning profile</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="heightCm" className="mb-1 block text-xs text-muted">Height (cm)</label>
+              <input id="heightCm" name="heightCm" type="number" step="0.1" min="0" defaultValue={me.heightCm ?? ""} className="input" />
+            </div>
+            <div>
+              <label htmlFor="birthDate" className="mb-1 block text-xs text-muted">Birth date</label>
+              <input
+                id="birthDate"
+                name="birthDate"
+                type="date"
+                defaultValue={me.birthDate ? me.birthDate.toISOString().slice(0, 10) : ""}
+                className="input"
+              />
+            </div>
+            <div>
+              <label htmlFor="bodySex" className="mb-1 block text-xs text-muted">Sex</label>
+              <select id="bodySex" name="bodySex" defaultValue={me.bodySex ?? ""} className="input">
+                <option value="">—</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="activityLevel" className="mb-1 block text-xs text-muted">Activity (non-training)</label>
+              <select id="activityLevel" name="activityLevel" defaultValue={me.activityLevel ?? "sedentary"} className="input">
+                <option value="sedentary">Sedentary</option>
+                <option value="light">Light</option>
+                <option value="moderate">Moderate</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-muted">Used to estimate your calorie &amp; macro targets in Body Tuning.</p>
+          <button type="submit" className="btn-primary self-start px-4 py-2 text-sm">Save profile</button>
         </form>
 
         <form action={changeMyPassword} className="card flex flex-col gap-4 p-6">

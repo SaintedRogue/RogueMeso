@@ -43,3 +43,15 @@ export function fmtWeight(w: number | null | undefined, unit = "lb"): string {
   if (w == null) return "—";
   return `${Number.isInteger(w) ? w : w.toFixed(1)} ${unit}`;
 }
+
+export const LB_PER_KG = 2.2046226218;
+
+/** Convert a weight entered in the user's unit to canonical kilograms. */
+export function toKg(value: number, unit: string): number {
+  return unit === "kg" ? value : value / LB_PER_KG;
+}
+
+/** Convert canonical kilograms to the user's display unit. */
+export function fromKg(kg: number, unit: string): number {
+  return unit === "kg" ? kg : kg * LB_PER_KG;
+}
