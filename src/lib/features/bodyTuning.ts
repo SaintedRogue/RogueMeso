@@ -3,6 +3,7 @@
 //      evidence base; every coefficient lives in BODY_TUNING_CONSTANTS with a citation.
 //   2. Async Prisma wrappers (Task 6) that fetch rows and feed these.
 // Spec + sources: docs/superpowers/specs/2026-06-10-body-tuning-design.md
+import { prisma } from "@/lib/prisma";
 
 export type Sex = "M" | "F";
 export type Goal = "cut" | "bulk" | "maintain";
@@ -180,7 +181,6 @@ export function ageFromBirthDate(birthDate: Date, now: Date): number {
 }
 
 // ----- Async Prisma wrappers. I/O lives here; the pure functions above stay deterministic. -----
-import { prisma } from "@/lib/prisma";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -218,13 +218,15 @@ export async function getProfile(userId: number, now: Date): Promise<Profile | n
     select: { weightKg: true, bodyFatPct: true },
   });
   if (!latest) return null; // need at least one weigh-in for a bodyweight
+  const al = u.activityLevel;
+  const activityLevel: ActivityLevel = al === "light" || al === "moderate" ? al : "sedentary";
   return {
     weightKg: latest.weightKg,
     heightCm: u.heightCm,
     age: ageFromBirthDate(u.birthDate, now),
     sex: u.bodySex,
     bodyFatPct: latest.bodyFatPct,
-    activityLevel: (u.activityLevel as ActivityLevel) ?? "sedentary",
+    activityLevel,
   };
 }
 
@@ -252,18 +254,23 @@ export async function getActiveGoal(
   });
   const raw = m?.nutritionGoal;
   const goal: Goal = raw === "cut" || raw === "bulk" ? raw : "maintain";
-  return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride: m?.targetRatePctPerWeek ?? null };
+  // Ignore an out-of-range override (e.g. a stray 5.0 meaning 500%/week); fall back to the goal default.
+  const rawOverride = m?.targetRatePctPerWeek ?? null;
+  const rateOverride = rawOverride != null && Math.abs(rawOverride) <= 0.05 ? rawOverride : null;
+  return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride };
 }
 
 /** Smoothed bodyweight trend + observed weekly rate + weeks of data. */
-export async function getWeightTrend(userId: number) {
+export async function getWeightTrend(userId: number, now: Date) {
   const rows = await prisma.weightEntry.findMany({
-    where: { userId },
+    where: { userId, date: { gte: new Date(now.getTime() - 180 * DAY_MS) } },
     orderBy: { date: "asc" },
     select: { date: true, weightKg: true },
   });
   const C = BODY_TUNING_CONSTANTS;
-  // Drop implausible day-over-day jumps before smoothing.
+  // Drop implausible day-over-day jumps before smoothing. Known limitation: comparing
+  // against the previous KEPT row means a genuine large swing (e.g. a >2.5kg refeed
+  // bounce) is discarded, which can slightly understate the trend for volatile users.
   const clean: { date: Date; weightKg: number }[] = [];
   for (const r of rows) {
     const prev = clean[clean.length - 1];
@@ -289,7 +296,7 @@ export async function computeBodyTuning(userId: number, now: Date): Promise<Body
     getProfile(userId, now),
     getWeeklySetCount(userId, now),
     getActiveGoal(userId),
-    getWeightTrend(userId),
+    getWeightTrend(userId, now),
   ]);
 
   if (!profile) {
