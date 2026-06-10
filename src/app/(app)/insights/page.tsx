@@ -28,8 +28,18 @@ export default async function InsightsPage({
     getPersonalRecords(me.id, new Date()),
   ]);
 
+  // `sp.ex` is untrusted: a non-numeric value would parse to NaN and hit the DB. Guard it.
+  const exIdRaw = sp.ex ? Number(sp.ex) : NaN;
+  const exId = Number.isFinite(exIdRaw) ? exIdRaw : logged[0]?.id;
+
+  // Volume and history depend only on the Promise.all results above and are independent
+  // of each other — fetch them together rather than in a serial waterfall.
+  const [volume, historyRaw] = await Promise.all([
+    meso ? getVolumeData(me.id, meso.id, meso.weeksCount) : Promise.resolve([] as Awaited<ReturnType<typeof getVolumeData>>),
+    exId ? getExerciseHistory(me.id, exId) : Promise.resolve([] as Awaited<ReturnType<typeof getExerciseHistory>>),
+  ]);
+
   // --- Volume: shape per-muscle weekly arrays into per-week records for the chart ---
-  const volume = meso ? await getVolumeData(me.id, meso.id, meso.weeksCount) : [];
   const muscleColors: Record<string, string> = Object.fromEntries(
     volume.map((v) => [v.muscleGroup, mgColor(v.muscleGroup)]),
   );
@@ -40,9 +50,7 @@ export default async function InsightsPage({
   });
   const hasVolume = volume.length > 0;
 
-  // --- History: default to the first logged exercise; serialize dates for the client ---
-  const exId = sp.ex ? Number(sp.ex) : logged[0]?.id;
-  const historyRaw = exId ? await getExerciseHistory(me.id, exId) : [];
+  // --- History: serialize dates to strings for the client chart component ---
   const history = historyRaw.map((h) => ({ date: h.date.toLocaleDateString(), oneRm: h.oneRm }));
 
   return (
@@ -55,7 +63,7 @@ export default async function InsightsPage({
           <h2 className="text-lg font-semibold">Weekly volume per muscle</h2>
           {mesos.length > 0 && (
             <form className="flex items-center gap-2">
-              {exId && <input type="hidden" name="ex" value={exId} />}
+              {exId && <input type="hidden" name="ex" value={String(exId)} />}
               <select name="meso" defaultValue={meso?.key} className="input">
                 {mesos.map((m) => (
                   <option key={m.key} value={m.key}>
@@ -88,9 +96,9 @@ export default async function InsightsPage({
           {logged.length > 0 && (
             <form className="flex items-center gap-2">
               {meso?.key && <input type="hidden" name="meso" value={meso.key} />}
-              <select name="ex" defaultValue={exId} className="input">
+              <select name="ex" defaultValue={String(exId ?? "")} className="input">
                 {logged.map((e) => (
-                  <option key={e.id} value={e.id}>
+                  <option key={e.id} value={String(e.id)}>
                     {e.name}
                   </option>
                 ))}
