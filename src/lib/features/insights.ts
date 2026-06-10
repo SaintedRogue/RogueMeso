@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma";
+
 // Insights analytics. Split in two halves:
 //   1. PURE transforms below — no I/O, deterministic, unit-tested. They TRUST that
 //      callers pass only completed sets; the "completed only" filter lives in the
@@ -74,4 +76,99 @@ export function personalRecords(
       isNew: now.getTime() - b.date.getTime() <= windowMs,
     }))
     .sort((a, b) => b.oneRm - a.oneRm);
+}
+
+// ----- Async Prisma wrappers. "complete" filter lives here, once. -----
+
+/** Resolve the meso to chart: by `key` (ownership-checked) or the user's most recent. */
+export async function getInsightsMeso(userId: number, key?: string) {
+  const select = { id: true, key: true, name: true, weeksCount: true, userId: true } as const;
+  if (key) {
+    const m = await prisma.mesocycle.findUnique({ where: { key }, select });
+    return m && m.userId === userId ? m : null;
+  }
+  return prisma.mesocycle.findFirst({
+    where: { userId, status: { not: "archived" } },
+    orderBy: { createdAt: "desc" },
+    select,
+  });
+}
+
+/** Weekly set volume per muscle for one meso. */
+export async function getVolumeData(mesoId: number, weeksCount: number) {
+  const sets = await prisma.exerciseSet.findMany({
+    where: { status: "complete", dayExercise: { day: { mesoId } } },
+    select: {
+      dayExercise: {
+        select: {
+          muscleGroup: { select: { name: true } },
+          day: { select: { week: true } },
+        },
+      },
+    },
+  });
+  const rows: VolumeRow[] = sets.map((s) => ({
+    muscleGroup: s.dayExercise.muscleGroup.name,
+    week: s.dayExercise.day.week,
+  }));
+  return weeklyVolume(rows, weeksCount);
+}
+
+/** Distinct exercises the user has completed at least one set of, sorted by name. */
+export async function getLoggedExercises(userId: number) {
+  const rows = await prisma.dayExercise.findMany({
+    where: { day: { meso: { userId } }, sets: { some: { status: "complete" } } },
+    select: { exerciseId: true, exercise: { select: { name: true } } },
+  });
+  const map = new Map<number, string>();
+  for (const r of rows) map.set(r.exerciseId, r.exercise.name);
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Est-1RM history for one exercise across all the user's blocks. */
+export async function getExerciseHistory(userId: number, exerciseId: number) {
+  const sets = await prisma.exerciseSet.findMany({
+    where: {
+      status: "complete",
+      weight: { not: null },
+      reps: { not: null },
+      finishedAt: { not: null },
+      dayExercise: { exerciseId, day: { meso: { userId } } },
+    },
+    select: { weight: true, reps: true, finishedAt: true },
+  });
+  const rows: HistoryRow[] = sets.map((s) => ({
+    date: s.finishedAt!,
+    weight: s.weight!,
+    reps: s.reps!,
+  }));
+  return buildHistory(rows);
+}
+
+/** Best est-1RM per exercise across all the user's completed sets. */
+export async function getPersonalRecords(userId: number, now: Date) {
+  const sets = await prisma.exerciseSet.findMany({
+    where: {
+      status: "complete",
+      weight: { not: null },
+      reps: { not: null },
+      finishedAt: { not: null },
+      dayExercise: { day: { meso: { userId } } },
+    },
+    select: {
+      weight: true,
+      reps: true,
+      finishedAt: true,
+      dayExercise: { select: { exercise: { select: { name: true } } } },
+    },
+  });
+  const rows: PrRow[] = sets.map((s) => ({
+    exercise: s.dayExercise.exercise.name,
+    weight: s.weight!,
+    reps: s.reps!,
+    date: s.finishedAt!,
+  }));
+  return personalRecords(rows, now);
 }
