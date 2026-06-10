@@ -9,6 +9,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/", label: "Current workout", shortLabel: "Workout", icon: "▦" },
   { href: "/mesocycles", label: "Mesocycles", shortLabel: "Mesos", icon: "▤" },
   { href: "/exercises", label: "Exercises", shortLabel: "Exercises", icon: "✦" },
+  { href: "/insights", label: "Insights", shortLabel: "Insights", icon: "▲" },
   { href: "/templates", label: "Templates", shortLabel: "Templates", icon: "❏" },
   { href: "/profile", label: "Profile & Settings", shortLabel: "Profile", icon: "◍" },
 ];
