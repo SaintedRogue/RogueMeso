@@ -1,17 +1,24 @@
 @import "tailwindcss";
 
-/* RogueMeso — "Performance Instrument": warm near-black, orange hero, blue = in-progress,
-   green = complete. Data rendered like a precise lab readout. */
+/* RogueMeso — "Performance Instrument": orange primary, blue = in-progress,
+   green = complete. Data rendered like a precise lab readout.
+
+   Theming: @theme holds the DARK baseline (the default). The light theme is a
+   set of overrides under [data-theme="light"]. Components reference semantic
+   tokens (--color-*) via Tailwind utilities / the component classes below, so
+   swapping these variables re-themes the whole app — no per-component `dark:`. */
 @theme {
-  --color-bg: #0c0a09;
+  --color-bg: #0c0a09; /* warm near-black */
   --color-panel: #16120e;
   --color-panel-2: #1d1813;
+  --color-input: #0a0807; /* recessed field fill (dark) */
   --color-line: #2b231b;
   --color-line-2: #3a3026;
   --color-muted: #a39a8e;
   --color-text: #f7f3ee;
 
   --color-accent: #ff6a2b; /* HERO orange — brand, primary actions, current/ready */
+  --color-on-accent: #1a0d04; /* text/glyphs sitting ON the accent fill */
   --color-accent-dim: #b34d1c;
   --color-info: #4d9fff; /* blue — links, in-progress */
   --color-good: #3fcf8e; /* green — complete (success only) */
@@ -23,10 +30,46 @@
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
+/* Dark theme (default): atmosphere knobs the ::before/::after layers read. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --atmos-accent: 14%; /* orange glow strength */
+  --atmos-info: 7%; /* cool counter-glow */
+  --grain-opacity: 0.035;
+}
+
+/* Light theme — "clean neutral white": cool slate surfaces, orange stays the
+   primary. Orange is deepened to #c2410c so it clears WCAG AA (≈5.2:1) as text
+   on white; on the accent fill, glyphs flip to white. */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f8fafc; /* slate-50, cool white */
+  --color-panel: #ffffff;
+  --color-panel-2: #f1f5f9; /* slate-100 — elevated / hover */
+  --color-input: #ffffff;
+  --color-line: #e2e8f0; /* slate-200 */
+  --color-line-2: #cbd5e1; /* slate-300 */
+  --color-muted: #475569; /* slate-600 — AA secondary text */
+  --color-text: #0f172a; /* slate-900 */
+
+  --color-accent: #c2410c; /* burnt orange — vivid + AA as text on white */
+  --color-on-accent: #ffffff;
+  --color-accent-dim: #ea580c; /* warm hover-border tint — ≥3:1 on white (AA UI) */
+  --color-info: #2563eb; /* blue-600 */
+  --color-good: #16a34a; /* green-600 */
+  --color-warn: #b45309; /* amber-700 */
+  --color-bad: #dc2626; /* red-600 */
+
+  /* The orange glow stays as a faint warm wash; drop the dark film grain. */
+  --atmos-accent: 9%;
+  --atmos-info: 0%;
+  --grain-opacity: 0;
+}
+
 html {
   background: var(--color-bg);
   color: var(--color-text);
-  color-scheme: dark;
 }
 body {
   background: var(--color-bg);
@@ -43,8 +86,8 @@ body::before {
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(60rem 40rem at 18% -10%, color-mix(in oklab, var(--color-accent) 14%, transparent), transparent 60%),
-    radial-gradient(50rem 40rem at 110% 0%, color-mix(in oklab, var(--color-info) 7%, transparent), transparent 55%);
+    radial-gradient(60rem 40rem at 18% -10%, color-mix(in oklab, var(--color-accent) var(--atmos-accent), transparent), transparent 60%),
+    radial-gradient(50rem 40rem at 110% 0%, color-mix(in oklab, var(--color-info) var(--atmos-info), transparent), transparent 55%);
 }
 body::after {
   content: "";
@@ -52,7 +95,7 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -82,7 +125,7 @@ h1, h2, h3 {
     background: color-mix(in oklab, var(--color-panel-2) 60%, transparent);
   }
   .input {
-    background: color-mix(in oklab, var(--color-bg) 85%, black);
+    background: var(--color-input);
     border: 1px solid var(--color-line);
     border-radius: 0.55rem;
     padding: 0.45rem 0.65rem;
@@ -97,7 +140,7 @@ h1, h2, h3 {
   }
   .btn-primary {
     background: var(--color-accent);
-    color: #1a0d04;
+    color: var(--color-on-accent);
     font-weight: 700;
     border-radius: 0.6rem;
     transition: transform 0.12s, box-shadow 0.2s, filter 0.2s;

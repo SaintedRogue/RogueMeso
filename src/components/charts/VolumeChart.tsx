@@ -31,15 +31,16 @@ export function VolumeChart({
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <XAxis dataKey="week" stroke="#9ca3af" fontSize={12} tickLine={false} />
-        <YAxis stroke="#9ca3af" fontSize={12} allowDecimals={false} tickLine={false} />
+        <XAxis dataKey="week" stroke="var(--color-line-2)" tick={{ fill: "var(--color-muted)" }} fontSize={12} tickLine={false} />
+        <YAxis stroke="var(--color-line-2)" tick={{ fill: "var(--color-muted)" }} fontSize={12} allowDecimals={false} tickLine={false} />
         <Tooltip
-          contentStyle={{ background: "#0b0f14", border: "1px solid #1f2937", borderRadius: 8, fontSize: 12 }}
-          cursor={{ stroke: "rgba(255,255,255,0.12)" }}
+          contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-line)", borderRadius: 8, fontSize: 12 }}
+          labelStyle={{ color: "var(--color-text)" }}
+          cursor={{ stroke: "var(--color-line-2)" }}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <ReferenceLine y={mev} stroke="#34d399" strokeDasharray="4 4" label={{ value: "MEV", fill: "#34d399", fontSize: 11, position: "right" }} />
-        <ReferenceLine y={mrv} stroke="#f87171" strokeDasharray="4 4" label={{ value: "MRV", fill: "#f87171", fontSize: 11, position: "right" }} />
+        <ReferenceLine y={mev} stroke="var(--color-good)" strokeDasharray="4 4" label={{ value: "MEV", fill: "var(--color-good)", fontSize: 11, position: "right" }} />
+        <ReferenceLine y={mrv} stroke="var(--color-bad)" strokeDasharray="4 4" label={{ value: "MRV", fill: "var(--color-bad)", fontSize: 11, position: "right" }} />
         {muscles.map((m) => (
           <Line
             key={m}

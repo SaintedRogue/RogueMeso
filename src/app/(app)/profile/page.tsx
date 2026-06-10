@@ -2,6 +2,7 @@ import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { setBiometrics } from "@/lib/bodyTuningActions";
 
 export default async function ProfilePage({
@@ -19,6 +20,14 @@ export default async function ProfilePage({
         <div className="card p-6">
           <div className="text-sm font-medium">{me.name ?? me.email}</div>
           <div className="text-xs text-muted">{me.email}</div>
+        </div>
+
+        <div className="card flex items-center justify-between gap-4 p-6">
+          <div>
+            <div className="text-sm font-medium">Appearance</div>
+            <div className="text-xs text-muted">Light or dark. Follows your system by default.</div>
+          </div>
+          <ThemeToggle />
         </div>
 
         <form action={setDefaultUnit} className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
