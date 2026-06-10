@@ -12,30 +12,34 @@ Built with Next.js 16, Postgres, and Prisma.
 - **Postgres 17** via Docker · **Prisma 6** ORM
 - **Tailwind v4** UI · single-user-style cookie auth with per-user accounts (bcrypt)
 
-## Setup
+## First run
 
 ```bash
-# 1. Start Postgres
-docker compose up -d
+# 1. Configure environment
+cp .env.example .env
+#    Edit .env: set the DB vars, then generate AUTH_SECRET with
+#    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# 2. Install deps
+# 2. Start Postgres + install deps
+docker compose up -d
 npm install
 
-# 3. Apply schema
-npx prisma migrate deploy   # (or `prisma migrate dev` in development)
+# 3. Apply the schema
+npx prisma migrate deploy
 
-# 4. Seed reference data + templates (point SEED_DATA_DIR at your seed export)
-SEED_DATA_DIR=/path/to/seed-data npx tsx prisma/seed/index.ts
+# 4. (optional) Seed the reference data + template library
+#    point SEED_DATA_DIR (in .env) at your seed export, then:
+npm run db:seed
 
-# 5. Create the first (admin) account
-ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='choose-one' npx tsx prisma/seed/createAdmin.ts
+# 5. Create the first admin account (uses ADMIN_* from .env)
+npm run db:admin
 
 # 6. Run
 npm run dev   # http://localhost:3000
 ```
 
-`AUTH_SECRET` (in `.env`) signs the session cookie. Sign in with the admin email/password;
-provision additional users from **Profile → Users** (admin only).
+Sign in with the admin email/password, then provision additional users from
+**Profile → Users** (admin only). `AUTH_SECRET` signs the session cookie.
 
 ## Data model
 
@@ -56,3 +60,7 @@ adapt the model to your own methodology. See `src/lib/features/README.md` to ext
 
 `docker-compose.yml` runs Postgres; run the Next app alongside it
 (`npm run build && npm start`). Everything stays on your own machine.
+
+## License
+
+[MIT](LICENSE).
