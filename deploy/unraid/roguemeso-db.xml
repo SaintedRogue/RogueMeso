@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>roguemeso-db</Name>
+  <Repository>postgres:17-alpine</Repository>
+  <Registry>https://hub.docker.com/_/postgres</Registry>
+  <Network>br0</Network>
+  <MyIP>10.0.0.231</MyIP>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Project/>
+  <Overview>PostgreSQL 17 for RogueMeso. On first start it creates an empty database named by POSTGRES_DB. The RogueMeso app container then builds the schema (Prisma migrations) and seeds the exercise + program-template library automatically. Data lives on the NVMe cache for speed.</Overview>
+  <Category>Tools: Other:</Category>
+  <WebUI/>
+  <Icon>https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/database.svg</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <DonateText/>
+  <DonateLink/>
+  <Description>PostgreSQL 17 backing store for RogueMeso. Assign a static br0 IP and a strong POSTGRES_PASSWORD; the app's DATABASE_URL must point at this IP with the same user/password/db.</Description>
+  <Config Name="Database data" Target="/var/lib/postgresql/data" Default="/mnt/cache/appdata/roguemeso-db" Mode="rw" Description="Postgres data directory (NVMe cache recommended for a DB)." Type="Path" Display="always" Required="true" Mask="false">/mnt/cache/appdata/roguemeso-db</Config>
+  <Config Name="POSTGRES_USER" Target="POSTGRES_USER" Default="roguemeso" Mode="" Description="Database user (must match the app DATABASE_URL)." Type="Variable" Display="always" Required="true" Mask="false">roguemeso</Config>
+  <Config Name="POSTGRES_PASSWORD" Target="POSTGRES_PASSWORD" Default="" Mode="" Description="Database password — set a strong value. Must match the app DATABASE_URL. Generate: openssl rand -base64 32" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="POSTGRES_DB" Target="POSTGRES_DB" Default="roguemeso" Mode="" Description="Database name (must match the app DATABASE_URL)." Type="Variable" Display="always" Required="true" Mask="false">roguemeso</Config>
+  <Config Name="Postgres port" Target="5432" Default="5432" Mode="tcp" Description="Postgres port. Informational on br0 (ipvlan publishes nothing); the app reaches it at this IP:5432." Type="Port" Display="always" Required="false" Mask="false">5432</Config>
+</Container>

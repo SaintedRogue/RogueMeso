@@ -1,0 +1,27 @@
+# Keep the build context small and avoid leaking local state into the image.
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+npm-debug.log*
+
+# Local-only / dev tooling
+.remember
+.superpowers
+.playwright-mcp
+research
+docs
+*.md
+!AGENTS.md
+docker-compose.yml
+vitest.config.ts
+**/*.test.ts
+tsconfig.tsbuildinfo
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
