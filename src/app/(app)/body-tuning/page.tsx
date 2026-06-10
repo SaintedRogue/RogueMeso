@@ -36,7 +36,7 @@ export default async function BodyTuningPage() {
 
   const m = bt.macros;
   const chartData = bt.trend.map((t) => ({
-    date: t.date.toLocaleDateString("en-US"),
+    date: t.date.toLocaleDateString("en-US", { timeZone: "UTC" }),
     weight: Math.round(fromKg(t.weightKg, me.unit) * 10) / 10,
     smoothed: Math.round(fromKg(t.smoothedKg, me.unit) * 10) / 10,
   }));
