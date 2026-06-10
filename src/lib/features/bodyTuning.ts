@@ -62,3 +62,22 @@ export function estimateRMR(p: Profile): number {
   const htM = p.heightCm / 100;
   return t.wt * p.weightKg + t.ht * htM - t.age * p.age + t.sex * (p.sex === "M" ? 1 : 0) + t.intercept;
 }
+
+/** Daily-averaged energy cost of resistance training, from logged weekly set count. */
+export function estimateTrainingEnergyDaily(weeklySets: number, bodyweightKg: number): number {
+  const C = BODY_TUNING_CONSTANTS;
+  const hours = (weeklySets * C.PER_SET_MINUTES) / 60;
+  const weeklyKcal = (C.MET_RESISTANCE - 1) * bodyweightKg * hours;
+  return weeklyKcal / 7;
+}
+
+/** NEAT energy above RMR for the user's non-training activity level. */
+export function estimateNEAT(rmr: number, activityLevel: ActivityLevel): number {
+  return rmr * (BODY_TUNING_CONSTANTS.NEAT_MULT[activityLevel] - 1);
+}
+
+/** Formula-tier maintenance: RMR + NEAT + structured-training energy. */
+export function maintenanceEstimate(p: Profile, weeklySets: number): number {
+  const rmr = estimateRMR(p);
+  return rmr + estimateNEAT(rmr, p.activityLevel) + estimateTrainingEnergyDaily(weeklySets, p.weightKg);
+}
