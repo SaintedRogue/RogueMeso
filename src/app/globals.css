@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* RogueMeso — "Performance Instrument": warm near-black, orange hero, blue = in-progress,
+   green = complete. Data rendered like a precise lab readout. */
+@theme {
+  --color-bg: #0c0a09;
+  --color-panel: #16120e;
+  --color-panel-2: #1d1813;
+  --color-line: #2b231b;
+  --color-line-2: #3a3026;
+  --color-muted: #a39a8e;
+  --color-text: #f7f3ee;
+
+  --color-accent: #ff6a2b; /* HERO orange — brand, primary actions, current/ready */
+  --color-accent-dim: #b34d1c;
+  --color-info: #4d9fff; /* blue — links, in-progress */
+  --color-good: #3fcf8e; /* green — complete (success only) */
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-text);
+  color-scheme: dark;
+}
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Atmosphere: warm orange glow + fine grain, fixed behind content */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 18% -10%, color-mix(in oklab, var(--color-accent) 14%, transparent), transparent 60%),
+    radial-gradient(50rem 40rem at 110% 0%, color-mix(in oklab, var(--color-info) 7%, transparent), transparent 55%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+@layer components {
+  .card {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--color-panel) 100%, white 2%), var(--color-panel));
+    border: 1px solid var(--color-line);
+    border-radius: 0.9rem;
+    box-shadow: 0 1px 0 0 color-mix(in oklab, white 5%, transparent) inset, 0 12px 30px -18px #000;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--color-line-2);
+    color: var(--color-muted);
+    background: color-mix(in oklab, var(--color-panel-2) 60%, transparent);
+  }
+  .input {
+    background: color-mix(in oklab, var(--color-bg) 85%, black);
+    border: 1px solid var(--color-line);
+    border-radius: 0.55rem;
+    padding: 0.45rem 0.65rem;
+    color: var(--color-text);
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 25%, transparent);
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: #1a0d04;
+    font-weight: 700;
+    border-radius: 0.6rem;
+    transition: transform 0.12s, box-shadow 0.2s, filter 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    filter: saturate(1.1);
+    box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--color-accent) 70%, transparent);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+  /* tabular numerals for the instrument-readout feel */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+}
+
+/* Orchestrated page-load: staggered fade-up of direct children */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger > * {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.07s; }
+.stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger > *:nth-child(4) { animation-delay: 0.17s; }
+.stagger > *:nth-child(5) { animation-delay: 0.22s; }
+.stagger > *:nth-child(6) { animation-delay: 0.27s; }
+.stagger > *:nth-child(n+7) { animation-delay: 0.32s; }
+
+@keyframes flash-good {
+  0% { background-color: color-mix(in oklab, var(--color-good) 22%, transparent); }
+  100% { background-color: transparent; }
+}
+.flash-good { animation: flash-good 0.9s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *, .flash-good, .btn-primary { animation: none !important; transition: none !important; }
+}

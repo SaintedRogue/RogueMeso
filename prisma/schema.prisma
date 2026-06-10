@@ -1,0 +1,245 @@
+// RogueMeso — self-hosted hypertrophy training app.
+// Reference data (muscle groups, exercises, templates) is loaded by the seed scripts;
+// mesocycles hold training blocks + logged sets, owned per user.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----- Enums (stable, known value sets) -----
+
+enum ExerciseType {
+  machine
+  barbell
+  dumbbell
+  cable
+  freemotion
+  smithMachine          @map("smith-machine")
+  bodyweightOnly        @map("bodyweight-only")
+  bodyweightLoadable    @map("bodyweight-loadable")
+  machineAssistance     @map("machine-assistance")
+}
+
+enum MgPriority {
+  maintain
+  grow
+  emphasize
+}
+
+enum Unit {
+  lb
+  kg
+}
+
+// Status fields are kept as String (not DB enums) to stay flexible across the set/day/meso
+// lifecycle (e.g. set: pendingWeight | pending | complete | skipped; day/meso: ready |
+// current | complete ...). Avoids migration churn; values are validated in the app.
+
+// ----- Single user (personal self-host) -----
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  role         String   @default("user") // "admin" | "user"
+  unit         Unit     @default(lb)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mesocycles Mesocycle[]
+  exercises  Exercise[] // user-created custom exercises
+  templates  Template[] // user-created templates
+}
+
+// ----- Reference data -----
+
+model MuscleGroup {
+  id   Int    @id @default(autoincrement())
+  sourceId Int    @unique          // stable reference id (1..12)
+  name String @unique
+
+  exercises        Exercise[]
+  templateSlots    TemplateSlot[]
+  templatePriority TemplatePriority[]
+  mesoPriority     MesoPriority[]
+  dayExercises     DayExercise[]
+}
+
+model Exercise {
+  id            Int          @id @default(autoincrement())
+  sourceId          Int?         @unique          // catalog reference id (null for custom)
+  name          String
+  muscleGroupId Int
+  muscleGroup   MuscleGroup  @relation(fields: [muscleGroupId], references: [id])
+  exerciseType  ExerciseType
+  youtubeId     String?
+  notes         String?
+  isCustom      Boolean      @default(false)
+  userId        Int?         // null = shared catalog; set = creator's private exercise
+  user          User?        @relation(fields: [userId], references: [id])
+  createdAt     DateTime     @default(now())
+
+  templateSlots TemplateSlot[]
+  dayExercises  DayExercise[]
+
+  @@index([muscleGroupId])
+  @@index([name])
+  @@index([userId])
+}
+
+// ----- Templates (program library) -----
+
+model Template {
+  id               Int    @id @default(autoincrement())
+  sourceId             Int?   @unique
+  key              String @unique          // stable slug
+  name             String
+  emphasis         String
+  sex              String
+  frequency        Int?
+  sourceTemplateId Int?                    // provenance (source ids), informational
+  userId           Int?                    // null = shared library; set = user-created
+  user             User?    @relation(fields: [userId], references: [id])
+  createdAt        DateTime @default(now())
+
+  days       TemplateDay[]
+  priorities TemplatePriority[]
+
+  @@index([userId])
+}
+
+model TemplateDay {
+  id         Int      @id @default(autoincrement())
+  templateId Int
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  position   Int
+
+  slots TemplateSlot[]
+
+  @@index([templateId])
+}
+
+model TemplateSlot {
+  id            Int         @id @default(autoincrement())
+  templateDayId Int
+  templateDay   TemplateDay @relation(fields: [templateDayId], references: [id], onDelete: Cascade)
+  position      Int
+  muscleGroupId Int
+  muscleGroup   MuscleGroup @relation(fields: [muscleGroupId], references: [id])
+  exerciseId    Int?
+  exercise      Exercise?   @relation(fields: [exerciseId], references: [id])
+
+  @@index([templateDayId])
+}
+
+model TemplatePriority {
+  id            Int         @id @default(autoincrement())
+  templateId    Int
+  template      Template    @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  muscleGroupId Int
+  muscleGroup   MuscleGroup @relation(fields: [muscleGroupId], references: [id])
+  priority      MgPriority
+
+  @@unique([templateId, muscleGroupId])
+}
+
+// ----- Mesocycles (training blocks + logged sets) -----
+
+model Mesocycle {
+  id               Int       @id @default(autoincrement())
+  sourceId             Int?      @unique
+  key              String    @unique
+  userId           Int?
+  user             User?     @relation(fields: [userId], references: [id])
+  name             String
+  daysPerWeek      Int
+  weeksCount       Int
+  unit             Unit      @default(lb)
+  microRirs        Int?
+  status           String    @default("ready")
+  generatedFrom    String?
+  sourceTemplateId Int?
+  notes            String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  priorities MesoPriority[]
+  days       MesoDay[]
+
+  @@index([userId])
+}
+
+model MesoPriority {
+  id            Int         @id @default(autoincrement())
+  mesoId        Int
+  meso          Mesocycle   @relation(fields: [mesoId], references: [id], onDelete: Cascade)
+  muscleGroupId Int
+  muscleGroup   MuscleGroup @relation(fields: [muscleGroupId], references: [id])
+  priority      MgPriority
+
+  @@unique([mesoId, muscleGroupId])
+}
+
+model MesoDay {
+  id             Int       @id @default(autoincrement())
+  mesoId         Int
+  meso           Mesocycle @relation(fields: [mesoId], references: [id], onDelete: Cascade)
+  week           Int                       // microcycle index (1-based)
+  position       Int                       // day index within the week
+  label          String?
+  status         String    @default("pending")
+  bodyweight     Float?
+  bodyweightUnit String?
+  notes          String?
+  finishedAt     DateTime?
+
+  exercises DayExercise[]
+
+  @@index([mesoId, week, position])
+}
+
+model DayExercise {
+  id            Int         @id @default(autoincrement())
+  dayId         Int
+  day           MesoDay     @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  exerciseId    Int
+  exercise      Exercise    @relation(fields: [exerciseId], references: [id])
+  muscleGroupId Int
+  muscleGroup   MuscleGroup @relation(fields: [muscleGroupId], references: [id])
+  position      Int
+  jointPain     Int?
+  status        String      @default("pending")
+
+  sets ExerciseSet[]
+
+  @@index([dayId])
+}
+
+model ExerciseSet {
+  id              Int         @id @default(autoincrement())
+  dayExerciseId   Int
+  dayExercise     DayExercise @relation(fields: [dayExerciseId], references: [id], onDelete: Cascade)
+  position        Int
+  setType         String      @default("regular")
+  weight          Float?
+  weightTarget    Float?
+  weightTargetMin Float?
+  weightTargetMax Float?
+  reps            Int?
+  repsTarget      Int?
+  rir             Int?
+  bodyweight      Float?     // user bodyweight logged for bodyweight-loadable sets
+  unit            String?
+  status          String      @default("pendingWeight")
+  finishedAt      DateTime?
+
+  @@index([dayExerciseId])
+}
