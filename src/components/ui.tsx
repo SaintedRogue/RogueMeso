@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Inbox, type LucideIcon } from "lucide-react";
 import { statusStyle } from "@/lib/format";
 
 export function PageHeader({
@@ -30,9 +31,20 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({
+  title,
+  hint,
+  icon: Icon = Inbox,
+}: {
+  title: string;
+  hint?: string;
+  icon?: LucideIcon;
+}) {
   return (
     <div className="card grid place-items-center px-6 py-16 text-center">
+      <span className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-panel-2 text-muted">
+        <Icon aria-hidden size={22} strokeWidth={1.75} />
+      </span>
       <p className="text-lg font-semibold">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-sm text-muted">{hint}</p>}
     </div>

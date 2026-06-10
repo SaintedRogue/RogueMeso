@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, Dumbbell } from "lucide-react";
 import { getActiveMeso, getDay } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
@@ -12,6 +13,7 @@ export default async function Home() {
       <>
         <PageHeader title="Current workout" />
         <EmptyState
+          icon={Dumbbell}
           title="No mesocycles yet"
           hint="Create one from a template to start training, or import your history."
         />
@@ -40,7 +42,7 @@ export default async function Home() {
             href={`/mesocycles/${active.key}`}
             className="chip hover:border-accent-dim hover:text-text"
           >
-            Full plan →
+            Full plan<ArrowRight aria-hidden size={14} />
           </Link>
         </div>
       </PageHeader>

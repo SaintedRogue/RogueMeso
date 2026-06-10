@@ -8,7 +8,7 @@ export function Nav({ isAdmin }: { isAdmin?: boolean }) {
   const path = usePathname();
   const links = isAdmin ? [...NAV_LINKS, ADMIN_LINK] : NAV_LINKS;
   return (
-    <nav className="flex flex-col gap-0.5">
+    <nav aria-label="Primary" className="flex flex-col gap-0.5">
       {links.map((l) => {
         const active = isActive(l, path);
         return (
@@ -25,7 +25,7 @@ export function Nav({ isAdmin }: { isAdmin?: boolean }) {
             {active && (
               <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent" />
             )}
-            <span aria-hidden className="w-4 text-center opacity-80">{l.icon}</span>
+            <l.icon aria-hidden size={18} strokeWidth={2} className={active ? "" : "opacity-80"} />
             {l.label}
           </Link>
         );
