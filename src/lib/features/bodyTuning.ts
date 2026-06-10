@@ -178,3 +178,164 @@ export function ageFromBirthDate(birthDate: Date, now: Date): number {
   if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) age--;
   return age;
 }
+
+// ----- Async Prisma wrappers. I/O lives here; the pure functions above stay deterministic. -----
+import { prisma } from "@/lib/prisma";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type BodyTuningResult = {
+  needsProfile: boolean;
+  profile: Profile | null;
+  goal: Goal;
+  mesoId: number | null;
+  mesoName: string | null;
+  rateOverride: number | null;
+  weeklySets: number;
+  formulaMaintenance: number;
+  adjMaintenance: number;
+  target: number;
+  macros: Macros;
+  confidence: "formula" | "personalizing" | "personalized";
+  trend: { date: Date; weightKg: number; smoothedKg: number }[];
+  observedRateKg: number;
+  weeksOfData: number;
+  latestWeightKg: number | null;
+};
+
+/** Assemble the engine Profile from the user row + latest weigh-in. Null if biometrics missing. */
+export async function getProfile(userId: number, now: Date): Promise<Profile | null> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { heightCm: true, birthDate: true, bodySex: true, activityLevel: true },
+  });
+  if (!u || u.heightCm == null || u.birthDate == null || (u.bodySex !== "M" && u.bodySex !== "F")) {
+    return null;
+  }
+  const latest = await prisma.weightEntry.findFirst({
+    where: { userId },
+    orderBy: { date: "desc" },
+    select: { weightKg: true, bodyFatPct: true },
+  });
+  if (!latest) return null; // need at least one weigh-in for a bodyweight
+  return {
+    weightKg: latest.weightKg,
+    heightCm: u.heightCm,
+    age: ageFromBirthDate(u.birthDate, now),
+    sex: u.bodySex,
+    bodyFatPct: latest.bodyFatPct,
+    activityLevel: (u.activityLevel as ActivityLevel) ?? "sedentary",
+  };
+}
+
+/** Completed working sets in the trailing 7 days (the training-energy driver). */
+export async function getWeeklySetCount(userId: number, now: Date): Promise<number> {
+  const since = new Date(now.getTime() - 7 * DAY_MS);
+  return prisma.exerciseSet.count({
+    where: {
+      status: "complete",
+      finishedAt: { gte: since, lte: now },
+      dayExercise: { day: { meso: { userId } } },
+    },
+  });
+}
+
+/** Active mesocycle's nutrition goal (null -> maintain). */
+export async function getActiveGoal(
+  userId: number,
+): Promise<{ goal: Goal; mesoId: number | null; mesoName: string | null; rateOverride: number | null }> {
+  // Mirror insights.getInsightsMeso: the user's most recent non-archived block.
+  const m = await prisma.mesocycle.findFirst({
+    where: { userId, status: { not: "archived" } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, nutritionGoal: true, targetRatePctPerWeek: true },
+  });
+  const raw = m?.nutritionGoal;
+  const goal: Goal = raw === "cut" || raw === "bulk" ? raw : "maintain";
+  return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride: m?.targetRatePctPerWeek ?? null };
+}
+
+/** Smoothed bodyweight trend + observed weekly rate + weeks of data. */
+export async function getWeightTrend(userId: number) {
+  const rows = await prisma.weightEntry.findMany({
+    where: { userId },
+    orderBy: { date: "asc" },
+    select: { date: true, weightKg: true },
+  });
+  const C = BODY_TUNING_CONSTANTS;
+  // Drop implausible day-over-day jumps before smoothing.
+  const clean: { date: Date; weightKg: number }[] = [];
+  for (const r of rows) {
+    const prev = clean[clean.length - 1];
+    if (prev && Math.abs(r.weightKg - prev.weightKg) > C.MAX_PLAUSIBLE_KG_DELTA) continue;
+    clean.push(r);
+  }
+  const smoothed = ewma(clean.map((r) => r.weightKg));
+  const spanDays =
+    clean.length >= 2 ? Math.max(1, (clean[clean.length - 1].date.getTime() - clean[0].date.getTime()) / DAY_MS) : 0;
+  const observedRateKg = weeklyRateKg(smoothed, spanDays);
+  const weeksOfData = Math.floor(spanDays / 7);
+  return {
+    trend: clean.map((r, i) => ({ date: r.date, weightKg: r.weightKg, smoothedKg: Math.round(smoothed[i] * 10) / 10 })),
+    observedRateKg,
+    weeksOfData,
+    latestWeightKg: clean.length ? clean[clean.length - 1].weightKg : null,
+  };
+}
+
+/** Full Body Tuning computation for a user: targets, macros, trend, confidence. */
+export async function computeBodyTuning(userId: number, now: Date): Promise<BodyTuningResult> {
+  const [profile, weeklySets, active, trend] = await Promise.all([
+    getProfile(userId, now),
+    getWeeklySetCount(userId, now),
+    getActiveGoal(userId),
+    getWeightTrend(userId),
+  ]);
+
+  if (!profile) {
+    return {
+      needsProfile: true,
+      profile: null,
+      goal: active.goal,
+      mesoId: active.mesoId,
+      mesoName: active.mesoName,
+      rateOverride: active.rateOverride,
+      weeklySets,
+      formulaMaintenance: 0,
+      adjMaintenance: 0,
+      target: 0,
+      macros: { kcal: 0, proteinG: 0, fatG: 0, carbG: 0 },
+      confidence: "formula",
+      trend: trend.trend,
+      observedRateKg: trend.observedRateKg,
+      weeksOfData: trend.weeksOfData,
+      latestWeightKg: trend.latestWeightKg,
+    };
+  }
+
+  const formulaMaintenance = maintenanceEstimate(profile, weeklySets);
+  const targetRateKg = goalRateKgPerWeek(active.goal, profile.weightKg, active.rateOverride);
+  const measured = measuredMaintenance(formulaMaintenance, targetRateKg, trend.observedRateKg);
+  const adjMaintenance = adaptiveMaintenance(formulaMaintenance, measured, trend.weeksOfData);
+  const target = goalAdjustedTarget(adjMaintenance, active.goal, profile, active.rateOverride);
+  const macros = macroTargets(target, profile, active.goal);
+
+  return {
+    needsProfile: false,
+    profile,
+    goal: active.goal,
+    mesoId: active.mesoId,
+    mesoName: active.mesoName,
+    rateOverride: active.rateOverride,
+    weeklySets,
+    formulaMaintenance: Math.round(formulaMaintenance),
+    adjMaintenance: Math.round(adjMaintenance),
+    target,
+    macros,
+    confidence: confidenceLabel(trend.weeksOfData),
+    trend: trend.trend,
+    observedRateKg: trend.observedRateKg,
+    weeksOfData: trend.weeksOfData,
+    latestWeightKg: trend.latestWeightKg,
+  };
+}
