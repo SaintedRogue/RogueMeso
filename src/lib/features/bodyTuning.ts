@@ -124,3 +124,57 @@ export function macroTargets(targetKcal: number, p: Profile, goal: Goal): Macros
     carbG: Math.round(carbKcal / 4),
   };
 }
+
+/** Exponentially weighted moving average — smooths daily water-weight noise. */
+export function ewma(series: number[], alpha = BODY_TUNING_CONSTANTS.EWMA_ALPHA): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < series.length; i++) {
+    out.push(i === 0 ? series[i] : alpha * series[i] + (1 - alpha) * out[i - 1]);
+  }
+  return out;
+}
+
+/** Slope of a smoothed weight series across its spanned days, expressed as kg/week. */
+export function weeklyRateKg(smoothed: number[], spanDays: number): number {
+  if (smoothed.length < 2 || spanDays <= 0) return 0;
+  const delta = smoothed[smoothed.length - 1] - smoothed[0];
+  return (delta / spanDays) * 7;
+}
+
+/**
+ * Adherence-assumed maintenance, inferred from the gap between the prescribed target rate
+ * and the observed rate. Derivation: intake = maintenance + targetRate·ED/7 (by construction),
+ * and trueMaintenance = intake − observedRate·ED/7, so the maintenance terms collapse to this.
+ */
+export function measuredMaintenance(
+  formulaMaintenance: number,
+  targetRateKg: number,
+  observedRateKg: number,
+  ed = BODY_TUNING_CONSTANTS.ADAPT_ENERGY_DENSITY,
+): number {
+  return formulaMaintenance + ((targetRateKg - observedRateKg) * ed) / 7;
+}
+
+/** Confidence-ramped, damped blend of formula and measured maintenance. */
+export function adaptiveMaintenance(formula: number, measured: number, weeksOfData: number): number {
+  const C = BODY_TUNING_CONSTANTS;
+  if (weeksOfData < C.MIN_WEEKS_FOR_ADAPT) return formula;
+  const confidence = Math.min(1, (weeksOfData - C.MIN_WEEKS_FOR_ADAPT + 1) / C.ADAPT_RAMP_WEEKS);
+  return formula + confidence * C.MAX_BLEND * (measured - formula);
+}
+
+/** UI badge state for how personalized the current estimate is. */
+export function confidenceLabel(weeksOfData: number): "formula" | "personalizing" | "personalized" {
+  const C = BODY_TUNING_CONSTANTS;
+  if (weeksOfData < C.MIN_WEEKS_FOR_ADAPT) return "formula";
+  if (weeksOfData - C.MIN_WEEKS_FOR_ADAPT + 1 >= C.ADAPT_RAMP_WEEKS) return "personalized";
+  return "personalizing";
+}
+
+/** Whole-years age from a birth date as of `now`. */
+export function ageFromBirthDate(birthDate: Date, now: Date): number {
+  let age = now.getFullYear() - birthDate.getFullYear();
+  const m = now.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) age--;
+  return age;
+}

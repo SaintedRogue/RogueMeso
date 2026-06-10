@@ -94,3 +94,61 @@ describe("macroTargets", () => {
     });
   });
 });
+
+import {
+  ewma,
+  weeklyRateKg,
+  measuredMaintenance,
+  adaptiveMaintenance,
+  confidenceLabel,
+  ageFromBirthDate,
+} from "@/lib/features/bodyTuning";
+
+describe("ewma", () => {
+  it("smooths a series with the given alpha", () => {
+    expect(ewma([80, 81, 79], 0.5)).toEqual([80, 80.5, 79.75]);
+  });
+});
+
+describe("weeklyRateKg", () => {
+  it("converts a smoothed span to kg/week", () => {
+    expect(weeklyRateKg([80, 79.75], 14)).toBeCloseTo(-0.125, 3);
+  });
+  it("is zero without enough points", () => {
+    expect(weeklyRateKg([80], 7)).toBe(0);
+  });
+});
+
+describe("measuredMaintenance", () => {
+  it("infers maintenance from the gap between target and observed rate", () => {
+    // 2500 + (-0.4 - -0.2)*7700/7 = 2500 - 220
+    expect(measuredMaintenance(2500, -0.4, -0.2)).toBe(2280);
+  });
+});
+
+describe("adaptiveMaintenance", () => {
+  it("returns the formula estimate before enough weeks", () => {
+    expect(adaptiveMaintenance(2500, 2800, 2)).toBe(2500);
+  });
+  it("blends a damped fraction at the ramp start", () => {
+    // confidence 1/6, blend 1/12, 2500 + (1/12)*300 = 2525
+    expect(adaptiveMaintenance(2500, 2800, 3)).toBe(2525);
+  });
+  it("reaches full (damped) blend once ramped", () => {
+    expect(adaptiveMaintenance(2500, 2800, 9)).toBe(2650);
+  });
+});
+
+describe("confidenceLabel", () => {
+  it("ramps formula -> personalizing -> personalized", () => {
+    expect(confidenceLabel(2)).toBe("formula");
+    expect(confidenceLabel(5)).toBe("personalizing");
+    expect(confidenceLabel(9)).toBe("personalized");
+  });
+});
+
+describe("ageFromBirthDate", () => {
+  it("does not count an unreached birthday", () => {
+    expect(ageFromBirthDate(new Date("1996-07-01"), new Date("2026-06-10"))).toBe(29);
+  });
+});
