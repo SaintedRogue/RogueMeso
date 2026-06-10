@@ -38,6 +38,9 @@ describe("weeklyVolume", () => {
     ];
     expect(weeklyVolume(rows, 2)).toEqual([{ muscleGroup: "Chest", perWeek: [1, 0] }]);
   });
+  it("returns an empty array for no rows", () => {
+    expect(weeklyVolume([], 4)).toEqual([]);
+  });
 });
 
 describe("buildHistory", () => {
@@ -72,5 +75,19 @@ describe("personalRecords", () => {
     const result = personalRecords(rows, now, 14);
     expect(result.find((r) => r.exercise === "Bench")!.isNew).toBe(true);
     expect(result.find((r) => r.exercise === "Row")!.isNew).toBe(false);
+  });
+  it("treats the window boundary as inclusive", () => {
+    const onBoundary = [{ exercise: "Bench", weight: 100, reps: 5, date: new Date("2026-05-27T00:00:00Z") }]; // exactly 14 days before now
+    expect(personalRecords(onBoundary, now, 14)[0].isNew).toBe(true);
+    const justOutside = [{ exercise: "Bench", weight: 100, reps: 5, date: new Date("2026-05-26T23:59:59Z") }];
+    expect(personalRecords(justOutside, now, 14)[0].isNew).toBe(false);
+  });
+
+  it("prefers the more recent set when est-1RM ties", () => {
+    const rows = [
+      { exercise: "Press", weight: 100, reps: 1, date: new Date("2026-01-01") },
+      { exercise: "Press", weight: 100, reps: 1, date: new Date("2026-06-09") },
+    ];
+    expect(personalRecords(rows, now)[0].date).toEqual(new Date("2026-06-09"));
   });
 });

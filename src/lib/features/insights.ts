@@ -9,7 +9,10 @@ export type VolumeRow = { muscleGroup: string; week: number };
 export type HistoryRow = { date: Date; weight: number; reps: number };
 export type PrRow = { exercise: string; weight: number; reps: number; date: Date };
 
-/** Epley estimated 1RM. A true single is returned as-is (not inflated). */
+/**
+ * Epley estimated 1RM. A true single (reps <= 1) is returned as-is (not inflated).
+ * Assumes valid completed-set input (weight > 0, reps >= 1); negative reps are not guarded.
+ */
 export function estimated1RM(weight: number, reps: number): number {
   if (reps <= 1) return weight;
   return weight * (1 + reps / 30);
@@ -59,7 +62,7 @@ export function personalRecords(
   for (const r of rows) {
     const oneRm = estimated1RM(r.weight, r.reps);
     const cur = best.get(r.exercise);
-    if (!cur || oneRm > cur.oneRm) {
+    if (!cur || oneRm > cur.oneRm || (oneRm === cur.oneRm && r.date > cur.date)) {
       best.set(r.exercise, { exercise: r.exercise, weight: r.weight, reps: r.reps, date: r.date, oneRm });
     }
   }
