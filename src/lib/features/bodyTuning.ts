@@ -81,3 +81,46 @@ export function maintenanceEstimate(p: Profile, weeklySets: number): number {
   const rmr = estimateRMR(p);
   return rmr + estimateNEAT(rmr, p.activityLevel) + estimateTrainingEnergyDaily(weeklySets, p.weightKg);
 }
+
+export type Macros = { kcal: number; proteinG: number; fatG: number; carbG: number };
+
+/** Signed target rate of weight change (kg/week). Override is a signed fraction of BW/week. */
+export function goalRateKgPerWeek(goal: Goal, weightKg: number, rateOverridePct?: number | null): number {
+  const C = BODY_TUNING_CONSTANTS;
+  let pct: number;
+  if (rateOverridePct != null) pct = rateOverridePct;
+  else if (goal === "cut") pct = -C.CUT_RATE_PCT;
+  else if (goal === "bulk") pct = C.LEAN_BULK_RATE_PCT;
+  else pct = 0;
+  return pct * weightKg;
+}
+
+/** Goal-adjusted daily kcal target (rounded), clamped to evidence-based safety floors. */
+export function goalAdjustedTarget(
+  maintenance: number,
+  goal: Goal,
+  p: Profile,
+  rateOverridePct?: number | null,
+): number {
+  const C = BODY_TUNING_CONSTANTS;
+  const rateKg = goalRateKgPerWeek(goal, p.weightKg, rateOverridePct);
+  const ed = rateKg < 0 ? C.ED_CUT : C.ED_BULK;
+  const raw = maintenance + (rateKg * ed) / 7;
+  const floor = Math.max(C.MIN_KCAL_FLOOR[p.sex], estimateRMR(p) * C.RMR_FLOOR_MULT);
+  return Math.round(Math.max(raw, floor));
+}
+
+/** Protein-first macro split: protein by goal g/kg, fat floor, carbs as the remainder. */
+export function macroTargets(targetKcal: number, p: Profile, goal: Goal): Macros {
+  const C = BODY_TUNING_CONSTANTS;
+  const proteinG = C.PROTEIN_G_PER_KG[goal] * p.weightKg;
+  const proteinKcal = proteinG * 4;
+  const fatKcal = Math.max(C.FAT_FLOOR_G_PER_KG * p.weightKg * 9, C.FAT_MIN_PCT * targetKcal);
+  const carbKcal = Math.max(0, targetKcal - proteinKcal - fatKcal);
+  return {
+    kcal: Math.round(targetKcal),
+    proteinG: Math.round(proteinG),
+    fatG: Math.round(fatKcal / 9),
+    carbG: Math.round(carbKcal / 4),
+  };
+}
