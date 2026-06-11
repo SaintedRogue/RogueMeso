@@ -7,7 +7,7 @@
 // server page only renders the <form action={createMesocycleAction}> wrapper, so the
 // server action stays server-defined and the submission contract (a templateKey field)
 // is unchanged.
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import type { Unit } from "@prisma/client";
@@ -92,6 +92,7 @@ export function TemplatePicker({
   // null = fetched but unavailable, object = loaded) so re-selecting is instant.
   const [previews, setPreviews] = useState<Record<string, TemplatePreview | null>>({});
   const [, startPreview] = useTransition();
+  const previewRef = useRef<HTMLDivElement>(null);
 
   function selectTemplate(key: string) {
     setSelectedKey(key);
@@ -102,6 +103,15 @@ export function TemplatePicker({
       });
     }
   }
+
+  // The preview renders below the (long) grid, so bring it into view on select —
+  // otherwise a card near the top expands a panel that's off-screen. Runs after the
+  // panel mounts (header + spinner show immediately, so there's something to land on).
+  useEffect(() => {
+    if (!selectedKey || !previewRef.current) return;
+    const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    previewRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }, [selectedKey]);
 
   // Facet options derived from the data (so chips stay correct if the catalog changes).
   const focuses = useMemo(() => {
@@ -237,7 +247,7 @@ export function TemplatePicker({
       {/* Inline preview of the selected template — its priorities and day/slot
           breakdown, fetched on demand. Mirrors the /templates/[key] detail layout. */}
       {selected && (
-        <div className="card overflow-hidden">
+        <div ref={previewRef} className="card scroll-mt-4 overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <div>
               <div className="font-semibold leading-tight">{selected.name}</div>
