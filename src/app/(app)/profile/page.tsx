@@ -1,4 +1,4 @@
-import { ChevronRight, BellRing } from "lucide-react";
+import { ChevronRight, BellRing, LayoutTemplate, Gauge } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
@@ -132,6 +132,36 @@ export default async function ProfilePage({
           <p className="text-xs text-muted">Used to estimate your calorie &amp; macro targets in Body Tuning.</p>
         </ToastForm>
 
+        {/* Templates & Body Tuning live in the desktop sidebar; on mobile they're not in
+            the 5-tab bottom bar, so surface them here as link cards (mobile only). */}
+        <div className="space-y-4 sm:hidden">
+          <CardLink href="/templates">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <LayoutTemplate aria-hidden size={18} className="shrink-0 text-accent" />
+                <div>
+                  <div className="text-sm font-medium">Templates</div>
+                  <div className="text-xs text-muted">Browse the program template catalog.</div>
+                </div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+
+          <CardLink href="/body-tuning">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Gauge aria-hidden size={18} className="shrink-0 text-accent" />
+                <div>
+                  <div className="text-sm font-medium">Body Tuning</div>
+                  <div className="text-xs text-muted">Log weigh-ins and set calorie &amp; macro targets.</div>
+                </div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+        </div>
+
         <CardLink href="/adhd-mode">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -189,7 +219,7 @@ export default async function ProfilePage({
             <div className="text-xs text-muted">Signed in to this self-hosted instance.</div>
           </div>
           <form action={logout}>
-            <button type="submit" className="rounded-lg border border-line px-4 py-2 text-sm text-muted hover:text-bad">
+            <button type="submit" className="min-h-11 rounded-lg border border-line px-4 py-2 text-sm text-muted hover:text-bad sm:min-h-0">
               Sign out
             </button>
           </form>

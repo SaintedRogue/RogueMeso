@@ -81,7 +81,9 @@ export function SetLogger({ set, targetRir, unit }: Props) {
           onClick={submit}
           disabled={pending}
           className={`px-2.5 py-2.5 text-xs disabled:opacity-50 sm:py-1 ${
-            done ? "rounded-md border border-line font-semibold text-muted hover:text-text" : "btn-primary"
+            done
+              ? "min-h-11 rounded-md border border-line font-semibold text-muted hover:text-text sm:min-h-0"
+              : "btn-primary"
           }`}
         >
           {done ? "Update" : pending ? "…" : "Log"}

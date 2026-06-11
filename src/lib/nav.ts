@@ -34,8 +34,11 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/mesocycles", label: "Mesocycles", shortLabel: "Mesos", icon: CalendarRange },
   { href: "/exercises", label: "Exercises", shortLabel: "Exercises", icon: ListChecks },
   { href: "/insights", label: "Insights", shortLabel: "Insights", icon: TrendingUp },
-  { href: "/templates", label: "Templates", shortLabel: "Templates", icon: LayoutTemplate },
-  { href: "/body-tuning", label: "Body Tuning", shortLabel: "Tuning", icon: Gauge },
+  // secondary → kept in the desktop sidebar but OUT of the 5-slot mobile bottom bar
+  // (which caps at 5 for legible labels + 44px targets). On mobile these are reached
+  // via link cards on the Profile page.
+  { href: "/templates", label: "Templates", shortLabel: "Templates", icon: LayoutTemplate, secondary: true },
+  { href: "/body-tuning", label: "Body Tuning", shortLabel: "Tuning", icon: Gauge, secondary: true },
   { href: "/adhd-mode", label: "ADHD Mode", shortLabel: "ADHD", icon: BellRing, secondary: true },
   PROFILE_LINK,
 ];
