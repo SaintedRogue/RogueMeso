@@ -37,5 +37,18 @@ else
   echo "[entrypoint] $COUNT exercises already present — skipping seed."
 fi
 
+# 4. Backfill exercise form-cue descriptions. Idempotent (each UPDATE is guarded by
+#    `notes IS NULL`), so it's safe on every start: it fills freshly-seeded rows AND
+#    pre-existing databases, and never clobbers a hand-edited note. Non-fatal — a problem
+#    here must not block the app from starting.
+if [ -f prisma/descriptions.sql ]; then
+  echo "[entrypoint] applying exercise descriptions..."
+  if psql "$PSQL_URL" -q -f prisma/descriptions.sql; then
+    echo "[entrypoint] descriptions applied."
+  else
+    echo "[entrypoint] description backfill failed (non-fatal) — continuing." >&2
+  fi
+fi
+
 echo "[entrypoint] starting Next.js server on ${HOSTNAME}:${PORT}"
 exec node server.js
