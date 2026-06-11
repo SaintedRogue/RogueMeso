@@ -1,6 +1,6 @@
 import { mgColor, rirForWeek } from "@/lib/format";
-import { MgDot, StatusPill } from "@/components/ui";
 import { SetLogger } from "@/components/SetLogger";
+import { ExerciseInfo } from "@/components/ExerciseInfo";
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -18,7 +18,7 @@ export type ViewSet = {
 export type ViewExercise = {
   id: number;
   status: string;
-  exercise: { name: string; exerciseType: string } | null;
+  exercise: { name: string; exerciseType: string; notes: string | null; youtubeId: string | null } | null;
   muscleGroup: { name: string };
   sets: ViewSet[];
 };
@@ -47,25 +47,16 @@ export function DayView({
         const targetRir = rirForWeek(day.week, meso.weeksCount);
         return (
           <div key={ex.id} className="card overflow-hidden" style={{ borderLeft: `3px solid ${color}` }}>
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <div className="flex items-center gap-2">
-                <MgDot color={color} />
-                <div>
-                  <div className="font-semibold leading-tight">{ex.exercise?.name ?? "—"}</div>
-                  <div className="text-xs text-muted" style={{ color }}>
-                    {ex.muscleGroup.name}
-                    {ex.exercise?.exerciseType ? ` · ${ex.exercise.exerciseType}` : ""}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* On mobile the per-set RIR column is hidden, so surface the target here */}
-                <span className="num whitespace-nowrap text-xs text-muted sm:hidden">
-                  {targetRir == null ? "DL" : `${targetRir} RIR`}
-                </span>
-                <StatusPill status={ex.status} />
-              </div>
-            </div>
+            <ExerciseInfo
+              name={ex.exercise?.name ?? "—"}
+              muscleGroupName={ex.muscleGroup.name}
+              color={color}
+              exerciseType={ex.exercise?.exerciseType ?? null}
+              rirLabel={targetRir == null ? "DL" : `${targetRir} RIR`}
+              status={ex.status}
+              notes={ex.exercise?.notes ?? null}
+              youtubeId={ex.exercise?.youtubeId ?? null}
+            />
             <div className="divide-y divide-line/60">
               {ex.sets.map((s) => (
                 <SetLogger key={s.id} set={s} targetRir={targetRir} unit={meso.unit} />
