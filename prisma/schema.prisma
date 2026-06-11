@@ -53,6 +53,10 @@ model User {
   birthDate     DateTime?
   bodySex       String?   // "M" | "F" — the person's sex (distinct from Template.sex)
   activityLevel String?   // "sedentary" | "light" | "moderate"
+  // Community: opt-in to the instance social space (default OFF). When false the
+  // user neither posts to the feed nor appears on leaderboards — every community
+  // query filters on this flag, so opt-out is instant and reversible (no data loss).
+  communityOptIn Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -60,6 +64,8 @@ model User {
   exercises     Exercise[] // user-created custom exercises
   templates     Template[] // user-created templates
   weightEntries WeightEntry[]
+  activities    Activity[] // community feed posts authored by this user
+  reactions     Reaction[] // kudos this user gave
 
   // ADHD Mode (notification engine)
   pushSubscriptions    PushSubscription[]
@@ -117,12 +123,17 @@ model Template {
   sourceTemplateId Int?                    // provenance (source ids), informational
   userId           Int?                    // null = shared library; set = user-created
   user             User?    @relation(fields: [userId], references: [id])
+  // Community: a user-owned template (userId = me) with this true is browsable and
+  // usable (copy-on-use) by other opted-in members. Seeded library (userId null) is
+  // always shared and ignores this flag.
+  sharedWithInstance Boolean @default(false)
   createdAt        DateTime @default(now())
 
   days       TemplateDay[]
   priorities TemplatePriority[]
 
   @@index([userId])
+  @@index([sharedWithInstance])
 }
 
 model TemplateDay {
@@ -341,4 +352,56 @@ model ReminderLog {
 
   @@unique([userId, habitKey, localDate, firingIndex])
   @@index([userId, localDate])
+}
+
+// ----- Community (instance-local social) -----
+// A lightweight, additive social layer for the handful of members on one self-hosted
+// instance. Activities are written at the moment something happens (workout finished,
+// PR hit, meso finished) and read back as a chronological feed + weekly leaderboard.
+// Card display uses denormalized snapshot fields so a row still renders after the
+// source meso/exercise is renamed or deleted. `dedupeKey` makes writes idempotent so
+// re-editing a completed set never double-posts.
+
+enum ActivityType {
+  workoutComplete @map("workout_complete")
+  prHit           @map("pr_hit")
+  mesoComplete    @map("meso_complete")
+}
+
+model Activity {
+  id           Int          @id @default(autoincrement())
+  userId       Int
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         ActivityType
+  dedupeKey    String       @unique          // e.g. "workout_complete:42", "pr_hit:7", "meso_complete:3"
+  occurredAt   DateTime                       // real-world event time (not row insert time)
+  // Denormalized display snapshot — written once, never joined back to source rows.
+  mesoKey      String?                        // deep-link target when the meso still exists
+  mesoName     String?
+  exerciseName String?
+  setsCount    Int?                           // workoutComplete: sets logged that day
+  weeksCount   Int?                           // mesoComplete: block length
+  prWeight     Float?                         // prHit: the lift
+  prReps       Int?
+  prOneRm      Float?                         // prHit: rounded estimated 1RM
+  unit         String?                        // "lb" | "kg" for the numbers above
+  createdAt    DateTime     @default(now())
+
+  reactions    Reaction[]
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([userId])
+}
+
+model Reaction {
+  id         Int      @id @default(autoincrement())
+  activityId Int
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji      String   // one of a small allowed set, validated in the action layer
+  createdAt  DateTime @default(now())
+
+  @@unique([activityId, userId, emoji]) // one of each emoji per person per activity
+  @@index([activityId])
 }

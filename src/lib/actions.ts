@@ -3,8 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { maybePostWorkoutActivity, maybePostPrActivity } from "@/lib/features/community";
 
 const DONE = new Set(["complete", "skipped"]);
+
+/**
+ * Post community feed activities for a set mutation, best-effort. The social layer is
+ * purely additive: a failure here must never break logging, so we swallow + log it.
+ * (Each writer is a no-op unless the user has opted into the community.)
+ */
+async function postCommunityActivity(dayId: number, userId: number, setId?: number) {
+  try {
+    await maybePostWorkoutActivity(dayId, userId);
+    if (setId != null) await maybePostPrActivity(setId, userId);
+  } catch (e) {
+    console.error("[community] activity hook failed", e);
+  }
+}
 
 /** A logged set is rendered on the home screen, the meso detail, and the day page — refresh just those. */
 function revalidateForDay(info: { key: string; week: number; position: number }) {
@@ -51,7 +66,7 @@ async function recomputeRollups(dayExerciseId: number) {
   const finishedAt = allComplete ? day.finishedAt ?? new Date() : null;
   await prisma.mesoDay.update({ where: { id: day.id }, data: { status: dayStatus, finishedAt } });
 
-  return { key: day.meso.key, week: day.week, position: day.position };
+  return { key: day.meso.key, week: day.week, position: day.position, dayId: day.id };
 }
 
 export async function logSet(setId: number, weight: number | null, reps: number | null) {
@@ -68,7 +83,10 @@ export async function logSet(setId: number, weight: number | null, reps: number 
     select: { dayExerciseId: true },
   });
   const info = await recomputeRollups(set.dayExerciseId);
-  if (info) revalidateForDay(info);
+  if (info) {
+    await postCommunityActivity(info.dayId, me.id, setId);
+    revalidateForDay(info);
+  }
 }
 
 export async function skipSet(setId: number) {
@@ -80,7 +98,10 @@ export async function skipSet(setId: number) {
     select: { dayExerciseId: true },
   });
   const info = await recomputeRollups(set.dayExerciseId);
-  if (info) revalidateForDay(info);
+  if (info) {
+    await postCommunityActivity(info.dayId, me.id); // skipping the last set can finish a day
+    revalidateForDay(info);
+  }
 }
 
 export async function clearSet(setId: number) {

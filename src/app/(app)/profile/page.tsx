@@ -1,9 +1,10 @@
-import { ChevronRight, BellRing, LayoutTemplate, Gauge } from "lucide-react";
+import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
 import { PageHeader, CardLink } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ParticipationToggle } from "@/components/community/ParticipationToggle";
 import { ToastForm } from "@/components/forms";
 import { setBiometrics } from "@/lib/bodyTuningActions";
 import { cmToFtIn } from "@/lib/format";
@@ -132,9 +133,34 @@ export default async function ProfilePage({
           <p className="text-xs text-muted">Used to estimate your calorie &amp; macro targets in Body Tuning.</p>
         </ToastForm>
 
-        {/* Templates & Body Tuning live in the desktop sidebar; on mobile they're not in
-            the 5-tab bottom bar, so surface them here as link cards (mobile only). */}
+        <div className="card flex items-center justify-between gap-4 p-6">
+          <div>
+            <div className="text-sm font-medium">Community</div>
+            <div className="text-xs text-muted">
+              {me.communityOptIn
+                ? "You're in — sharing activity and on the leaderboard."
+                : "Off — share templates and progress with other members of this instance."}
+            </div>
+          </div>
+          <ParticipationToggle optedIn={me.communityOptIn} />
+        </div>
+
+        {/* Templates, Body Tuning & Community live in the desktop sidebar; on mobile they're
+            not in the 5-tab bottom bar, so surface them here as link cards (mobile only). */}
         <div className="space-y-4 sm:hidden">
+          <CardLink href="/community">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <UsersRound aria-hidden size={18} className="shrink-0 text-accent" />
+                <div>
+                  <div className="text-sm font-medium">Community</div>
+                  <div className="text-xs text-muted">Feed, leaderboard &amp; shared templates.</div>
+                </div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+
           <CardLink href="/templates">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
