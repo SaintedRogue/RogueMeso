@@ -60,6 +60,12 @@ model User {
   exercises     Exercise[] // user-created custom exercises
   templates     Template[] // user-created templates
   weightEntries WeightEntry[]
+
+  // ADHD Mode (notification engine)
+  pushSubscriptions    PushSubscription[]
+  notificationSchedule NotificationSchedule?
+  habitConfigs         HabitConfig[]
+  reminderLogs         ReminderLog[]
 }
 
 // ----- Reference data -----
@@ -262,4 +268,77 @@ model WeightEntry {
   createdAt  DateTime @default(now())
 
   @@unique([userId, date])
+}
+
+// ----- ADHD Mode (notification / reminder engine) -----
+// A new tab pushes science-based habit reminders (workout, meals+macros, caffeine,
+// hydration, creatine, sleep, …) to the user's devices via Web Push. Reminder times
+// are COMPUTED from NotificationSchedule anchors + per-habit tunables; the in-process
+// scheduler (src/lib/scheduler.ts, started from instrumentation.ts) ticks each minute.
+
+// One row per subscribed device (a user may install the PWA on several). The
+// p256dh/auth keys are the RFC 8291 encryption material web-push needs to send.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique          // push-service URL; also the device identity
+  p256dh    String
+  auth      String
+  timezone  String   @default("UTC")  // IANA zone captured from the browser at subscribe
+  userAgent String?                   // informational, helps the user identify a device
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Per-user daily-schedule anchors (LOCAL time) + global controls. One per user.
+// Times are stored as HHMM integers (e.g. 2230 = 22:30) so the scheduler compares
+// them directly to the user's current local clock with no zone math on the hot path.
+model NotificationSchedule {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wakeHHMM      Int      @default(600)   // 06:00
+  bedtimeHHMM   Int      @default(2230)  // 22:30
+  workoutHHMM   Int?                     // null = rest day → training reminders skip today
+  mealsPerDay   Int      @default(3)
+  globalEnabled Boolean  @default(false) // master switch for all ADHD notifications
+  dailyCap      Int      @default(20)    // max pushes/day across all habits (anti-spam)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Per-habit toggle + tunable params. `params` is a jsonb blob owned by the habit's
+// registry entry (src/lib/features/adhdModeRegistry.ts), merged over registry
+// defaults at runtime — so adding a new habit needs no migration.
+model HabitConfig {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habitKey  String   // matches a HabitDefinition.key
+  enabled   Boolean  @default(true)
+  params    Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, habitKey])
+  @@index([userId])
+}
+
+// Idempotency + snooze ledger. One row per (user, habit, local day, firing). The
+// unique constraint is the guard that a per-minute tick — or a mid-day restart —
+// never double-sends. localDate is the user's LOCAL calendar date as a string so a
+// UTC-midnight rollover can't shift a reminder onto the wrong day.
+model ReminderLog {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habitKey     String
+  localDate    String    // "YYYY-MM-DD" in the user's timezone
+  firingIndex  Int       // 0-based index into the habit's computeFireTimes() result
+  snoozedUntil DateTime? // set when the user taps Snooze; tick re-fires once it passes
+  sentAt       DateTime  @default(now())
+
+  @@unique([userId, habitKey, localDate, firingIndex])
+  @@index([userId, localDate])
 }
