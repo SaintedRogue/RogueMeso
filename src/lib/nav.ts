@@ -5,6 +5,7 @@ import {
   TrendingUp,
   LayoutTemplate,
   Gauge,
+  BellRing,
   Settings,
   Users,
   type LucideIcon,
@@ -15,6 +16,9 @@ export type NavLink = {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
+  // Shown in the desktop sidebar but kept OUT of the mobile bottom bar, which can't
+  // fit more than the primary tabs at 320px without breaking the 44px touch target.
+  secondary?: boolean;
 };
 
 export const NAV_LINKS: NavLink[] = [
@@ -24,6 +28,7 @@ export const NAV_LINKS: NavLink[] = [
   { href: "/insights", label: "Insights", shortLabel: "Insights", icon: TrendingUp },
   { href: "/templates", label: "Templates", shortLabel: "Templates", icon: LayoutTemplate },
   { href: "/body-tuning", label: "Body Tuning", shortLabel: "Tuning", icon: Gauge },
+  { href: "/adhd-mode", label: "ADHD Mode", shortLabel: "ADHD", icon: BellRing, secondary: true },
   { href: "/profile", label: "Profile & Settings", shortLabel: "Profile", icon: Settings },
 ];
 

@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_LINKS, isActive } from "@/lib/nav";
 
-// Mobile-only tab bar. The admin Users link is intentionally omitted —
-// six tabs don't fit at 320px, and user admin lives in the desktop sidebar.
+// Mobile-only tab bar. Admin Users and any `secondary` links (e.g. ADHD Mode) are
+// omitted — more than the primary tabs don't fit at 320px without shrinking below the
+// 44px touch target. Those links live in the desktop sidebar (and on the Profile page).
 export function BottomBar() {
   const path = usePathname();
+  const links = NAV_LINKS.filter((l) => !l.secondary);
   return (
     <nav
       aria-label="Primary"
       className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-line bg-panel/90 backdrop-blur-sm sm:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {NAV_LINKS.map((l) => {
+      {links.map((l) => {
         const active = isActive(l, path);
         return (
           <Link

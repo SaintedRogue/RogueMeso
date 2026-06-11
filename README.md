@@ -92,6 +92,10 @@ docker build -t roguemeso .
 docker run -d --name roguemeso -p 3000:3000 --link roguemeso-db \
   -e DATABASE_URL='postgresql://roguemeso:<strong-pw>@roguemeso-db:5432/roguemeso?schema=public' \
   -e AUTH_SECRET="$(openssl rand -base64 48)" \
+  # Optional — ADHD Mode push reminders (npx web-push generate-vapid-keys):
+  -e VAPID_PUBLIC_KEY='<public-key>' \
+  -e VAPID_PRIVATE_KEY='<private-key>' \
+  -e VAPID_SUBJECT='mailto:you@example.com' \
   roguemeso
 ```
 
@@ -100,6 +104,28 @@ account (do this promptly — it's open until the first account exists, then sel
 Add further household members later from **Profile & Settings → User management**.
 Secrets (`POSTGRES_PASSWORD`, `AUTH_SECRET`) are passed at runtime and are **never**
 baked into the image.
+
+### Push notifications (ADHD Mode)
+
+The **ADHD Mode** tab sends science-based habit reminders (workouts, meals + macros,
+caffeine timing, hydration, creatine, sleep, and more) to your devices via Web Push —
+even when the app is closed. Reminder times are computed from a per-user daily schedule
+(wake / bedtime / workout / meals) and every habit is individually toggleable and tunable.
+
+It needs a [VAPID](https://datatracker.ietf.org/doc/html/rfc8292) key pair:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a `mailto:`/`https:`
+contact) on the **app** container. All three are runtime env — the public key is served
+to the browser at runtime (`/api/push/vapid-key`), so it is **not** baked into the image
+and you can rotate keys without rebuilding. Leave them unset to disable push entirely.
+
+Then open **ADHD Mode**, enable notifications on the device, flip the master switch on,
+and set your schedule. On iPhone you must **Add to Home Screen first** — iOS only delivers
+web push to an installed PWA (iOS 16.4+).
 
 ### Maintaining the seeded library
 

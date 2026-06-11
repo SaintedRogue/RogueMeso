@@ -17,6 +17,6 @@ export const config = {
   // public). /setup is public so a fresh, user-less deploy isn't locked out; the
   // page and its action both close themselves once any account exists.
   matcher: [
-    "/((?!login|setup|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-192.png|icon-512.png).*)",
+    "/((?!login|setup|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-192.png|icon-512.png|sw.js).*)",
   ],
 };
