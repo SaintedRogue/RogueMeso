@@ -5,7 +5,33 @@ import { revalidatePath } from "next/cache";
 import type { Unit } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTemplate } from "@/lib/data";
 import { generateMesocycle } from "@/lib/generateMeso";
+
+/** Slim, serializable shape the TemplatePicker preview renders — no raw DB rows. */
+export type TemplatePreview = {
+  priorities: { name: string; priority: string }[];
+  days: { position: number; slots: { mg: string; exercise: string | null }[] }[];
+};
+
+/**
+ * On-demand detail for one template, fetched by the client picker when a card is
+ * selected (we don't preload all 153 templates' day/slot trees into the page).
+ * Auth + shared-or-own ownership are enforced by getTemplate; we map to a minimal
+ * shape so only what the UI draws crosses the wire.
+ */
+export async function getTemplatePreview(key: string): Promise<TemplatePreview | null> {
+  const me = await requireUser();
+  const t = await getTemplate(key, me.id);
+  if (!t) return null;
+  return {
+    priorities: t.priorities.map((p) => ({ name: p.muscleGroup.name, priority: p.priority })),
+    days: t.days.map((d) => ({
+      position: d.position,
+      slots: d.slots.map((s) => ({ mg: s.muscleGroup.name, exercise: s.exercise?.name ?? null })),
+    })),
+  };
+}
 
 async function assertMesoOwner(key: string, userId: number) {
   const m = await prisma.mesocycle.findUnique({ where: { key }, select: { userId: true } });

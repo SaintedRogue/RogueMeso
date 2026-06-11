@@ -7,10 +7,13 @@
 // server page only renders the <form action={createMesocycleAction}> wrapper, so the
 // server action stays server-defined and the submission contract (a templateKey field)
 // is unchanged.
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import type { Unit } from "@prisma/client";
+import { MgDot } from "@/components/ui";
+import { mgColor } from "@/lib/format";
+import { getTemplatePreview, type TemplatePreview } from "@/lib/mesoActions";
 
 export type PickerTemplate = {
   key: string;
@@ -85,6 +88,20 @@ export function TemplatePicker({
   const [sex, setSex] = useState<string | null>(defaultSex);
   const [equip, setEquip] = useState<Equip | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Preview detail is fetched on demand and cached per key (undefined = not fetched,
+  // null = fetched but unavailable, object = loaded) so re-selecting is instant.
+  const [previews, setPreviews] = useState<Record<string, TemplatePreview | null>>({});
+  const [, startPreview] = useTransition();
+
+  function selectTemplate(key: string) {
+    setSelectedKey(key);
+    if (!(key in previews)) {
+      startPreview(async () => {
+        const data = await getTemplatePreview(key);
+        setPreviews((p) => ({ ...p, [key]: data }));
+      });
+    }
+  }
 
   // Facet options derived from the data (so chips stay correct if the catalog changes).
   const focuses = useMemo(() => {
@@ -193,7 +210,7 @@ export function TemplatePicker({
                 key={t.key}
                 type="button"
                 aria-pressed={isSel}
-                onClick={() => setSelectedKey(t.key)}
+                onClick={() => selectTemplate(t.key)}
                 className={`card block p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-panel-2/40 ${
                   isSel ? "border-accent bg-panel-2/40 ring-1 ring-inset ring-accent" : ""
                 }`}
@@ -215,6 +232,62 @@ export function TemplatePicker({
         </div>
       ) : (
         <div className="card px-4 py-8 text-center text-muted">No templates match these filters.</div>
+      )}
+
+      {/* Inline preview of the selected template — its priorities and day/slot
+          breakdown, fetched on demand. Mirrors the /templates/[key] detail layout. */}
+      {selected && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <div>
+              <div className="font-semibold leading-tight">{selected.name}</div>
+              <div className="text-xs text-muted">
+                {selected.emphasis} · {selected.sex}
+                {selected.frequency ? ` · ${selected.frequency}×/wk` : ""} ·{" "}
+                <span className="num">{selected.days}</span> days
+              </div>
+            </div>
+            <span className="chip border-accent text-accent">Selected</span>
+          </div>
+          <div className="p-4">
+            {!(selectedKey! in previews) ? (
+              <div className="flex items-center gap-2 py-6 text-sm text-muted">
+                <Loader2 aria-hidden size={15} className="animate-spin" /> Loading preview…
+              </div>
+            ) : previews[selectedKey!] == null ? (
+              <p className="py-6 text-sm text-muted">Couldn’t load this template’s details.</p>
+            ) : (
+              <div className="space-y-4">
+                {previews[selectedKey!]!.priorities.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {previews[selectedKey!]!.priorities.map((p) => (
+                      <span key={p.name} className="chip" style={{ borderColor: mgColor(p.name) }}>
+                        <MgDot color={mgColor(p.name)} />
+                        {p.name} · {p.priority}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {previews[selectedKey!]!.days.map((d) => (
+                    <div key={d.position} className="rounded-lg border border-line">
+                      <div className="border-b border-line px-3 py-2 text-xs font-semibold">Day {d.position + 1}</div>
+                      <div className="divide-y divide-line/60">
+                        {d.slots.map((s, i) => (
+                          <div key={i} className="flex items-center gap-2.5 px-3 py-1.5 text-xs">
+                            <MgDot color={mgColor(s.mg)} />
+                            <span style={{ color: mgColor(s.mg), minWidth: "4.5rem" }}>{s.mg}</span>
+                            <span>{s.exercise ?? <span className="italic text-muted">empty slot</span>}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Configure & create */}
