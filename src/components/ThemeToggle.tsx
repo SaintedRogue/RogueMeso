@@ -49,7 +49,7 @@ export function ThemeToggle() {
       aria-label={label}
       title={label}
       suppressHydrationWarning
-      className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-sm text-muted transition-colors hover:border-accent-dim hover:text-text"
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-sm text-muted transition-colors hover:border-accent-dim hover:text-text sm:min-h-9"
     >
       {/* Icon and label name the theme you'd switch TO — the common convention. */}
       <span aria-hidden className="grid h-4 w-4 place-items-center" suppressHydrationWarning>

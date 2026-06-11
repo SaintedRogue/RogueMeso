@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_LINKS, isActive } from "@/lib/nav";
 
-// Mobile-only tab bar. Admin Users and any `secondary` links (e.g. ADHD Mode) are
-// omitted — more than the primary tabs don't fit at 320px without shrinking below the
-// 44px touch target. Those links live in the desktop sidebar (and on the Profile page).
+// Mobile-only tab bar, capped at 5 tabs (Workout / Mesos / Exercises / Insights /
+// Profile). Admin Users and every `secondary` link (ADHD Mode, Templates, Body Tuning)
+// are omitted — a 6th/7th tab shrinks each slot below a comfortable 44px target with a
+// legible label at 320–375px. Those destinations live in the desktop sidebar and as
+// link cards on the Profile page.
 export function BottomBar() {
   const path = usePathname();
   const links = NAV_LINKS.filter((l) => !l.secondary);

@@ -92,6 +92,11 @@ export function TemplatePicker({
   // null = fetched but unavailable, object = loaded) so re-selecting is instant.
   const [previews, setPreviews] = useState<Record<string, TemplatePreview | null>>({});
   const [, startPreview] = useTransition();
+  // Config inputs live in state (not uncontrolled) so they survive the config card
+  // remounting as it follows the selected template to a different grid row.
+  const [name, setName] = useState("");
+  const [weeks, setWeeks] = useState("5");
+  const [unit, setUnit] = useState<Unit>(defaultUnit);
   // Track the live column count (matches sm:grid-cols-2 / lg:grid-cols-3) so we can pop
   // the preview in as a full-width row right after the selected card's row, not at the
   // bottom of the grid. Defaults to 1 for SSR; corrected on mount before any selection.
@@ -209,6 +214,51 @@ export function TemplatePicker({
     </div>
   ) : null;
 
+  // Name / length / units + the Generate CTA. Rendered directly under the preview
+  // (right after the selected card's row) so the primary action is reachable without
+  // scrolling past the rest of the catalog — not stranded at the bottom of 150+ cards.
+  const configCard = selected ? (
+    <div className="card col-span-full space-y-5 p-6">
+      <div>
+        <label className="mb-1 block text-sm font-medium text-muted">Name</label>
+        <input
+          name="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="input"
+          placeholder="e.g. Summer Block (defaults to template name)"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-muted">Length</label>
+          <select name="weeks" value={weeks} onChange={(e) => setWeeks(e.target.value)} className="input">
+            {[4, 5, 6].map((w) => (
+              <option key={w} value={w}>
+                {w} weeks ({w - 1} training + 1 deload)
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-muted">Units</label>
+          <select name="unit" value={unit} onChange={(e) => setUnit(e.target.value as Unit)} className="input">
+            <option value="lb">lb</option>
+            <option value="kg">kg</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <GenerateButton disabled={!selectedKey} />
+        <span className="text-xs text-muted">
+          RIR ramps to 0 · volume rises by priority (MEV→MRV) · final week deloads
+        </span>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-5">
       <input type="hidden" name="templateKey" value={selectedKey ?? ""} />
@@ -305,7 +355,12 @@ export function TemplatePicker({
                     {eq && <span className="chip">{EQUIP_LABEL[eq]}</span>}
                   </div>
                 </button>
-                {idx === previewAfter && previewPanel}
+                {idx === previewAfter && (
+                  <>
+                    {previewPanel}
+                    {configCard}
+                  </>
+                )}
               </Fragment>
             );
           })}
@@ -314,50 +369,11 @@ export function TemplatePicker({
         <div className="card px-4 py-8 text-center text-muted">No templates match these filters.</div>
       )}
 
-      {/* Configure & create */}
-      <div className="card space-y-5 p-6">
-        <p className="text-sm">
-          {selected ? (
-            <>
-              <span className="text-muted">Selected:</span> <span className="font-semibold">{selected.name}</span>
-            </>
-          ) : (
-            <span className="text-muted">Pick a template above to continue.</span>
-          )}
-        </p>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-muted">Name</label>
-          <input name="name" className="input" placeholder="e.g. Summer Block (defaults to template name)" />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-muted">Length</label>
-            <select name="weeks" className="input" defaultValue="5">
-              {[4, 5, 6].map((w) => (
-                <option key={w} value={w}>
-                  {w} weeks ({w - 1} training + 1 deload)
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-muted">Units</label>
-            <select name="unit" className="input" defaultValue={defaultUnit}>
-              <option value="lb">lb</option>
-              <option value="kg">kg</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 pt-1">
-          <GenerateButton disabled={!selectedKey} />
-          <span className="text-xs text-muted">
-            RIR ramps to 0 · volume rises by priority (MEV→MRV) · final week deloads
-          </span>
-        </div>
-      </div>
+      {/* Configure & create now lives inline under the selected card (configCard above).
+          Before anything is picked, just nudge the user toward the catalog. */}
+      {!selected && (
+        <p className="card px-4 py-6 text-center text-sm text-muted">Pick a template above to continue.</p>
+      )}
     </div>
   );
 }

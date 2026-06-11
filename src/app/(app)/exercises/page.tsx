@@ -40,14 +40,14 @@ export default async function ExercisesPage({
       </form>
 
       <div className="mb-5 flex flex-wrap gap-2">
-        <Link href={qs({ mg: undefined })} className={`chip ${!mgId ? "text-accent" : "hover:text-text"}`}>
+        <Link href={qs({ mg: undefined })} className={`chip chip-nav ${!mgId ? "text-accent" : "hover:text-text"}`}>
           All
         </Link>
         {muscleGroups.map((m) => (
           <Link
             key={m.id}
             href={qs({ mg: String(m.id) })}
-            className="chip hover:text-text"
+            className="chip chip-nav hover:text-text"
             style={mgId === m.id ? { borderColor: mgColor(m.name), color: mgColor(m.name) } : undefined}
           >
             <MgDot color={mgColor(m.name)} />
