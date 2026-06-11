@@ -67,6 +67,25 @@
   --grain-opacity: 0;
 }
 
+/* Light mode only: the left nav rail becomes a full orange panel. Rather than
+   restyling each child, we re-scope the semantic color tokens *inside* the rail
+   so Nav / Brand / ThemeToggle adapt automatically — surfaces become
+   translucent white, text and the active/hover states flip to white, and the
+   logo tile inverts to a white chip with orange bars. Dark mode is untouched
+   (no .app-sidebar override there, so the rail keeps its bg-panel/60 look). */
+[data-theme="light"] .app-sidebar {
+  background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+  --color-panel: #c2410c;
+  --color-panel-2: rgba(255, 255, 255, 0.18); /* active item + hover wash */
+  --color-line: rgba(255, 255, 255, 0.24); /* right border + divider */
+  --color-line-2: rgba(255, 255, 255, 0.24);
+  --color-text: #ffffff;
+  --color-muted: rgba(255, 255, 255, 0.85); /* inactive nav + subtitle (AA on orange) */
+  --color-accent: #ffffff; /* active label, active rail tick, "Meso" wordmark */
+  --color-accent-dim: rgba(255, 255, 255, 0.6); /* theme-toggle hover border */
+  --color-on-accent: #c2410c; /* orange bars inside the now-white logo tile */
+}
+
 html {
   background: var(--color-bg);
   color: var(--color-text);
