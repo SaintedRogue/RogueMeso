@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, BellRing } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
@@ -131,6 +131,19 @@ export default async function ProfilePage({
           </div>
           <p className="text-xs text-muted">Used to estimate your calorie &amp; macro targets in Body Tuning.</p>
         </ToastForm>
+
+        <CardLink href="/adhd-mode">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <BellRing aria-hidden size={18} className="shrink-0 text-accent" />
+              <div>
+                <div className="text-sm font-medium">ADHD Mode</div>
+                <div className="text-xs text-muted">Push reminders for workouts, meals, hydration &amp; more.</div>
+              </div>
+            </div>
+            <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+          </div>
+        </CardLink>
 
         {me.role === "admin" && (
           <CardLink href="/admin/users">
