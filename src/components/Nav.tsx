@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_LINKS, ADMIN_LINK, isActive } from "@/lib/nav";
+import { NAV_LINKS, isActive } from "@/lib/nav";
 
-export function Nav({ isAdmin }: { isAdmin?: boolean }) {
+export function Nav() {
   const path = usePathname();
-  const links = isAdmin ? [...NAV_LINKS, ADMIN_LINK] : NAV_LINKS;
+  // Profile & admin Users live in the bottom user menu now, not the nav list.
+  const links = NAV_LINKS.filter((l) => !l.inUserMenu);
   return (
     <nav aria-label="Primary" className="flex flex-col gap-0.5">
       {links.map((l) => {
