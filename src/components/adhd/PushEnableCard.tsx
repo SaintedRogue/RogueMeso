@@ -170,22 +170,23 @@ export function PushEnableCard({ globalEnabled }: { globalEnabled: boolean }) {
           </span>
           <div>
             <div className="font-semibold">ADHD Mode {enabled ? "is on" : "is off"}</div>
-            <p className="text-sm text-muted">Master switch for all habit reminders.</p>
+            <p className="text-sm text-muted">Turns all habit reminders on or off across your account.</p>
           </div>
         </div>
         <button
           type="button"
           role="switch"
           aria-checked={enabled}
+          aria-label="ADHD Mode master switch"
           onClick={toggleMaster}
           disabled={pending}
-          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
-            enabled ? "bg-accent" : "border border-line bg-panel-2"
+          className={`flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors disabled:opacity-60 ${
+            enabled ? "bg-accent" : "bg-panel-2 ring-1 ring-inset ring-line"
           }`}
         >
           <span
-            className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-              enabled ? "translate-x-5" : "translate-x-0.5"
+            className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+              enabled ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>
@@ -204,24 +205,42 @@ export function PushEnableCard({ globalEnabled }: { globalEnabled: boolean }) {
         </p>
       )}
 
-      {/* Per-device subscribe / test */}
+      {/* This device — per-device push registration (a separate scope from the master switch) */}
       {supported && (
-        <div className="flex flex-wrap gap-2">
-          {subscribed ? (
-            <>
-              <button type="button" onClick={test} disabled={pending} className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60">
-                <Send size={15} aria-hidden /> Send test
+        <div className="rounded-lg border border-line p-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${subscribed ? "bg-accent" : "bg-muted"}`} aria-hidden />
+            This device {subscribed ? "is set up" : "isn’t set up yet"}
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            {subscribed
+              ? "This browser is registered to receive push reminders."
+              : "Register this browser to receive reminders here — each device is enabled separately."}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {subscribed ? (
+              <>
+                <button type="button" onClick={test} disabled={pending} className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60">
+                  <Send size={15} aria-hidden /> Send test
+                </button>
+                <button type="button" onClick={disable} className="chip-nav inline-flex items-center gap-2">
+                  <BellOff size={15} aria-hidden /> Disable on this device
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={subscribe} className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
+                <Bell size={15} aria-hidden /> Enable on this device
               </button>
-              <button type="button" onClick={disable} className="chip-nav inline-flex items-center gap-2">
-                <BellOff size={15} aria-hidden /> Disable on this device
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={subscribe} className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
-              <Bell size={15} aria-hidden /> Enable on this device
-            </button>
-          )}
+            )}
+          </div>
         </div>
+      )}
+
+      {/* Set up on this device, but the account master is off → nothing will fire until it's on. */}
+      {supported && subscribed && !enabled && (
+        <p className="rounded-lg bg-panel-2 p-3 text-sm text-muted">
+          This device is set up, but ADHD Mode is off — turn the master switch on to start receiving reminders.
+        </p>
       )}
     </div>
   );
