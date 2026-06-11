@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-panel/60 px-3 py-5 backdrop-blur-sm sm:flex">
+      <aside className="app-sidebar hidden w-60 shrink-0 flex-col border-r border-line bg-panel/60 px-3 py-5 backdrop-blur-sm sm:flex">
         <Link href="/" className="mb-7 flex items-center gap-2.5 px-2">
           <LogoMark />
           <Wordmark />
