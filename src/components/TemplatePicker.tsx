@@ -7,7 +7,7 @@
 // server page only renders the <form action={createMesocycleAction}> wrapper, so the
 // server action stays server-defined and the submission contract (a templateKey field)
 // is unchanged.
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import type { Unit } from "@prisma/client";
@@ -92,7 +92,23 @@ export function TemplatePicker({
   // null = fetched but unavailable, object = loaded) so re-selecting is instant.
   const [previews, setPreviews] = useState<Record<string, TemplatePreview | null>>({});
   const [, startPreview] = useTransition();
-  const previewRef = useRef<HTMLDivElement>(null);
+  // Track the live column count (matches sm:grid-cols-2 / lg:grid-cols-3) so we can pop
+  // the preview in as a full-width row right after the selected card's row, not at the
+  // bottom of the grid. Defaults to 1 for SSR; corrected on mount before any selection.
+  const [cols, setCols] = useState(1);
+  useEffect(() => {
+    const compute = () =>
+      setCols(
+        window.matchMedia("(min-width: 1024px)").matches
+          ? 3
+          : window.matchMedia("(min-width: 640px)").matches
+            ? 2
+            : 1,
+      );
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
 
   function selectTemplate(key: string) {
     setSelectedKey(key);
@@ -103,15 +119,6 @@ export function TemplatePicker({
       });
     }
   }
-
-  // The preview renders below the (long) grid, so bring it into view on select —
-  // otherwise a card near the top expands a panel that's off-screen. Runs after the
-  // panel mounts (header + spinner show immediately, so there's something to land on).
-  useEffect(() => {
-    if (!selectedKey || !previewRef.current) return;
-    const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    previewRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
-  }, [selectedKey]);
 
   // Facet options derived from the data (so chips stay correct if the catalog changes).
   const focuses = useMemo(() => {
@@ -140,6 +147,67 @@ export function TemplatePicker({
   }, [templates, q, focus, days, sex, equip]);
 
   const selected = selectedKey ? templates.find((t) => t.key === selectedKey) ?? null : null;
+
+  // Where the preview slots into the grid: after the last card in the selected card's
+  // current-breakpoint row. -1 when nothing is selected or the selection is filtered out.
+  const selIdx = selectedKey ? filtered.findIndex((t) => t.key === selectedKey) : -1;
+  const previewAfter = selIdx < 0 ? -1 : Math.min((Math.floor(selIdx / cols) + 1) * cols - 1, filtered.length - 1);
+
+  // Full-width preview row: the selected template's priorities + day/slot breakdown.
+  // Mirrors the /templates/[key] detail layout; col-span-full makes it span the grid.
+  const previewPanel = selected ? (
+    <div className="card col-span-full overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div>
+          <div className="font-semibold leading-tight">{selected.name}</div>
+          <div className="text-xs text-muted">
+            {selected.emphasis} · {selected.sex}
+            {selected.frequency ? ` · ${selected.frequency}×/wk` : ""} ·{" "}
+            <span className="num">{selected.days}</span> days
+          </div>
+        </div>
+        <span className="chip border-accent text-accent">Selected</span>
+      </div>
+      <div className="p-4">
+        {!(selectedKey! in previews) ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-muted">
+            <Loader2 aria-hidden size={15} className="animate-spin" /> Loading preview…
+          </div>
+        ) : previews[selectedKey!] == null ? (
+          <p className="py-6 text-sm text-muted">Couldn’t load this template’s details.</p>
+        ) : (
+          <div className="space-y-4">
+            {previews[selectedKey!]!.priorities.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {previews[selectedKey!]!.priorities.map((p) => (
+                  <span key={p.name} className="chip" style={{ borderColor: mgColor(p.name) }}>
+                    <MgDot color={mgColor(p.name)} />
+                    {p.name} · {p.priority}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {previews[selectedKey!]!.days.map((d) => (
+                <div key={d.position} className="rounded-lg border border-line">
+                  <div className="border-b border-line px-3 py-2 text-xs font-semibold">Day {d.position + 1}</div>
+                  <div className="divide-y divide-line/60">
+                    {d.slots.map((s, i) => (
+                      <div key={i} className="flex items-center gap-2.5 px-3 py-1.5 text-xs">
+                        <MgDot color={mgColor(s.mg)} />
+                        <span style={{ color: mgColor(s.mg), minWidth: "4.5rem" }}>{s.mg}</span>
+                        <span>{s.exercise ?? <span className="italic text-muted">empty slot</span>}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-5">
@@ -212,92 +280,38 @@ export function TemplatePicker({
       {/* Card grid */}
       {filtered.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((t) => {
+          {filtered.map((t, idx) => {
             const eq = equipOf(t.name);
             const isSel = t.key === selectedKey;
             return (
-              <button
-                key={t.key}
-                type="button"
-                aria-pressed={isSel}
-                onClick={() => selectTemplate(t.key)}
-                className={`card block p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-panel-2/40 ${
-                  isSel ? "border-accent bg-panel-2/40 ring-1 ring-inset ring-accent" : ""
-                }`}
-              >
-                <div className="font-semibold leading-tight">{t.name}</div>
-                <div className="mt-1 text-xs text-muted">
-                  {t.emphasis} · {t.sex}
-                  {t.frequency ? ` · ${t.frequency}×/wk` : ""}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted">
-                    <span className="num">{t.days}</span> training days
-                  </span>
-                  {eq && <span className="chip">{EQUIP_LABEL[eq]}</span>}
-                </div>
-              </button>
+              <Fragment key={t.key}>
+                <button
+                  type="button"
+                  aria-pressed={isSel}
+                  onClick={() => selectTemplate(t.key)}
+                  className={`card block p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:bg-panel-2/40 ${
+                    isSel ? "border-accent bg-panel-2/40 ring-1 ring-inset ring-accent" : ""
+                  }`}
+                >
+                  <div className="font-semibold leading-tight">{t.name}</div>
+                  <div className="mt-1 text-xs text-muted">
+                    {t.emphasis} · {t.sex}
+                    {t.frequency ? ` · ${t.frequency}×/wk` : ""}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted">
+                      <span className="num">{t.days}</span> training days
+                    </span>
+                    {eq && <span className="chip">{EQUIP_LABEL[eq]}</span>}
+                  </div>
+                </button>
+                {idx === previewAfter && previewPanel}
+              </Fragment>
             );
           })}
         </div>
       ) : (
         <div className="card px-4 py-8 text-center text-muted">No templates match these filters.</div>
-      )}
-
-      {/* Inline preview of the selected template — its priorities and day/slot
-          breakdown, fetched on demand. Mirrors the /templates/[key] detail layout. */}
-      {selected && (
-        <div ref={previewRef} className="card scroll-mt-4 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <div>
-              <div className="font-semibold leading-tight">{selected.name}</div>
-              <div className="text-xs text-muted">
-                {selected.emphasis} · {selected.sex}
-                {selected.frequency ? ` · ${selected.frequency}×/wk` : ""} ·{" "}
-                <span className="num">{selected.days}</span> days
-              </div>
-            </div>
-            <span className="chip border-accent text-accent">Selected</span>
-          </div>
-          <div className="p-4">
-            {!(selectedKey! in previews) ? (
-              <div className="flex items-center gap-2 py-6 text-sm text-muted">
-                <Loader2 aria-hidden size={15} className="animate-spin" /> Loading preview…
-              </div>
-            ) : previews[selectedKey!] == null ? (
-              <p className="py-6 text-sm text-muted">Couldn’t load this template’s details.</p>
-            ) : (
-              <div className="space-y-4">
-                {previews[selectedKey!]!.priorities.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {previews[selectedKey!]!.priorities.map((p) => (
-                      <span key={p.name} className="chip" style={{ borderColor: mgColor(p.name) }}>
-                        <MgDot color={mgColor(p.name)} />
-                        {p.name} · {p.priority}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {previews[selectedKey!]!.days.map((d) => (
-                    <div key={d.position} className="rounded-lg border border-line">
-                      <div className="border-b border-line px-3 py-2 text-xs font-semibold">Day {d.position + 1}</div>
-                      <div className="divide-y divide-line/60">
-                        {d.slots.map((s, i) => (
-                          <div key={i} className="flex items-center gap-2.5 px-3 py-1.5 text-xs">
-                            <MgDot color={mgColor(s.mg)} />
-                            <span style={{ color: mgColor(s.mg), minWidth: "4.5rem" }}>{s.mg}</span>
-                            <span>{s.exercise ?? <span className="italic text-muted">empty slot</span>}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {/* Configure & create */}
