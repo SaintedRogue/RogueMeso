@@ -18,8 +18,8 @@ export type ViewSet = {
 export type ViewExercise = {
   id: number;
   status: string;
-  exercise: { name: string; exerciseType: string; notes: string | null; youtubeId: string | null } | null;
-  muscleGroup: { name: string };
+  exercise: { id: number; name: string; exerciseType: string; notes: string | null; youtubeId: string | null } | null;
+  muscleGroup: { id: number; name: string };
   sets: ViewSet[];
 };
 export type ViewDay = {
@@ -33,9 +33,11 @@ export type ViewDay = {
 export function DayView({
   day,
   meso,
+  muscleGroups,
 }: {
   day: ViewDay;
   meso: { name: string; weeksCount: number; unit: string };
+  muscleGroups: { id: number; name: string }[];
 }) {
   return (
     <div className="space-y-4">
@@ -56,6 +58,10 @@ export function DayView({
               status={ex.status}
               notes={ex.exercise?.notes ?? null}
               youtubeId={ex.exercise?.youtubeId ?? null}
+              dayExerciseId={ex.id}
+              currentExerciseId={ex.exercise?.id ?? null}
+              muscleGroupId={ex.muscleGroup.id}
+              muscleGroups={muscleGroups}
             />
             <div className="divide-y divide-line/60">
               {ex.sets.map((s) => (

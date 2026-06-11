@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useState } from "react";
-import { HelpCircle, PlayCircle } from "lucide-react";
+import { HelpCircle, PlayCircle, Repeat } from "lucide-react";
 import { MgDot, StatusPill } from "@/components/ui";
+import { SwapPanel } from "@/components/SwapPanel";
 import { parseInstructions } from "@/lib/exerciseNotes";
 
 type Props = {
@@ -14,6 +15,11 @@ type Props = {
   status: string;
   notes: string | null;
   youtubeId: string | null;
+  // Swap controls — the picker is muscle-group focused and lives in an inline panel.
+  dayExerciseId: number;
+  currentExerciseId: number | null;
+  muscleGroupId: number;
+  muscleGroups: { id: number; name: string }[];
 };
 
 /**
@@ -22,9 +28,24 @@ type Props = {
  * expands an inline panel directly below — no overlay, accordion-style. The `?` is
  * suppressed entirely when there's nothing to show, so it never opens an empty panel.
  */
-export function ExerciseInfo({ name, muscleGroupName, color, exerciseType, rirLabel, status, notes, youtubeId }: Props) {
+export function ExerciseInfo({
+  name,
+  muscleGroupName,
+  color,
+  exerciseType,
+  rirLabel,
+  status,
+  notes,
+  youtubeId,
+  dayExerciseId,
+  currentExerciseId,
+  muscleGroupId,
+  muscleGroups,
+}: Props) {
   const [open, setOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
   const panelId = useId();
+  const swapId = useId();
   const steps = parseInstructions(notes);
   const hasInfo = steps.length > 0 || !!youtubeId;
 
@@ -42,10 +63,28 @@ export function ExerciseInfo({ name, muscleGroupName, color, exerciseType, rirLa
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setSwapOpen((o) => !o);
+              setOpen(false);
+            }}
+            aria-expanded={swapOpen}
+            aria-controls={swapId}
+            aria-label={swapOpen ? `Cancel swapping ${name}` : `Swap ${name} for another ${muscleGroupName} exercise`}
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8 ${
+              swapOpen ? "text-accent" : "text-muted hover:text-text"
+            }`}
+          >
+            <Repeat size={17} aria-hidden />
+          </button>
           {hasInfo && (
             <button
               type="button"
-              onClick={() => setOpen((o) => !o)}
+              onClick={() => {
+                setOpen((o) => !o);
+                setSwapOpen(false);
+              }}
               aria-expanded={open}
               aria-controls={panelId}
               aria-label={open ? `Hide details for ${name}` : `Show details for ${name}`}
@@ -61,6 +100,17 @@ export function ExerciseInfo({ name, muscleGroupName, color, exerciseType, rirLa
           <StatusPill status={status} />
         </div>
       </div>
+
+      {swapOpen && (
+        <SwapPanel
+          id={swapId}
+          dayExerciseId={dayExerciseId}
+          currentExerciseId={currentExerciseId}
+          defaultMuscleGroupId={muscleGroupId}
+          muscleGroups={muscleGroups}
+          onDone={() => setSwapOpen(false)}
+        />
+      )}
 
       {hasInfo && open && (
         <div id={panelId} className="border-b border-line bg-panel/40 px-4 py-3 text-sm">
