@@ -15,7 +15,7 @@ export async function generateMesocycle(opts: {
   const template = await prisma.template.findUnique({
     where: { key: opts.templateKey },
     include: {
-      user: { select: { communityOptIn: true } },
+      user: { select: { communityOptIn: true, active: true } },
       priorities: true,
       days: { orderBy: { position: "asc" }, include: { slots: { orderBy: { position: "asc" } } } },
     },

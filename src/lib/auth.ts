@@ -14,7 +14,12 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const session = await verifySession(token);
   if (!session) return null;
-  return prisma.user.findUnique({ where: { id: session.uid } });
+  const user = await prisma.user.findUnique({ where: { id: session.uid } });
+  // A deactivated account is treated as signed-out even with a valid cookie, so an
+  // admin's deactivation takes effect on the user's very next request (requireUser
+  // then bounces them to /login, where login() also refuses them).
+  if (!user?.active) return null;
+  return user;
 });
 
 /** Require a signed-in user (used by pages + every mutating Server Action). */

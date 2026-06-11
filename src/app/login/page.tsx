@@ -38,7 +38,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             placeholder="Password"
             autoComplete="current-password"
           />
-          {error && <p className="text-sm text-bad">Incorrect password.</p>}
+          {error === "disabled" ? (
+            <p className="text-sm text-bad">This account has been deactivated. Contact an admin.</p>
+          ) : (
+            error && <p className="text-sm text-bad">Incorrect password.</p>
+          )}
           <button type="submit" className="btn-primary w-full px-4 py-2.5 text-sm">
             Sign in
           </button>

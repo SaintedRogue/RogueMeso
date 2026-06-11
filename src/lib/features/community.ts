@@ -272,7 +272,7 @@ export type FeedItem = {
 /** The chronological feed across all opted-in members, shaped for display. */
 export async function getFeed(viewerId: number, limit = 60): Promise<FeedItem[]> {
   const rows = await prisma.activity.findMany({
-    where: { user: { communityOptIn: true } },
+    where: { user: { communityOptIn: true, active: true } },
     orderBy: { occurredAt: "desc" },
     take: limit,
     include: {
@@ -308,20 +308,20 @@ export async function getLeaderboard(now = new Date()): Promise<LeaderboardRow[]
   const since30 = new Date(now.getTime() - 30 * 86_400_000);
 
   const members = await prisma.user.findMany({
-    where: { communityOptIn: true },
+    where: { communityOptIn: true, active: true },
     select: { id: true, name: true, email: true },
   });
   if (members.length === 0) return [];
 
   const days = await prisma.mesoDay.findMany({
-    where: { status: "complete", finishedAt: { gte: since30 }, meso: { user: { communityOptIn: true } } },
+    where: { status: "complete", finishedAt: { gte: since30 }, meso: { user: { communityOptIn: true, active: true } } },
     select: { finishedAt: true, meso: { select: { userId: true } } },
   });
   const sets = await prisma.exerciseSet.findMany({
     where: {
       status: "complete",
       finishedAt: { gte: since7 },
-      dayExercise: { day: { meso: { user: { communityOptIn: true } } } },
+      dayExercise: { day: { meso: { user: { communityOptIn: true, active: true } } } },
     },
     select: { weight: true, reps: true, dayExercise: { select: { day: { select: { meso: { select: { userId: true } } } } } } },
   });
@@ -357,8 +357,8 @@ export type SharedTemplate = {
 /** Templates other opted-in members have shared with the instance. */
 export async function getSharedTemplates(viewerId: number): Promise<SharedTemplate[]> {
   const rows = await prisma.template.findMany({
-    // user-owned (not the seeded library), shared, by someone who isn't the viewer and is opted in
-    where: { sharedWithInstance: true, userId: { not: null }, NOT: { userId: viewerId }, user: { communityOptIn: true } },
+    // user-owned (not the seeded library), shared, by an active member who isn't the viewer and is opted in
+    where: { sharedWithInstance: true, userId: { not: null }, NOT: { userId: viewerId }, user: { communityOptIn: true, active: true } },
     orderBy: [{ name: "asc" }, { frequency: "asc" }],
     select: {
       key: true,
@@ -383,5 +383,5 @@ export async function getSharedTemplates(viewerId: number): Promise<SharedTempla
 
 /** Count of opted-in members, for the page subtitle. */
 export function getCommunityMemberCount(): Promise<number> {
-  return prisma.user.count({ where: { communityOptIn: true } });
+  return prisma.user.count({ where: { communityOptIn: true, active: true } });
 }

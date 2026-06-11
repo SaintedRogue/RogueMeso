@@ -47,9 +47,10 @@ export async function toggleReaction(activityId: number, emoji: string): Promise
 
   const activity = await prisma.activity.findUnique({
     where: { id: activityId },
-    select: { user: { select: { communityOptIn: true } } },
+    select: { user: { select: { communityOptIn: true, active: true } } },
   });
-  if (!activity?.user.communityOptIn) return;
+  // Author must still be a visible community member (opted in AND active).
+  if (!activity?.user.communityOptIn || !activity.user.active) return;
 
   const existing = await prisma.reaction.findUnique({
     where: { activityId_userId_emoji: { activityId, userId: me.id, emoji } },

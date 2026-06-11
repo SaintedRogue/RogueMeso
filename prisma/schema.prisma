@@ -47,7 +47,13 @@ model User {
   email        String   @unique
   name         String?
   passwordHash String?
-  role         String   @default("user") // "admin" | "user"
+  role         String   @default("user") // "admin" | "user" (see lib/roles.ts)
+  // Soft account state. `active=false` blocks login AND invalidates live sessions
+  // (getCurrentUser rejects inactive users), so deactivation is instant + reversible
+  // without deleting the user's data. `mustChangePassword` forces a self-set password
+  // on next login — set by an admin password reset, cleared by changeMyPassword.
+  active             Boolean @default(true)
+  mustChangePassword Boolean @default(false)
   unit         Unit     @default(lb)
   heightCm      Float?
   birthDate     DateTime?
@@ -72,6 +78,23 @@ model User {
   notificationSchedule NotificationSchedule?
   habitConfigs         HabitConfig[]
   reminderLogs         ReminderLog[]
+}
+
+// Append-only record of admin actions on users (role changes, resets, deactivations,
+// deletions, edits). Deliberately NOT a relation: actor/target ids are bare ints and
+// the human label is snapshotted, so a log row stays readable even after the actor or
+// target is deleted.
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  actorId      Int?
+  actorLabel   String   // snapshot of the acting admin (name or email) at action time
+  action       String   // e.g. "user.role.set", "user.deactivate", "user.password.reset"
+  targetUserId Int?
+  targetLabel  String?  // snapshot of the affected user
+  detail       String?  // short human description, e.g. "user → admin"
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
 }
 
 // ----- Reference data -----

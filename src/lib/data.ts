@@ -7,12 +7,16 @@ import { prisma } from "@/lib/prisma";
 /** A template is usable by `userId` if it's the seeded library, their own, or shared by an
  *  opted-in member. The single source of truth for both reads (getTemplate) and the
  *  copy-on-use guard (generateMesocycle). Callers must select `userId`, `sharedWithInstance`
- *  and `user.communityOptIn`. */
+ *  and `user.communityOptIn` + `user.active` (a deactivated author's shares disappear). */
 export function isTemplateAccessible(
-  tpl: { userId: number | null; sharedWithInstance: boolean; user?: { communityOptIn: boolean } | null },
+  tpl: { userId: number | null; sharedWithInstance: boolean; user?: { communityOptIn: boolean; active: boolean } | null },
   userId: number,
 ): boolean {
-  return tpl.userId === null || tpl.userId === userId || (tpl.sharedWithInstance && !!tpl.user?.communityOptIn);
+  return (
+    tpl.userId === null ||
+    tpl.userId === userId ||
+    (tpl.sharedWithInstance && !!tpl.user?.communityOptIn && !!tpl.user?.active)
+  );
 }
 
 export function getMesocycles(userId: number) {
@@ -104,7 +108,7 @@ export async function getTemplate(key: string, userId: number) {
   const tpl = await prisma.template.findUnique({
     where: { key },
     include: {
-      user: { select: { id: true, name: true, email: true, communityOptIn: true } },
+      user: { select: { id: true, name: true, email: true, communityOptIn: true, active: true } },
       priorities: { include: { muscleGroup: true } },
       days: {
         orderBy: { position: "asc" },

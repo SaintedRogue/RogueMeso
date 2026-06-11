@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { isValidPassword } from "@/lib/password";
 import { SESSION_COOKIE, signSession } from "@/lib/session";
+import { ok, fail, type ActionResult } from "@/lib/actionResult";
 
 // A throwaway bcrypt hash compared against when no user matches, so a missing
 // account takes the same time as a wrong password (no email-enumeration oracle).
@@ -20,6 +21,8 @@ export async function login(formData: FormData) {
   // Always run a compare so timing doesn't reveal whether the email exists.
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!ok || !user?.passwordHash) redirect("/login?error=1");
+  // Deactivated accounts can't sign in (their data is retained, reversibly).
+  if (!user.active) redirect("/login?error=disabled");
 
   (await cookies()).set(SESSION_COOKIE, await signSession(user.id), {
     httpOnly: true,
@@ -77,6 +80,33 @@ export async function changeMyPassword(formData: FormData) {
   if (!ok) redirect("/profile?pw=bad");
   if (!isValidPassword(next)) redirect("/profile?pw=weak");
 
-  await prisma.user.update({ where: { id: me.id }, data: { passwordHash: await bcrypt.hash(next, 10) } });
+  // Clear any admin-set force-change flag: choosing your own password satisfies it.
+  await prisma.user.update({
+    where: { id: me.id },
+    data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
+  });
   redirect("/profile?pw=ok");
+}
+
+/**
+ * The forced-change flow shown by the app layout when `mustChangePassword` is set (after
+ * an admin reset). Same checks as changeMyPassword but toast-based (ToastForm), and it
+ * redirects home on success — clearing the flag lets the layout render the app again.
+ */
+export async function forcePasswordChange(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const current = String(formData.get("currentPassword") ?? "");
+  const next = String(formData.get("password") ?? "");
+
+  const okCurrent = !!me.passwordHash && (await bcrypt.compare(current, me.passwordHash));
+  if (!okCurrent) return fail("Current password is incorrect");
+  if (!isValidPassword(next)) return fail("New password must be 8–72 characters");
+  if (next === current) return fail("Choose a password different from the temporary one");
+
+  await prisma.user.update({
+    where: { id: me.id },
+    data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
+  });
+  redirect("/");
+  return ok(); // unreachable (redirect throws) — satisfies the ActionResult return type
 }
