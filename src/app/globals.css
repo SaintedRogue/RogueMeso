@@ -183,8 +183,14 @@ h1, h2, h3 {
 }
 .flash-good { animation: flash-good 0.9s ease-out; }
 
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateY(0.5rem); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.toast-in { animation: toast-in 0.18s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .stagger > *, .flash-good, .btn-primary { animation: none !important; transition: none !important; }
+  .stagger > *, .flash-good, .btn-primary, .toast-in { animation: none !important; transition: none !important; }
 }
 
 /* Touch devices: interactive controls meet the 44px minimum touch target.

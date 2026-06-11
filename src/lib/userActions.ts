@@ -5,19 +5,22 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { isValidPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ok, fail, type ActionResult } from "@/lib/actionResult";
 
-export async function createUser(formData: FormData) {
+export async function createUser(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim() || null;
   const password = String(formData.get("password") ?? "");
-  if (!email || !isValidPassword(password)) return;
+  if (!email) return fail("Email is required");
+  if (!isValidPassword(password)) return fail("Password must be 8–72 characters");
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return; // ignore duplicate emails
+  if (existing) return fail("That email is already in use");
   await prisma.user.create({
     data: { email, name, role: "user", passwordHash: await bcrypt.hash(password, 10) },
   });
   revalidatePath("/admin/users");
+  return ok(`Added ${name ?? email}`);
 }
 
 export async function resetUserPassword(id: number, password: string) {

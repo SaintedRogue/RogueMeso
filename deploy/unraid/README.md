@@ -53,7 +53,15 @@ On first start the app waits for the DB, runs migrations, seeds the library, the
 serves on port 3000. Watch progress: **Docker → roguemeso → Logs** — you should see
 `empty database — loading exercise + template seed...` then `seed loaded.`
 
-3. Open `http://10.0.0.232:3000`, register your account, and create a mesocycle.
+3. **Create your account.** Open `http://10.0.0.232:3000` — on a fresh database the app
+   shows a one-time **setup screen**. Enter a name, email, and password to create the
+   first (admin) account; you're signed straight in. Setup then closes permanently — any
+   later accounts are added from **Profile & Settings → User management** (admin only).
+   Now create your first mesocycle.
+
+   > ⚠️ **Do this promptly after deploying.** Until the first account exists, anyone who
+   > can reach the app on your LAN could claim the admin account. The setup screen
+   > self-locks the moment an account is created.
 
 ## Notes
 

@@ -1,9 +1,12 @@
+import { ChevronRight } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, CardLink } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ToastForm } from "@/components/forms";
 import { setBiometrics } from "@/lib/bodyTuningActions";
+import { cmToFtIn } from "@/lib/format";
 
 export default async function ProfilePage({
   searchParams,
@@ -12,6 +15,8 @@ export default async function ProfilePage({
 }) {
   const me = await requireUser();
   const { pw } = await searchParams;
+  const imperial = me.unit === "lb";
+  const h = me.heightCm != null ? cmToFtIn(me.heightCm) : null;
   return (
     <>
       <PageHeader title="Profile & Settings" subtitle={me.role === "admin" ? "Admin · self-hosted" : "Self-hosted"} />
@@ -30,24 +35,72 @@ export default async function ProfilePage({
           <ThemeToggle />
         </div>
 
-        <form action={setDefaultUnit} className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
+        <ToastForm
+          action={setDefaultUnit}
+          submitLabel="Save"
+          className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between"
+          submitClassName="btn-primary px-4 py-2 text-sm"
+        >
           <div className="flex-1">
             <label className="mb-1 block text-sm font-medium text-muted">Default units</label>
             <select name="unit" defaultValue={me.unit} className="input">
-              <option value="lb">lb</option>
-              <option value="kg">kg</option>
+              <option value="lb">lb / ft·in</option>
+              <option value="kg">kg / cm</option>
             </select>
-            <p className="mt-2 text-xs text-muted">Pre-selected when creating a new mesocycle.</p>
+            <p className="mt-2 text-xs text-muted">Pre-selected for new mesocycles, and sets how height is entered below.</p>
           </div>
-          <button type="submit" className="btn-primary px-4 py-2 text-sm">Save</button>
-        </form>
+        </ToastForm>
 
-        <form action={setBiometrics} className="card flex flex-col gap-4 p-6">
+        <ToastForm
+          action={setBiometrics}
+          submitLabel="Save profile"
+          className="card flex flex-col gap-4 p-6"
+          submitClassName="btn-primary self-start px-4 py-2 text-sm"
+        >
           <label className="block text-sm font-medium text-muted">Body Tuning profile</label>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="heightCm" className="mb-1 block text-xs text-muted">Height (cm)</label>
-              <input id="heightCm" name="heightCm" type="number" step="0.1" min="0" defaultValue={me.heightCm ?? ""} className="input" />
+              <label htmlFor={imperial ? "heightFt" : "heightCm"} className="mb-1 block text-xs text-muted">
+                Height {imperial ? "(ft · in)" : "(cm)"}
+              </label>
+              {imperial ? (
+                <div className="flex gap-2">
+                  <input
+                    id="heightFt"
+                    name="heightFt"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    defaultValue={h?.ft ?? ""}
+                    placeholder="ft"
+                    aria-label="Height (feet)"
+                    className="input"
+                  />
+                  <input
+                    name="heightIn"
+                    type="number"
+                    min="0"
+                    max="11"
+                    step="1"
+                    inputMode="numeric"
+                    defaultValue={h?.in ?? ""}
+                    placeholder="in"
+                    aria-label="Height (inches)"
+                    className="input"
+                  />
+                </div>
+              ) : (
+                <input
+                  id="heightCm"
+                  name="heightCm"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  defaultValue={me.heightCm ?? ""}
+                  className="input"
+                />
+              )}
             </div>
             <div>
               <label htmlFor="birthDate" className="mb-1 block text-xs text-muted">Birth date</label>
@@ -77,8 +130,19 @@ export default async function ProfilePage({
             </div>
           </div>
           <p className="text-xs text-muted">Used to estimate your calorie &amp; macro targets in Body Tuning.</p>
-          <button type="submit" className="btn-primary self-start px-4 py-2 text-sm">Save profile</button>
-        </form>
+        </ToastForm>
+
+        {me.role === "admin" && (
+          <CardLink href="/admin/users">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">User management</div>
+                <div className="text-xs text-muted">Add or remove household members.</div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+        )}
 
         <form action={changeMyPassword} className="card flex flex-col gap-4 p-6">
           <label className="block text-sm font-medium text-muted">Change password</label>

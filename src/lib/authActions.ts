@@ -36,6 +36,37 @@ export async function logout() {
   redirect("/login");
 }
 
+// First-run only: create the initial admin in the browser when the DB has no
+// users yet, then sign them in. Public (no session required) BUT self-closing:
+// it refuses the moment any user exists, so it can never be used to mint a
+// second admin. Mirrors the login cookie block on success.
+export async function createFirstAdmin(formData: FormData) {
+  if ((await prisma.user.count()) > 0) redirect("/login"); // already set up — locked
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const name = String(formData.get("name") ?? "").trim() || null;
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (!email || !email.includes("@")) redirect("/setup?err=email");
+  if (password !== confirm) redirect("/setup?err=mismatch");
+  if (!isValidPassword(password)) redirect("/setup?err=weak");
+  if (await prisma.user.findUnique({ where: { email } })) redirect("/setup?err=taken");
+
+  const user = await prisma.user.create({
+    data: { email, name, role: "admin", passwordHash: await bcrypt.hash(password, 10) },
+  });
+
+  (await cookies()).set(SESSION_COOKIE, await signSession(user.id), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60,
+    secure: process.env.NODE_ENV === "production",
+  });
+  redirect("/");
+}
+
 /** Change your own password — requires confirming the current one. */
 export async function changeMyPassword(formData: FormData) {
   const me = await requireUser();

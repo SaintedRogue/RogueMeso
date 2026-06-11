@@ -5,6 +5,7 @@ import { computeBodyTuning } from "@/lib/features/bodyTuning";
 import { logWeight, setMesoGoal } from "@/lib/bodyTuningActions";
 import { fmtWeight, fromKg } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/ui";
+import { ToastForm } from "@/components/forms";
 import { WeightChart } from "@/components/charts/WeightChart";
 
 const CONFIDENCE_COPY: Record<string, string> = {
@@ -69,7 +70,12 @@ export default async function BodyTuningPage() {
 
         {/* Goal control (bound to active meso) */}
         {bt.mesoId != null && (
-          <form action={setMesoGoal} className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end sm:justify-between">
+          <ToastForm
+            action={setMesoGoal}
+            submitLabel="Save goal"
+            className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end sm:justify-between"
+            submitClassName="btn-primary px-4 py-2 text-sm"
+          >
             <input type="hidden" name="mesoId" value={bt.mesoId} />
             <div className="flex-1">
               <label htmlFor="nutritionGoal" className="mb-1 block text-sm font-medium text-muted">
@@ -81,8 +87,7 @@ export default async function BodyTuningPage() {
                 <option value="bulk">Bulk</option>
               </select>
             </div>
-            <button type="submit" className="btn-primary px-4 py-2 text-sm">Save goal</button>
-          </form>
+          </ToastForm>
         )}
 
         {/* Quick weigh-in */}
@@ -117,7 +122,12 @@ function Macro({ label, grams }: { label: string; grams: number }) {
 
 function WeighInForm({ unit }: { unit: string }) {
   return (
-    <form action={logWeight} className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end">
+    <ToastForm
+      action={logWeight}
+      submitLabel="Log"
+      className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end"
+      submitClassName="btn-primary px-4 py-2 text-sm"
+    >
       <div className="flex-1">
         <label htmlFor="weight" className="mb-1 block text-sm font-medium text-muted">Today&apos;s weight ({unit})</label>
         <input id="weight" name="weight" type="number" step="0.1" min="0" required className="input" placeholder={unit === "kg" ? "80.0" : "176.0"} />
@@ -126,7 +136,6 @@ function WeighInForm({ unit }: { unit: string }) {
         <label htmlFor="bodyFatPct" className="mb-1 block text-sm font-medium text-muted">Body fat %</label>
         <input id="bodyFatPct" name="bodyFatPct" type="number" step="0.1" min="0" max="70" className="input" placeholder="optional" />
       </div>
-      <button type="submit" className="btn-primary px-4 py-2 text-sm">Log</button>
-    </form>
+    </ToastForm>
   );
 }
