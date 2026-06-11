@@ -3,26 +3,26 @@ import { Nav } from "@/components/Nav";
 import { BottomBar } from "@/components/BottomBar";
 import { LogoMark, Wordmark } from "@/components/Brand";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 import { requireUser } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   return (
     <div className="flex min-h-screen">
-      <aside className="app-sidebar hidden w-60 shrink-0 flex-col border-r border-line bg-panel/60 px-3 py-5 backdrop-blur-sm sm:flex">
+      {/* sticky + h-dvh keeps the rail viewport-height so its footer stays pinned to
+          the bottom of the screen — only <main> scrolls, not the whole row. */}
+      <aside className="app-sidebar sticky top-0 hidden h-dvh w-60 shrink-0 flex-col self-start overflow-y-auto border-r border-line bg-panel/60 px-3 py-5 backdrop-blur-sm sm:flex">
         <Link href="/" className="mb-7 flex items-center gap-2.5 px-2">
           <LogoMark />
           <Wordmark />
         </Link>
-        <Nav isAdmin={user.role === "admin"} />
+        <Nav />
         <div className="mt-auto px-2 pt-6">
           <div className="mb-3 border-t border-line pt-3">
             <ThemeToggle />
           </div>
-          <div className="truncate text-sm font-medium">{user.name ?? user.email}</div>
-          <div className="truncate text-[0.7rem] uppercase tracking-wider text-muted/70">
-            {user.role === "admin" ? "Admin · self-hosted" : "Self-hosted"}
-          </div>
+          <UserMenu name={user.name ?? user.email} isAdmin={user.role === "admin"} />
         </div>
       </aside>
       <main className="min-w-0 flex-1">

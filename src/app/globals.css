@@ -86,6 +86,21 @@
   --color-on-accent: #c2410c; /* orange bars inside the now-white logo tile */
 }
 
+/* The account popover floats above the orange rail — re-assert the base light
+   surface tokens so it reads as a normal elevated white card with dark text,
+   not the rail's orange-on-orange remap. (Dark mode leaves it untouched.) */
+[data-theme="light"] .app-sidebar .user-menu {
+  --color-panel: #ffffff;
+  --color-panel-2: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-line-2: #cbd5e1;
+  --color-text: #0f172a;
+  --color-muted: #475569;
+  --color-accent: #c2410c;
+  --color-accent-dim: #ea580c;
+  --color-bad: #dc2626;
+}
+
 html {
   background: var(--color-bg);
   color: var(--color-text);
