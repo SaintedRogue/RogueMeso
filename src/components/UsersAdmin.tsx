@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { createUser, resetUserPassword, deleteUser } from "@/lib/userActions";
+import { ToastForm } from "@/components/forms";
 
 type U = { id: number; email: string; name: string | null; role: string };
 
@@ -10,15 +11,14 @@ export function UsersAdmin({ users, meId }: { users: U[]; meId: number }) {
 
   return (
     <div className="max-w-2xl space-y-4">
-      <form action={createUser} className="card space-y-3 p-5">
+      <ToastForm action={createUser} submitLabel="Create user" className="card space-y-3 p-5">
         <div className="text-sm font-semibold">Add a user</div>
         <div className="grid gap-3 sm:grid-cols-2">
           <input className="input" name="email" type="email" placeholder="Email" required autoComplete="off" />
           <input className="input" name="name" placeholder="Name (optional)" autoComplete="off" />
         </div>
         <input className="input" name="password" type="text" placeholder="Temporary password (min 8)" required autoComplete="off" />
-        <button type="submit" className="btn-primary px-4 py-2 text-sm">Create user</button>
-      </form>
+      </ToastForm>
 
       <div className="card divide-y divide-line/60">
         {users.map((u) => (

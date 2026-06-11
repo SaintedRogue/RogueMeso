@@ -1,0 +1,69 @@
+"use client";
+
+import { useActionState, useEffect, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
+import type { ActionResult } from "@/lib/actionResult";
+import { toast } from "@/components/Toaster";
+
+function Spinner() {
+  return (
+    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * Submit button that disables itself and shows a spinner while its form is
+ * submitting. Reads useFormStatus, so it must be rendered inside a <form>.
+ */
+export function SubmitButton({
+  children,
+  className = "btn-primary px-4 py-2 text-sm",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className={`${className} inline-flex items-center justify-center gap-2 disabled:opacity-60`}
+    >
+      {pending && <Spinner />}
+      {children}
+    </button>
+  );
+}
+
+type ToastFormProps = {
+  /** A Server Action with the useActionState signature, returning an ActionResult. */
+  action: (state: ActionResult, formData: FormData) => Promise<ActionResult>;
+  children: ReactNode;
+  submitLabel: string;
+  className?: string;
+  submitClassName?: string;
+};
+
+/**
+ * A <form> bound to a Server Action that returns an ActionResult. The result is
+ * surfaced as a toast; the submit button shows a pending state. Form fields are
+ * passed as children (server-rendered, uncontrolled) and the submit button is
+ * appended after them.
+ */
+export function ToastForm({ action, children, submitLabel, className, submitClassName }: ToastFormProps) {
+  const [state, formAction] = useActionState(action, null);
+
+  useEffect(() => {
+    if (state) toast(state.message ?? (state.ok ? "Saved" : "Something went wrong"), state.ok ? "success" : "error");
+  }, [state]);
+
+  return (
+    <form action={formAction} className={className}>
+      {children}
+      <SubmitButton className={submitClassName}>{submitLabel}</SubmitButton>
+    </form>
+  );
+}

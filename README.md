@@ -62,9 +62,10 @@ adapt the model to your own methodology. See `src/lib/features/README.md` to ext
 The app ships as a self-contained Docker image that **bootstraps itself** on first
 start: it waits for Postgres, applies Prisma migrations to build the schema, then —
 only if the database is empty — loads the exercise + program-template library from
-`prisma/seed-data.sql`. No user accounts are seeded; you register your own and start a
-fresh mesocycle with the full library available. The seed gate is idempotent, so
-restarts never re-seed or clobber your data.
+`prisma/seed-data.sql`. No user accounts are seeded — on first visit the app shows a
+one-time **setup screen** to create the admin account, then locks it; you start a fresh
+mesocycle with the full library available. The seed gate is idempotent, so restarts
+never re-seed or clobber your data.
 
 ```
 docker-entrypoint.sh:  wait for DB → migrate deploy → seed if empty → next start
@@ -94,8 +95,11 @@ docker run -d --name roguemeso -p 3000:3000 --link roguemeso-db \
   roguemeso
 ```
 
-Open `http://<host>:3000` and register. Secrets (`POSTGRES_PASSWORD`, `AUTH_SECRET`)
-are passed at runtime and are **never** baked into the image.
+Open `http://<host>:3000`; the first visit shows the setup screen to create your admin
+account (do this promptly — it's open until the first account exists, then self-locks).
+Add further household members later from **Profile & Settings → User management**.
+Secrets (`POSTGRES_PASSWORD`, `AUTH_SECRET`) are passed at runtime and are **never**
+baked into the image.
 
 ### Maintaining the seeded library
 

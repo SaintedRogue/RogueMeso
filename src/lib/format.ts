@@ -55,3 +55,23 @@ export function toKg(value: number, unit: string): number {
 export function fromKg(kg: number, unit: string): number {
   return unit === "kg" ? kg : kg * LB_PER_KG;
 }
+
+export const CM_PER_IN = 2.54;
+const IN_PER_FT = 12;
+
+/**
+ * Height is stored canonically in cm; imperial users enter feet + inches. These
+ * mirror toKg/fromKg as the input-boundary conversion so the metric formulas in
+ * lib/features/bodyTuning.ts never see anything but cm.
+ */
+export function cmToFtIn(cm: number): { ft: number; in: number } {
+  const totalIn = Math.round(cm / CM_PER_IN);
+  return { ft: Math.floor(totalIn / IN_PER_FT), in: totalIn % IN_PER_FT };
+}
+
+/** Feet + inches to cm. Tolerates blank/NaN parts (treated as 0). */
+export function ftInToCm(ft: number, inches: number): number {
+  const f = Number.isFinite(ft) ? ft : 0;
+  const i = Number.isFinite(inches) ? inches : 0;
+  return (f * IN_PER_FT + i) * CM_PER_IN;
+}
