@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { getDay } from "@/lib/data";
+import { getDay, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill } from "@/components/ui";
@@ -17,6 +17,7 @@ export default async function DayPage({
   const pos = Number(day);
   const d = await getDay(key, wk, pos, me.id);
   if (!d) notFound();
+  const muscleGroups = await getMuscleGroups();
 
   const meso = d.meso;
   const prev = pos > 0 ? `/mesocycles/${key}/${wk}/${pos - 1}` : null;
@@ -44,7 +45,11 @@ export default async function DayPage({
         </div>
       </div>
 
-      <DayView day={d} meso={{ name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }} />
+      <DayView
+        day={d}
+        meso={{ name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }}
+        muscleGroups={muscleGroups}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell } from "lucide-react";
-import { getActiveMeso, getDay } from "@/lib/data";
+import { getActiveMeso, getDay, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, EmptyState } from "@/components/ui";
@@ -27,6 +27,7 @@ export default async function Home() {
   if (!current) return null;
   const day = await getDay(active.key, current.week, current.position, me.id);
   if (!day) return null;
+  const muscleGroups = await getMuscleGroups();
 
   return (
     <>
@@ -47,7 +48,11 @@ export default async function Home() {
         </div>
       </PageHeader>
 
-      <DayView day={day} meso={{ name: active.name, weeksCount: active.weeksCount, unit: active.unit }} />
+      <DayView
+        day={day}
+        meso={{ name: active.name, weeksCount: active.weeksCount, unit: active.unit }}
+        muscleGroups={muscleGroups}
+      />
     </>
   );
 }
