@@ -44,6 +44,18 @@ export function fmtWeight(w: number | null | undefined, unit = "lb"): string {
   return `${Number.isInteger(w) ? w : w.toFixed(1)} ${unit}`;
 }
 
+/** Compact relative time ("just now", "5m ago", "3d ago", then a date). Server-rendered. */
+export function timeAgo(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export const LB_PER_KG = 2.2046226218;
 
 /** Convert a weight entered in the user's unit to canonical kilograms. */

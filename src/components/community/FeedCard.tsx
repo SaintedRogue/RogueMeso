@@ -2,20 +2,7 @@ import Link from "next/link";
 import { Dumbbell, Trophy, Flag, type LucideIcon } from "lucide-react";
 import { ReactionBar } from "@/components/community/ReactionBar";
 import type { FeedItem } from "@/lib/features/community";
-import { fmtWeight } from "@/lib/format";
-
-/** Compact relative time. Rendered on the server at request time. */
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.round(diffMs / 60_000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
+import { fmtWeight, timeAgo } from "@/lib/format";
 
 const ICON: Record<FeedItem["type"], { icon: LucideIcon; color: string }> = {
   workoutComplete: { icon: Dumbbell, color: "var(--color-info)" },
