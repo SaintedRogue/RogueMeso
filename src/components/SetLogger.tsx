@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Trash2, X } from "lucide-react";
+import { Check, EllipsisVertical, X } from "lucide-react";
 import { logSet, skipSet, clearSet } from "@/lib/actions";
 import { fmtWeight } from "@/lib/format";
+
+type Scope = "day" | "meso";
 
 type Props = {
   set: {
@@ -22,16 +24,33 @@ type Props = {
   onWeightChange: (value: string) => void;
   /** Called with the logged weight after a successful log, to carry it down. */
   onLogged: (weight: string) => void;
+  /** Add a set to this group; "meso" also extends the same exercise's later occurrences. */
+  onAdd: (scope: Scope) => void | Promise<void>;
   /** Whether this set may be deleted (false when it's the group's only set). */
   canRemove: boolean;
   /** Delete this set; "meso" also trims the same exercise's later occurrences. */
-  onRemove: (scope: "day" | "meso") => void | Promise<void>;
+  onRemove: (scope: Scope) => void | Promise<void>;
 };
 
-export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogged, canRemove, onRemove }: Props) {
+// The ⋮ menu's inline states: closed, the action list, then a scope choice for the picked
+// action. Structural changes (add/remove) live here — two deliberate taps deep — so the row
+// itself carries no destructive control that could be hit by accident while logging.
+type Menu = "closed" | "root" | "add" | "remove";
+
+export function SetLogger({
+  set,
+  targetRir,
+  unit,
+  weight,
+  onWeightChange,
+  onLogged,
+  onAdd,
+  canRemove,
+  onRemove,
+}: Props) {
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
   const [flash, setFlash] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [menu, setMenu] = useState<Menu>("closed");
   const [pending, start] = useTransition();
   const done = set.status === "complete";
   const skipped = set.status === "skipped";
@@ -46,43 +65,95 @@ export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogg
     onLogged(weight);
   };
 
-  // A small trash button shown on every removable set, distinct from "skip" (which keeps the
-  // set in history). Deletion is a structural change, so it asks for scope before committing.
-  const removeButton = canRemove && (
+  // Run a structural action, then collapse the menu. (On a "remove this day" the row then
+  // unmounts after revalidation, so the collapse is just a no-op in that case.)
+  const run = (fn: (scope: Scope) => void | Promise<void>, scope: Scope) =>
+    start(async () => {
+      await fn(scope);
+      setMenu("closed");
+    });
+
+  const menuButton = (
     <button
-      onClick={() => setConfirmRemove(true)}
+      onClick={() => setMenu("root")}
       disabled={pending}
-      title="Remove set"
-      aria-label={`Remove set ${set.position + 1}`}
-      className="flex min-h-11 min-w-10 items-center justify-center text-muted hover:text-bad disabled:opacity-50 sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
+      title="Set options"
+      aria-label={`Options for set ${set.position + 1}`}
+      aria-haspopup="menu"
+      className="flex min-h-11 min-w-10 items-center justify-center text-muted hover:text-text disabled:opacity-50 sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
     >
-      <Trash2 aria-hidden size={15} strokeWidth={2.25} />
+      <EllipsisVertical aria-hidden size={16} strokeWidth={2.25} />
     </button>
   );
 
-  if (confirmRemove) {
+  if (menu !== "closed") {
     return (
-      <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-2 text-sm">
+      <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-2 text-sm" role="menu">
         <span className="num text-muted">{set.position + 1}</span>
         <span className="flex flex-wrap items-center gap-1.5">
-          <span className="text-muted">Remove from</span>
-          <button
-            onClick={() => start(() => onRemove("day"))}
-            disabled={pending}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
-          >
-            This day
-          </button>
-          <button
-            onClick={() => start(() => onRemove("meso"))}
-            disabled={pending}
-            className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
-          >
-            Rest of meso
-          </button>
+          {menu === "root" && (
+            <>
+              <button
+                onClick={() => setMenu("add")}
+                className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-accent hover:text-accent"
+              >
+                Add set
+              </button>
+              {canRemove && (
+                <button
+                  onClick={() => setMenu("remove")}
+                  className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad"
+                >
+                  Remove set
+                </button>
+              )}
+            </>
+          )}
+          {menu === "add" && (
+            <>
+              <span className="text-muted">Add to</span>
+              <button
+                onClick={() => run(onAdd, "day")}
+                disabled={pending}
+                className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                This day
+              </button>
+              <button
+                onClick={() => run(onAdd, "meso")}
+                disabled={pending}
+                className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                Rest of meso
+              </button>
+            </>
+          )}
+          {menu === "remove" && (
+            <>
+              <span className="text-muted">Remove from</span>
+              <button
+                onClick={() => run(onRemove, "day")}
+                disabled={pending}
+                className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
+              >
+                This day
+              </button>
+              <button
+                onClick={() => run(onRemove, "meso")}
+                disabled={pending}
+                className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
+              >
+                Rest of meso
+              </button>
+            </>
+          )}
         </span>
-        <button onClick={() => setConfirmRemove(false)} disabled={pending} className="text-xs text-muted hover:text-text">
-          cancel
+        <button
+          onClick={() => setMenu(menu === "root" ? "closed" : "root")}
+          disabled={pending}
+          className="text-xs text-muted hover:text-text"
+        >
+          {menu === "root" ? "close" : "back"}
         </button>
       </div>
     );
@@ -96,7 +167,7 @@ export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogg
         <button onClick={() => start(() => clearSet(set.id))} className="text-xs text-muted hover:text-text">
           undo
         </button>
-        {removeButton}
+        {menuButton}
       </div>
     );
   }
@@ -152,7 +223,7 @@ export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogg
             <X aria-hidden size={16} strokeWidth={2.5} />
           </button>
         )}
-        {removeButton}
+        {menuButton}
       </div>
     </div>
   );
