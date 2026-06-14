@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 import { logSet, skipSet, clearSet } from "@/lib/actions";
 import { fmtWeight } from "@/lib/format";
 
@@ -22,11 +22,16 @@ type Props = {
   onWeightChange: (value: string) => void;
   /** Called with the logged weight after a successful log, to carry it down. */
   onLogged: (weight: string) => void;
+  /** Whether this set may be deleted (false when it's the group's only set). */
+  canRemove: boolean;
+  /** Delete this set; "meso" also trims the same exercise's later occurrences. */
+  onRemove: (scope: "day" | "meso") => void | Promise<void>;
 };
 
-export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogged }: Props) {
+export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogged, canRemove, onRemove }: Props) {
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
   const [flash, setFlash] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [pending, start] = useTransition();
   const done = set.status === "complete";
   const skipped = set.status === "skipped";
@@ -41,14 +46,57 @@ export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogg
     onLogged(weight);
   };
 
+  // A small trash button shown on every removable set, distinct from "skip" (which keeps the
+  // set in history). Deletion is a structural change, so it asks for scope before committing.
+  const removeButton = canRemove && (
+    <button
+      onClick={() => setConfirmRemove(true)}
+      disabled={pending}
+      title="Remove set"
+      aria-label={`Remove set ${set.position + 1}`}
+      className="flex min-h-11 min-w-10 items-center justify-center text-muted hover:text-bad disabled:opacity-50 sm:min-h-0 sm:min-w-0 sm:px-1 sm:py-1"
+    >
+      <Trash2 aria-hidden size={15} strokeWidth={2.25} />
+    </button>
+  );
+
+  if (confirmRemove) {
+    return (
+      <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-2 text-sm">
+        <span className="num text-muted">{set.position + 1}</span>
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted">Remove from</span>
+          <button
+            onClick={() => start(() => onRemove("day"))}
+            disabled={pending}
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
+          >
+            This day
+          </button>
+          <button
+            onClick={() => start(() => onRemove("meso"))}
+            disabled={pending}
+            className="rounded-md border border-line px-2 py-1 text-xs font-medium hover:border-bad hover:text-bad disabled:opacity-50"
+          >
+            Rest of meso
+          </button>
+        </span>
+        <button onClick={() => setConfirmRemove(false)} disabled={pending} className="text-xs text-muted hover:text-text">
+          cancel
+        </button>
+      </div>
+    );
+  }
+
   if (skipped) {
     return (
-      <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 px-3 py-2 text-sm opacity-60">
+      <div className="grid grid-cols-[2rem_1fr_auto_auto] items-center gap-3 px-3 py-2 text-sm opacity-60">
         <span className="num text-muted">{set.position + 1}</span>
         <span className="italic text-muted">skipped</span>
         <button onClick={() => start(() => clearSet(set.id))} className="text-xs text-muted hover:text-text">
           undo
         </button>
+        {removeButton}
       </div>
     );
   }
@@ -104,6 +152,7 @@ export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogg
             <X aria-hidden size={16} strokeWidth={2.5} />
           </button>
         )}
+        {removeButton}
       </div>
     </div>
   );

@@ -70,7 +70,7 @@ export function DayView({
               muscleGroupId={ex.muscleGroup.id}
               muscleGroups={muscleGroups}
             />
-            <ExerciseSets sets={ex.sets} targetRir={targetRir} unit={meso.unit} />
+            <ExerciseSets sets={ex.sets} targetRir={targetRir} unit={meso.unit} dayExerciseId={ex.id} />
           </div>
         );
       })}
