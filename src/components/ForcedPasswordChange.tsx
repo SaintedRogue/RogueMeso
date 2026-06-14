@@ -39,6 +39,14 @@ export function ForcedPasswordChange({ name }: { name: string }) {
             autoComplete="new-password"
             required
           />
+          <input
+            className="input"
+            type="password"
+            name="confirm"
+            placeholder="Confirm new password"
+            autoComplete="new-password"
+            required
+          />
         </ToastForm>
       </div>
     </div>

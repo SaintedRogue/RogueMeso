@@ -1,6 +1,9 @@
 import { mgColor, rirForWeek } from "@/lib/format";
-import { SetLogger } from "@/components/SetLogger";
+import { ExerciseSets } from "@/components/ExerciseSets";
 import { ExerciseInfo } from "@/components/ExerciseInfo";
+import { CompleteSession } from "@/components/CompleteSession";
+
+const DONE_STATUSES = new Set(["complete", "skipped"]);
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -36,9 +39,13 @@ export function DayView({
   muscleGroups,
 }: {
   day: ViewDay;
-  meso: { name: string; weeksCount: number; unit: string };
+  meso: { key: string; name: string; weeksCount: number; unit: string };
   muscleGroups: { id: number; name: string }[];
 }) {
+  const openSets = day.exercises.reduce(
+    (n, ex) => n + ex.sets.filter((s) => !DONE_STATUSES.has(s.status)).length,
+    0,
+  );
   return (
     <div className="space-y-4">
       {day.exercises.length === 0 && (
@@ -63,14 +70,19 @@ export function DayView({
               muscleGroupId={ex.muscleGroup.id}
               muscleGroups={muscleGroups}
             />
-            <div className="divide-y divide-line/60">
-              {ex.sets.map((s) => (
-                <SetLogger key={s.id} set={s} targetRir={targetRir} unit={meso.unit} />
-              ))}
-            </div>
+            <ExerciseSets sets={ex.sets} targetRir={targetRir} unit={meso.unit} />
           </div>
         );
       })}
+      {day.exercises.length > 0 && (
+        <CompleteSession
+          mesoKey={meso.key}
+          week={day.week}
+          position={day.position}
+          openSets={openSets}
+          done={day.status === "complete"}
+        />
+      )}
     </div>
   );
 }

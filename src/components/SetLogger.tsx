@@ -17,10 +17,14 @@ type Props = {
   };
   targetRir: number | null;
   unit: string;
+  /** Weight is controlled by the parent so a logged set can pre-fill the next one. */
+  weight: string;
+  onWeightChange: (value: string) => void;
+  /** Called with the logged weight after a successful log, to carry it down. */
+  onLogged: (weight: string) => void;
 };
 
-export function SetLogger({ set, targetRir, unit }: Props) {
-  const [weight, setWeight] = useState(set.weight?.toString() ?? "");
+export function SetLogger({ set, targetRir, unit, weight, onWeightChange, onLogged }: Props) {
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
   const [flash, setFlash] = useState(false);
   const [pending, start] = useTransition();
@@ -34,6 +38,7 @@ export function SetLogger({ set, targetRir, unit }: Props) {
     setFlash(true);
     setTimeout(() => setFlash(false), 900);
     start(() => logSet(set.id, w, r));
+    onLogged(weight);
   };
 
   if (skipped) {
@@ -61,7 +66,7 @@ export function SetLogger({ set, targetRir, unit }: Props) {
         className="input num py-1"
         inputMode="decimal"
         value={weight}
-        onChange={(e) => setWeight(e.target.value)}
+        onChange={(e) => onWeightChange(e.target.value)}
         placeholder={set.weightTarget ? fmtWeight(set.weightTarget, unit) : unit}
         aria-label="weight"
       />

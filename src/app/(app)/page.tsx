@@ -50,7 +50,7 @@ export default async function Home() {
 
       <DayView
         day={day}
-        meso={{ name: active.name, weeksCount: active.weeksCount, unit: active.unit }}
+        meso={{ key: active.key, name: active.name, weeksCount: active.weeksCount, unit: active.unit }}
         muscleGroups={muscleGroups}
       />
     </>
