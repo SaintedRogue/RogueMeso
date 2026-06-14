@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { TemplateBrowser, type PickerTemplate } from "@/components/TemplateBrowser";
 import { ShareTemplateToggle } from "@/components/community/ShareTemplateToggle";
+import { TemplateOwnerActions } from "@/components/TemplateOwnerActions";
 
 export type LibraryTemplate = PickerTemplate & {
   /** Owner id (null = seeded library) — drives the share footer. */
@@ -30,16 +31,22 @@ export function TemplateLibrary({
   // The browser is ownership-agnostic; look ours up by key for the share footer.
   const own = new Map(templates.filter((t) => t.userId === meId).map((t) => [t.key, t]));
 
+  // The preview footer pairs the "use it" CTA with owner controls. Edit/Delete only render
+  // for the viewer's own templates — the detail page that used to host them isn't linked from
+  // anywhere, so this is the one place an owner can actually reach the (already-built) editor.
   const useCta = (selected: PickerTemplate) => (
     <div className="card col-span-full flex flex-wrap items-center justify-between gap-3 p-5">
       <span className="text-sm text-muted">Start a training block from this template.</span>
-      <Link
-        href={`/mesocycles/new?template=${encodeURIComponent(selected.key)}`}
-        className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-      >
-        Use this template
-        <ArrowRight aria-hidden size={15} />
-      </Link>
+      <div className="flex flex-wrap items-center gap-2">
+        {own.has(selected.key) && <TemplateOwnerActions templateKey={selected.key} />}
+        <Link
+          href={`/mesocycles/new?template=${encodeURIComponent(selected.key)}`}
+          className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+        >
+          Use this template
+          <ArrowRight aria-hidden size={15} />
+        </Link>
+      </div>
     </div>
   );
 
