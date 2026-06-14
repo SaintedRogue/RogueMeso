@@ -38,7 +38,9 @@ async function assertMesoOwner(key: string, userId: number) {
   if (!m || m.userId !== userId) throw new Error("Forbidden");
 }
 
-/** Form action: create a mesocycle from a template (owned by the current user) and go to it. */
+/** Form action: create a mesocycle from a template (owned by the current user) and go to it.
+ *  The new block is created active (generateMeso stamps activeAt); we then bench every other
+ *  block so exactly one stays active. */
 export async function createMesocycleAction(formData: FormData) {
   const me = await requireUser();
   const key = await generateMesocycle({
@@ -48,6 +50,15 @@ export async function createMesocycleAction(formData: FormData) {
     weeks: Number(formData.get("weeks") ?? 5),
     unit: (String(formData.get("unit") ?? "lb") === "kg" ? "kg" : "lb") as Unit,
   });
+  // Stamp the new block active and bench every other block in one transaction (single-active).
+  await prisma.$transaction([
+    prisma.mesocycle.updateMany({
+      where: { userId: me.id, activeAt: { not: null }, key: { not: key } },
+      data: { activeAt: null },
+    }),
+    prisma.mesocycle.update({ where: { key }, data: { activeAt: new Date() } }),
+  ]);
+  revalidatePath("/");
   revalidatePath("/mesocycles");
   redirect(`/mesocycles/${key}`);
 }
@@ -59,10 +70,57 @@ function revalidateMeso(key: string) {
   revalidatePath(`/mesocycles/${key}`);
 }
 
+/**
+ * Make `key` the single active/current block: stamp its activeAt and clear every other block's,
+ * in one transaction so two rows can never be active at once. A block that was archived or marked
+ * complete is reactivated to "ready" so "Set active" doubles as a resume. */
+export async function setActiveMesocycle(key: string) {
+  const me = await requireUser();
+  // Ownership read + status read + both writes share one transaction snapshot, so a concurrent
+  // finish/archive can't slip between "is it complete?" and the activate write.
+  await prisma.$transaction(async (tx) => {
+    const m = await tx.mesocycle.findUnique({ where: { key }, select: { userId: true, status: true } });
+    if (!m || m.userId !== me.id) throw new Error("Forbidden");
+    const reactivated = m.status === "archived" || m.status === "complete";
+    await tx.mesocycle.updateMany({
+      where: { userId: me.id, activeAt: { not: null }, key: { not: key } },
+      data: { activeAt: null },
+    });
+    await tx.mesocycle.update({
+      where: { key },
+      data: { activeAt: new Date(), ...(reactivated ? { status: "ready", finishedAt: null } : {}) },
+    });
+  });
+  revalidateMeso(key);
+}
+
+/** Rename a block. Name is required; trimmed and capped so a stray paste can't bloat the UI. */
+export async function renameMesocycle(key: string, name: string) {
+  const me = await requireUser();
+  await assertMesoOwner(key, me.id);
+  const clean = name.trim().slice(0, 80);
+  if (!clean) throw new Error("Name is required.");
+  await prisma.mesocycle.update({ where: { key }, data: { name: clean } });
+  revalidateMeso(key);
+}
+
+/** Finish a block: mark it complete and stamp finishedAt, and clear its active pointer so it
+ *  leaves the active pool (it's done — the home screen should move on). */
+export async function finishMesocycle(key: string) {
+  const me = await requireUser();
+  await assertMesoOwner(key, me.id);
+  await prisma.mesocycle.update({
+    where: { key },
+    data: { status: "complete", finishedAt: new Date(), activeAt: null },
+  });
+  revalidateMeso(key);
+}
+
 export async function archiveMesocycle(key: string) {
   const me = await requireUser();
   await assertMesoOwner(key, me.id);
-  await prisma.mesocycle.update({ where: { key }, data: { status: "archived" } });
+  // Archiving also benches the block — an archived meso must never be the active one.
+  await prisma.mesocycle.update({ where: { key }, data: { status: "archived", activeAt: null } });
   revalidateMeso(key);
 }
 

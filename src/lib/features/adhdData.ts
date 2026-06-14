@@ -153,7 +153,8 @@ export async function getOrCreateSchedule(userId: number) {
 export async function getTrainingState(userId: number): Promise<{ currentWeek: number | null; weeksCount: number | null }> {
   const meso = await prisma.mesocycle.findFirst({
     where: { userId, status: { notIn: ["archived", "complete"] } },
-    orderBy: { createdAt: "desc" },
+    // Track the explicitly-active block (matches getActiveMeso/home), else the newest one.
+    orderBy: [{ activeAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     select: {
       weeksCount: true,
       days: { where: { status: { not: "pending" } }, orderBy: { week: "desc" }, take: 1, select: { week: true } },

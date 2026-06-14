@@ -77,6 +77,8 @@ export async function generateMesocycle(opts: {
       generatedFrom: "template",
       sourceTemplateId: template.sourceId ?? null,
       startedAt: null,
+      // activeAt is stamped by createMesocycleAction in the same transaction that benches the
+      // others, so the single-active invariant never has a window where two blocks are active.
       priorities: {
         create: template.priorities.map((p) => ({ muscleGroupId: p.muscleGroupId, priority: p.priority })),
       },

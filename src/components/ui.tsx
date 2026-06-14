@@ -31,6 +31,11 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
+/** Marks the user's single active/current training block on the list and home screen. */
+export function ActiveBadge() {
+  return <StatusPill status="active" />;
+}
+
 export function EmptyState({
   title,
   hint,

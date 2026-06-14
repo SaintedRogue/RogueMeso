@@ -24,6 +24,7 @@ export function mgColor(name: string): string {
 }
 
 export const STATUS_STYLE: Record<string, { label: string; color: string }> = {
+  active: { label: "Active", color: "var(--color-accent)" }, // the user's single current block
   complete: { label: "Complete", color: "var(--color-good)" }, // green = done
   ready: { label: "Ready", color: "var(--color-accent)" }, // orange = up next
   current: { label: "Current", color: "var(--color-accent)" },
