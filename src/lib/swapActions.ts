@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { getExercises } from "@/lib/data";
-import { rolledUpDayStatus } from "@/lib/dayStatus";
+import { dedupeDays, recomputeDayStatus } from "@/lib/dayRollup";
 
 /** Slim, serializable shape the SwapPanel renders — no raw DB rows. */
 export type SwapCandidate = {
@@ -122,24 +122,4 @@ export async function swapExercise(dayExerciseId: number, newExerciseId: number,
   revalidatePath("/");
   revalidatePath(`/mesocycles/${key}`);
   for (const d of days) revalidatePath(`/mesocycles/${key}/${d.week}/${d.position}`);
-}
-
-function dedupeDays(days: { week: number; position: number }[]) {
-  const seen = new Map<string, { week: number; position: number }>();
-  for (const d of days) seen.set(`${d.week}:${d.position}`, d);
-  return [...seen.values()];
-}
-
-/** Recompute one day's roll-up status after a swap reset its sets. */
-async function recomputeDayStatus(mesoId: number, week: number, position: number) {
-  const day = await prisma.mesoDay.findFirst({
-    where: { mesoId, week, position },
-    include: { exercises: { include: { sets: { select: { status: true } } } } },
-  });
-  if (!day) return;
-  const status = rolledUpDayStatus(day.exercises, day.status);
-  await prisma.mesoDay.update({
-    where: { id: day.id },
-    data: { status, finishedAt: status === "complete" ? day.finishedAt ?? new Date() : null },
-  });
 }
