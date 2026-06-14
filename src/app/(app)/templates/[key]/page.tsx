@@ -3,19 +3,23 @@ import { getTemplate } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { PageHeader, MgDot } from "@/components/ui";
 import { mgColor } from "@/lib/format";
+import { TemplateOwnerActions } from "@/components/TemplateOwnerActions";
 
 export default async function TemplateDetail({ params }: { params: Promise<{ key: string }> }) {
   const me = await requireUser();
   const { key } = await params;
   const t = await getTemplate(key, me.id);
   if (!t) notFound();
+  const isOwner = t.userId === me.id;
 
   return (
     <>
       <PageHeader
         title={t.name}
         subtitle={`${t.emphasis} · ${t.sex}${t.frequency ? ` · ${t.frequency}×/wk` : ""}`}
-      />
+      >
+        {isOwner && <TemplateOwnerActions templateKey={t.key} />}
+      </PageHeader>
 
       {t.priorities.length > 0 && (
         <div className="card mb-6 p-4">

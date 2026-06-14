@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getTemplates } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
@@ -22,7 +24,15 @@ export default async function TemplatesPage() {
 
   return (
     <>
-      <PageHeader title="Templates" subtitle={`${templates.length} program templates`} />
+      <PageHeader title="Templates" subtitle={`${templates.length} program templates`}>
+        <Link
+          href="/templates/new"
+          className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+        >
+          <Plus aria-hidden size={15} />
+          New template
+        </Link>
+      </PageHeader>
       <TemplateLibrary templates={library} meId={me.id} communityOptIn={me.communityOptIn} defaultSex={defaultSex} />
     </>
   );
