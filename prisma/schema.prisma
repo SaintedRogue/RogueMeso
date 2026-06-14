@@ -215,6 +215,9 @@ model Mesocycle {
   targetRatePctPerWeek Float?    // optional signed override (fraction of BW/week)
   startedAt        DateTime?
   finishedAt       DateTime?
+  // The single "active"/current block per user. Exactly one row per user is non-null (the
+  // app enforces this in a transaction on activate/create); getActiveMeso prefers it.
+  activeAt         DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

@@ -34,9 +34,17 @@ const homeDays = {
   orderBy: [{ week: "asc" }, { position: "asc" }],
 } satisfies Prisma.Mesocycle$daysArgs;
 
-/** The meso to show on the home/current-workout screen: active one, else most recent. */
+/** The meso to show on the home/current-workout screen. The user's explicitly-activated block
+ *  wins (activeAt is the single-active pointer); absent one (legacy data, pre-activate) we fall
+ *  back to the newest unfinished block, then to the newest non-archived one. */
 export async function getActiveMeso(userId: number) {
   return (
+    (await prisma.mesocycle.findFirst({
+      // status guard is defensive: write paths always clear activeAt before completing/archiving.
+      where: { userId, activeAt: { not: null }, status: { notIn: ["complete", "archived"] } },
+      orderBy: { activeAt: "desc" },
+      include: { days: homeDays },
+    })) ??
     (await prisma.mesocycle.findFirst({
       where: { userId, status: { notIn: ["complete", "archived"] }, finishedAt: null },
       orderBy: { createdAt: "desc" },

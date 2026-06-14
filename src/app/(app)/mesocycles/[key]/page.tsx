@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMesocycle } from "@/lib/data";
-import { PageHeader, StatusPill, MgDot } from "@/components/ui";
-import { MesoActions } from "@/components/MesoActions";
+import { PageHeader, StatusPill, ActiveBadge, MgDot } from "@/components/ui";
+import { MesoMenu } from "@/components/MesoMenu";
 import { requireUser } from "@/lib/auth";
 import { mgColor } from "@/lib/format";
 
@@ -25,9 +25,10 @@ export default async function MesoDetail({ params }: { params: Promise<{ key: st
         title={meso.name}
         subtitle={`${meso.weeksCount} weeks · ${meso.daysPerWeek} days/wk · ${meso.unit}`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {meso.activeAt && <ActiveBadge />}
           <StatusPill status={meso.status} />
-          <MesoActions mesoKey={meso.key} archived={meso.status === "archived"} />
+          <MesoMenu mesoKey={meso.key} name={meso.name} status={meso.status} isActive={meso.activeAt != null} />
         </div>
       </PageHeader>
 

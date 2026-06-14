@@ -3,7 +3,7 @@ import { ArrowRight, Dumbbell } from "lucide-react";
 import { getActiveMeso, getDay, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
-import { PageHeader, StatusPill, EmptyState } from "@/components/ui";
+import { PageHeader, StatusPill, ActiveBadge, EmptyState } from "@/components/ui";
 
 export default async function Home() {
   const me = await requireUser();
@@ -38,6 +38,7 @@ export default async function Home() {
         }`}
       >
         <div className="flex items-center gap-2">
+          {active.activeAt && <ActiveBadge />}
           <StatusPill status={current.status} />
           <Link
             href={`/mesocycles/${active.key}`}

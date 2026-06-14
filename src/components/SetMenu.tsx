@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, EllipsisVertical, Plus, Trash2 } from "lucide-react";
+import { usePopover } from "@/components/usePopover";
 
 type Scope = "day" | "meso";
 type Step = "root" | "add" | "remove";
@@ -25,63 +26,9 @@ export function SetMenu({
   onAdd: (scope: Scope) => void | Promise<void>;
   onRemove: (scope: Scope) => void | Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("root");
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [pending, start] = useTransition();
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Position against the trigger once the menu has rendered (so we know its real size).
-  // Prefer dropping below; flip above when the row sits too low to fit. Kept hidden until
-  // placed, so a mispositioned first frame is never painted.
-  useEffect(() => {
-    if (!open) return;
-    const btn = btnRef.current;
-    const menu = menuRef.current;
-    if (!btn || !menu) return;
-    const r = btn.getBoundingClientRect();
-    const mh = menu.offsetHeight;
-    const mw = menu.offsetWidth;
-    const margin = 6;
-    const below = window.innerHeight - r.bottom;
-    const placeAbove = below < mh + margin && r.top > below;
-    const top = placeAbove ? Math.max(8, r.top - mh - margin) : r.bottom + margin;
-    const left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8));
-    setPos({ top, left });
-  }, [open, step]);
-
-  // Reset to a clean state whenever the menu closes.
-  useEffect(() => {
-    if (!open) {
-      setPos(null);
-      setStep("root");
-    }
-  }, [open]);
-
-  // Standard popover dismissal, plus scroll/resize (the portal is position:fixed).
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onShift = () => setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onShift, true);
-    window.addEventListener("resize", onShift);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onShift, true);
-      window.removeEventListener("resize", onShift);
-    };
-  }, [open]);
+  const { open, setOpen, toggle, pos, btnRef, menuRef } = usePopover(step);
 
   const run = (fn: (scope: Scope) => void | Promise<void>, scope: Scope) =>
     start(async () => {
@@ -97,7 +44,10 @@ export function SetMenu({
       <button
         ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) setStep("root"); // fresh root each open (we never reset on close)
+          toggle();
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         title="Set options"
