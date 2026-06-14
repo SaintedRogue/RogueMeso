@@ -8,13 +8,17 @@
    tokens (--color-*) via Tailwind utilities / the component classes below, so
    swapping these variables re-themes the whole app — no per-component `dark:`. */
 @theme {
-  --color-bg: #0c0a09; /* warm near-black */
-  --color-panel: #16120e;
-  --color-panel-2: #1d1813;
-  --color-input: #0a0807; /* recessed field fill (dark) */
-  --color-line: #2b231b;
-  --color-line-2: #3a3026;
-  --color-muted: #a39a8e;
+  --color-bg: #0c0a09; /* warm near-black (the canvas) */
+  /* Dark elevation comes from LIGHTER surfaces, not shadow (a black shadow is
+     invisible on a black canvas). Each step up the stack gets warmer/lighter so
+     cards lift off the page and nested rows separate. panel:bg ≈ 1.18, the
+     perception floor; line:bg ≈ 1.65 keeps card edges crisp. */
+  --color-panel: #231d16;
+  --color-panel-2: #2f271e;
+  --color-input: #0a0807; /* recessed field fill — stays below panel to read inset */
+  --color-line: #403528;
+  --color-line-2: #52442f;
+  --color-muted: #b3a89a;
   --color-text: #f7f3ee;
 
   --color-accent: #ff6a2b; /* HERO orange — brand, primary actions, current/ready */
@@ -140,10 +144,11 @@ h1, h2, h3 {
 
 @layer components {
   .card {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--color-panel) 100%, white 2%), var(--color-panel));
+    background: linear-gradient(180deg, color-mix(in oklab, var(--color-panel) 100%, white 4%), var(--color-panel));
     border: 1px solid var(--color-line);
     border-radius: 0.9rem;
-    box-shadow: 0 1px 0 0 color-mix(in oklab, white 5%, transparent) inset, 0 12px 30px -18px #000;
+    /* Lit top edge (visible on dark) + ambient drop shadow (carries light mode). */
+    box-shadow: 0 1px 0 0 color-mix(in oklab, white 8%, transparent) inset, 0 12px 30px -18px #000;
   }
   .chip {
     display: inline-flex;
