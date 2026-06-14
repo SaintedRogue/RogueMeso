@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "gen:changelog": "node scripts/gen-changelog.mjs",
     "db:seed": "tsx prisma/seed/index.ts",
     "db:admin": "tsx prisma/seed/createAdmin.ts",
     "test": "vitest run",
