@@ -4,13 +4,16 @@
 // so this can't run inside the build). The Dockerfile then COPYs the resulting file into
 // the image, where lib/changelog.ts reads it at runtime.
 //
-//   node scripts/gen-changelog.mjs   (or: npm run gen:changelog)
+//   node scripts/gen-changelog.mjs            → writes ./changelog.json
+//   node scripts/gen-changelog.mjs <outPath>  → writes <outPath> (used by the CI guard
+//                                               to validate non-destructively)
 //
 // The file is committed as a baseline so `docker build` never fails on a missing COPY
 // source; the deploy step regenerates it so the shipped image reflects the built commit.
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
+const OUT = process.argv[2] ?? "changelog.json";
 const LIMIT = 200; // bounds the committed file; far more than any realistic version gap.
 
 // NUL-ish delimiters keep arbitrary commit subjects intact: \x1f between fields, \x1e
@@ -38,5 +41,5 @@ const commits = raw
   });
 
 const out = { generatedFromSha: commits[0]?.sha ?? null, commits };
-writeFileSync("changelog.json", JSON.stringify(out) + "\n");
-console.log(`gen-changelog: wrote ${commits.length} commits to changelog.json`);
+writeFileSync(OUT, JSON.stringify(out) + "\n");
+console.log(`gen-changelog: wrote ${commits.length} commits to ${OUT}`);
