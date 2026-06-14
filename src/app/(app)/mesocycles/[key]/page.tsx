@@ -46,39 +46,47 @@ export default async function MesoDetail({ params }: { params: Promise<{ key: st
         </div>
       )}
 
-      <div className="space-y-4">
+      {/* Break the week rows out of the shared max-w-5xl shell to fill <main>, so all
+          days of a week sit side by side on desktop. Centered on main (not the viewport)
+          via left-1/2 + an explicit width that accounts for the 240px (w-60) sidebar. */}
+      <section className="relative left-1/2 w-screen -translate-x-1/2 space-y-5 px-4 sm:w-[calc(100vw-15rem)] sm:px-8">
         {[...byWeek.entries()].map(([week, days]) => (
           <div key={week}>
             <div className="mb-2 text-sm font-semibold text-muted">Week {week + 1}</div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {days.map((d) => {
-                const mgs = [...new Set(d.exercises.map((e) => e.muscleGroup.name))];
-                return (
-                  <Link
-                    key={d.id}
-                    href={`/mesocycles/${meso.key}/${d.week}/${d.position}`}
-                    className="card p-3 transition-colors hover:border-accent-dim"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">
-                        Day {d.position + 1}
-                        {d.label ? <span className="text-muted"> · {d.label}</span> : ""}
-                      </span>
-                      <StatusPill status={d.status} />
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {mgs.map((m) => (
-                        <MgDot key={m} color={mgColor(m)} />
+            {/* flex-1 + min-w lets days fill the row when they fit and hold a readable
+                width (scrolling the row) when there are too many to fit. */}
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {days.map((d) => (
+                <Link
+                  key={d.id}
+                  href={`/mesocycles/${meso.key}/${d.week}/${d.position}`}
+                  className="card flex min-w-[15rem] flex-1 flex-col p-3 transition-colors hover:border-accent-dim"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">
+                      Day {d.position + 1}
+                      {d.label ? <span className="text-muted"> · {d.label}</span> : ""}
+                    </span>
+                    <StatusPill status={d.status} />
+                  </div>
+                  {d.exercises.length > 0 ? (
+                    <ul className="mt-2.5 space-y-1.5">
+                      {d.exercises.map((e) => (
+                        <li key={e.id} className="flex items-center gap-2 text-xs">
+                          <MgDot color={mgColor(e.muscleGroup.name)} />
+                          <span className="truncate">{e.exercise.name}</span>
+                        </li>
                       ))}
-                      <span className="ml-1 text-xs text-muted">{d.exercises.length} exercises</span>
-                    </div>
-                  </Link>
-                );
-              })}
+                    </ul>
+                  ) : (
+                    <p className="mt-2.5 text-xs text-muted">No exercises</p>
+                  )}
+                </Link>
+              ))}
             </div>
           </div>
         ))}
-      </div>
+      </section>
     </>
   );
 }
