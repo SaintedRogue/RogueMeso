@@ -35,7 +35,9 @@ export type TemplateExercise = {
 const PRIORITIES: MgPriority[] = ["maintain", "grow", "emphasize"];
 
 /**
- * Candidate exercises for a builder slot, scoped to one muscle group. Auth only — unlike
+ * Candidate exercises for a builder slot. Browsing is scoped to the slot's muscle group, but
+ * a search query escapes that scope and spans the whole catalog — otherwise searching e.g.
+ * "tricep" while the slot defaults to Chest would wrongly return nothing. Auth only — unlike
  * getSwapCandidates there's no DayExercise to own yet. getExercises already scopes to the
  * shared catalog + the user's own, so the picker can only surface valid exercises.
  */
@@ -44,7 +46,8 @@ export async function getTemplateExercises(
   search?: string,
 ): Promise<TemplateExercise[]> {
   const me = await requireUser();
-  const list = await getExercises(me.id, search?.trim() || undefined, muscleGroupId);
+  const q = search?.trim() || undefined;
+  const list = await getExercises(me.id, q, q ? undefined : muscleGroupId);
   return list.map((e) => ({
     id: e.id,
     name: e.name,

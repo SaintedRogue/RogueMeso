@@ -15,8 +15,9 @@ export type SwapCandidate = {
 };
 
 /**
- * Candidate exercises a `DayExercise` can be swapped to, scoped to one muscle group
- * (defaults to the slot's own group; the picker can pass another for the escape hatch).
+ * Candidate exercises a `DayExercise` can be swapped to. Browsing is scoped to one muscle
+ * group (defaults to the slot's own; the dropdown is the escape hatch), but a search query
+ * spans the whole catalog so users can find a movement without first guessing its group.
  * Auth + ownership are enforced here; the picker is a client component so it can't read
  * the DB directly. Mirrors getTemplatePreview: we map to a minimal shape so only what the
  * UI draws crosses the wire.
@@ -28,7 +29,8 @@ export async function getSwapCandidates(
 ): Promise<SwapCandidate[]> {
   const me = await requireUser();
   await assertDayExerciseOwner(dayExerciseId, me.id);
-  const list = await getExercises(me.id, search?.trim() || undefined, muscleGroupId);
+  const q = search?.trim() || undefined;
+  const list = await getExercises(me.id, q, q ? undefined : muscleGroupId);
   return list.map((e) => ({
     id: e.id,
     name: e.name,
