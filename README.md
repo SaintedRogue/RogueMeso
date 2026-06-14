@@ -1,5 +1,7 @@
 # RogueMeso
 
+[![CI](https://github.com/SaintedRogue/RogueMeso/actions/workflows/ci.yml/badge.svg)](https://github.com/SaintedRogue/RogueMeso/actions/workflows/ci.yml)
+
 A self-hosted hypertrophy training app — build mesocycles, log your sets with RIR targets,
 and let the progression engine handle weekly volume/intensity and deloads. Multi-user for a
 household: an admin provisions accounts, and each person's training data is private.
