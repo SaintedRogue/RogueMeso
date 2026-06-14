@@ -53,6 +53,9 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# Baked changelog (generated from git log on the build host — see scripts/gen-changelog.mjs).
+# Read server-side at runtime by the "What's new" panel; never served to clients.
+COPY --from=builder /app/changelog.json ./changelog.json
 
 # Prisma schema + migrations + seed snapshot, and the generated client + query
 # engine (the standalone trace does not reliably include the engine binary).

@@ -63,6 +63,10 @@ model User {
   // user neither posts to the feed nor appears on leaderboards — every community
   // query filters on this flag, so opt-out is instant and reversible (no data loss).
   communityOptIn Boolean @default(false)
+  // Last app version (git SHA, see APP_VERSION) whose "What's new" panel this user has
+  // acknowledged. null = never seen the panel; baselined to the current version on first
+  // load so a user only ever sees changes shipped *after* they started using it.
+  lastSeenVersion String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

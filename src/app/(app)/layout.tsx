@@ -4,13 +4,16 @@ import { BottomBar } from "@/components/BottomBar";
 import { LogoMark, Wordmark } from "@/components/Brand";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { UpdatesPanel } from "@/components/UpdatesPanel";
 import { ForcedPasswordChange } from "@/components/ForcedPasswordChange";
 import { requireUser } from "@/lib/auth";
+import { getUpdates } from "@/lib/updates";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // Admin-forced reset: lock the whole app behind a password change until it's done.
   if (user.mustChangePassword) return <ForcedPasswordChange name={user.name ?? user.email} />;
+  const updates = await getUpdates();
   return (
     <div className="flex min-h-screen">
       {/* sticky + h-dvh keeps the rail viewport-height so its footer stays pinned to
@@ -25,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="mb-3 border-t border-line pt-3">
             <ThemeToggle />
           </div>
+          <UpdatesPanel state={updates} />
           <UserMenu name={user.name ?? user.email} isAdmin={user.role === "admin"} />
         </div>
       </aside>
