@@ -3,7 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import { MgDot } from "@/components/ui";
+import { EquipmentPreference } from "@/components/EquipmentPreference";
 import { mgColor } from "@/lib/format";
+import { sortByEquipmentPreference } from "@/lib/equipment";
 import { getSwapCandidates, swapExercise, type SwapCandidate } from "@/lib/swapActions";
 
 type Props = {
@@ -24,12 +26,23 @@ type Props = {
 export function SwapPanel({ id, dayExerciseId, currentExerciseId, defaultMuscleGroupId, muscleGroups, onDone }: Props) {
   const [mgId, setMgId] = useState(defaultMuscleGroupId);
   const [search, setSearch] = useState("");
+  const [equip, setEquip] = useState<Set<string>>(new Set());
   const [candidates, setCandidates] = useState<SwapCandidate[] | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const mgName = (gid: number) => muscleGroups.find((m) => m.id === gid)?.name ?? "";
+  const toggleEquip = (value: string) =>
+    setEquip((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+
+  // Soft preference: reorder (never filter) the fetched candidates so preferred gear floats up.
+  const shown = candidates && sortByEquipmentPreference(candidates, equip);
 
   // Load candidates for the chosen group + search (debounced); ignore stale responses.
   useEffect(() => {
@@ -83,16 +96,18 @@ export function SwapPanel({ id, dayExerciseId, currentExerciseId, defaultMuscleG
             className="input w-full py-1.5 pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Search ${mgName(mgId)} exercises…`}
+            placeholder="Search all exercises…"
             aria-label="Search exercises"
           />
         </div>
       </div>
 
+      <EquipmentPreference selected={equip} onToggle={toggleEquip} />
+
       <ul className="max-h-64 space-y-1 overflow-y-auto" role="listbox" aria-label="Swap options">
-        {candidates === null && <li className="px-1 py-2 text-muted">Loading…</li>}
-        {candidates?.length === 0 && <li className="px-1 py-2 text-muted">No exercises found.</li>}
-        {candidates?.map((c) => {
+        {shown === null && <li className="px-1 py-2 text-muted">Loading…</li>}
+        {shown?.length === 0 && <li className="px-1 py-2 text-muted">No exercises found.</li>}
+        {shown?.map((c) => {
           const isCurrent = c.id === currentExerciseId;
           const selected = c.id === selectedId;
           return (

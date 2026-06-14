@@ -3,7 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { MgDot } from "@/components/ui";
+import { EquipmentPreference } from "@/components/EquipmentPreference";
 import { mgColor } from "@/lib/format";
+import { sortByEquipmentPreference } from "@/lib/equipment";
 import { getTemplateExercises, type TemplateExercise } from "@/lib/templateActions";
 
 /** One slot's client state. Carries the exercise name for display; only ids are serialized
@@ -30,10 +32,21 @@ type Props = {
 export function TemplateSlotPicker({ slot, muscleGroups, onChange, onRemove }: Props) {
   const [open, setOpen] = useState(slot.exerciseId == null);
   const [search, setSearch] = useState("");
+  const [equip, setEquip] = useState<Set<string>>(new Set());
   const [candidates, setCandidates] = useState<TemplateExercise[] | null>(null);
   const [, startFetch] = useTransition();
 
   const mgName = (gid: number) => muscleGroups.find((m) => m.id === gid)?.name ?? "";
+  const toggleEquip = (value: string) =>
+    setEquip((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+
+  // Soft preference: reorder (never filter) the fetched candidates so preferred gear floats up.
+  const shown = candidates && sortByEquipmentPreference(candidates, equip);
 
   // Load candidates for the chosen group + search (debounced); ignore stale responses.
   useEffect(() => {
@@ -113,10 +126,12 @@ export function TemplateSlotPicker({ slot, muscleGroups, onChange, onRemove }: P
               className="input w-full py-1.5 pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${mgName(slot.muscleGroupId)} exercises…`}
+              placeholder="Search all exercises…"
               aria-label="Search exercises"
             />
           </div>
+
+          <EquipmentPreference selected={equip} onToggle={toggleEquip} />
 
           <ul className="max-h-56 space-y-1 overflow-y-auto" role="listbox" aria-label="Exercise options">
             <li>
@@ -136,9 +151,9 @@ export function TemplateSlotPicker({ slot, muscleGroups, onChange, onRemove }: P
                 <span className="min-w-0 flex-1 truncate italic text-muted">Leave empty</span>
               </button>
             </li>
-            {candidates === null && <li className="px-1 py-2 text-muted">Loading…</li>}
-            {candidates?.length === 0 && <li className="px-1 py-2 text-muted">No exercises found.</li>}
-            {candidates?.map((c) => {
+            {shown === null && <li className="px-1 py-2 text-muted">Loading…</li>}
+            {shown?.length === 0 && <li className="px-1 py-2 text-muted">No exercises found.</li>}
+            {shown?.map((c) => {
               const selected = c.id === slot.exerciseId;
               return (
                 <li key={c.id}>
