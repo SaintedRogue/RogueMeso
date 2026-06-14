@@ -39,3 +39,25 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
+
+  changelog-guard:
+    name: Changelog integrity (What's new feature)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # gen-changelog reads `git log`; the default shallow clone would only see one
+          # commit. Full history makes the regeneration check meaningful.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # Pure-Node guard (no deps) — fails if the "What's new" plumbing has rotted:
+      # malformed/missing changelog.json, a gen-script error, a removed Dockerfile COPY,
+      # or a dropped lastSeenVersion column/migration.
+      - name: Check changelog integrity
+        run: npm run check:changelog
