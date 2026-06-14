@@ -47,7 +47,7 @@ export default async function DayPage({
 
       <DayView
         day={d}
-        meso={{ name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }}
+        meso={{ key, name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }}
         muscleGroups={muscleGroups}
       />
     </>

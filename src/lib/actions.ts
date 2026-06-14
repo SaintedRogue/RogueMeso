@@ -104,6 +104,36 @@ export async function skipSet(setId: number) {
   }
 }
 
+/**
+ * Explicitly finish a day. Any sets that were never logged are marked "skipped" so the
+ * day is unambiguously complete and the roll-up (which demotes days with open sets) can't
+ * later revert it. Mirrors the set-mutation flow: post community activity + revalidate.
+ */
+export async function completeDay(key: string, week: number, position: number) {
+  const me = await requireUser();
+  const day = await prisma.mesoDay.findFirst({
+    where: { meso: { key, userId: me.id }, week, position },
+    select: { id: true, finishedAt: true, exercises: { select: { id: true } } },
+  });
+  if (!day) throw new Error("Forbidden"); // not found or not the caller's meso
+
+  const exIds = day.exercises.map((e) => e.id);
+  if (exIds.length > 0) {
+    await prisma.exerciseSet.updateMany({
+      where: { dayExerciseId: { in: exIds }, status: { notIn: ["complete", "skipped"] } },
+      data: { status: "skipped", finishedAt: new Date() },
+    });
+    await prisma.dayExercise.updateMany({ where: { id: { in: exIds } }, data: { status: "complete" } });
+  }
+  await prisma.mesoDay.update({
+    where: { id: day.id },
+    data: { status: "complete", finishedAt: day.finishedAt ?? new Date() },
+  });
+
+  await postCommunityActivity(day.id, me.id);
+  revalidateForDay({ key, week, position });
+}
+
 export async function clearSet(setId: number) {
   const me = await requireUser();
   await assertSetOwner(setId, me.id);

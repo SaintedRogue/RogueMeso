@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -97,16 +98,22 @@ export async function forcePasswordChange(_prev: ActionResult, formData: FormDat
   const me = await requireUser();
   const current = String(formData.get("currentPassword") ?? "");
   const next = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
 
   const okCurrent = !!me.passwordHash && (await bcrypt.compare(current, me.passwordHash));
   if (!okCurrent) return fail("Current password is incorrect");
   if (!isValidPassword(next)) return fail("New password must be 8–72 characters");
+  if (next !== confirm) return fail("New passwords don't match");
   if (next === current) return fail("Choose a password different from the temporary one");
 
   await prisma.user.update({
     where: { id: me.id },
     data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
   });
+  // The (app) layout gate (layout.tsx) is cached per-route in the client Router Cache;
+  // without invalidating it, redirecting to "/" replays the cached "must change password"
+  // screen forever (the loop). Revalidate the layout so the gate re-reads the cleared flag.
+  revalidatePath("/", "layout");
   redirect("/");
   return ok(); // unreachable (redirect throws) — satisfies the ActionResult return type
 }
