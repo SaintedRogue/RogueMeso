@@ -1,4 +1,4 @@
-# Automated Image Build + Push to GHCR (manual Unraid deploy)
+# Automated Image Build + Push to GHCR (one-click Unraid deploy via template)
 
 **Date:** 2026-06-14
 **Status:** Approved (design)
@@ -9,8 +9,9 @@ Move the production Docker image build off the devbox and onto a GitHub-hosted
 runner. On a push to `main` that introduces user-facing (`feat`/`fix`) commits,
 the runner builds the multi-stage image and pushes it to GHCR as
 `ghcr.io/saintedrogue/roguemeso:latest` and `:<short-sha>`. Deploying to the
-Unraid server stays a **manual** `docker pull` + recreate step (no Watchtower,
-nothing new running on the server).
+Unraid server becomes a **one-click "Update"** in the Unraid GUI, enabled by a
+dockerMan template that captures the container config (no Watchtower, no scheduled
+auto-updater — the click stays deliberate).
 
 ## Context (verified 2026-06-14)
 
@@ -81,33 +82,54 @@ Steps:
 Image name is lowercase (GHCR requirement). The package is **private** (inherits
 the private repo's visibility); Unraid's existing GHCR login covers the pull.
 
-### Manual deploy on Unraid (unchanged mechanics; `pull` replaces `build`)
+### Deploy on Unraid: native one-button via a dockerMan template
 
-Captured in `docs/deploy.md`. The only change from today's procedure is replacing
-the local `docker build` with `docker pull`:
+The deploy mechanism is Unraid's built-in **Update** button, backed by a
+dockerMan template. Today roguemeso has no template (it was created by raw
+`docker run`), so the button can't recreate it. We add a template that captures
+the full container config; thereafter Unraid's update flow (digest-compare →
+`docker pull` → recreate-from-template) gives a true one-click update.
 
-1. `docker tag ghcr.io/saintedrogue/roguemeso:latest ghcr.io/saintedrogue/roguemeso:previous`
-   (snapshot current image for rollback).
-2. `docker pull ghcr.io/saintedrogue/roguemeso:latest` (fetch the runner-built image).
-3. Carry env over from the live container:
-   `docker inspect roguemeso --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -vE '^(PATH|NODE_VERSION|YARN_VERSION)=' > /tmp/roguemeso.env`
-4. `docker rm -f roguemeso-old` (clear any stale rollback), then
-   `docker rename roguemeso roguemeso-old`.
-5. `docker run -d --name roguemeso --network br0 --ip 10.0.0.232 --restart unless-stopped --env-file /tmp/roguemeso.env`
-   + the 3 labels (icon=dumbbell svg / `net.unraid.docker.managed=dockerman` /
-   webui=`http://10.0.0.232:3000`) `ghcr.io/saintedrogue/roguemeso:latest`,
-   then `shred -u /tmp/roguemeso.env`.
-6. Verify: `docker logs roguemeso` (entrypoint runs `migrate deploy`), then
-   in-container `wget http://127.0.0.1:3000/login` → 200 (use `127.0.0.1`, not
-   `localhost` — server binds IPv4).
+**Template file:** `/boot/config/plugins/dockerMan/templates-user/my-RogueMeso.xml`
+on the Unraid flash, modeled on the working `my-MichaelAhrendt.xml` (pgAdmin)
+template, which is also `br0` + fixed-IP. Key fields:
 
-Rollback: `docker start roguemeso-old`, or
-`docker pull ghcr.io/saintedrogue/roguemeso:previous` (or any prior `:<short-sha>`)
-and recreate.
+- `<Repository>ghcr.io/saintedrogue/roguemeso:latest</Repository>`
+- `<Registry>https://ghcr.io/saintedrogue/roguemeso</Registry>`
+- `<Network>br0</Network>` + `<MyIP>10.0.0.232</MyIP>` (fixed IP — the `<MyIP>`
+  element is how Unraid pins a br0 address)
+- `<Icon>https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/dumbbell.svg</Icon>`
+- `<WebUI>http://[IP]:3000/</WebUI>`
+- One `<Config Type="Variable">` per env var carried from the live container:
+  `NODE_ENV`, `PORT`, `HOSTNAME`, `NEXT_TELEMETRY_DISABLED`, and (with
+  `Mask="true"`) `AUTH_SECRET`, `DATABASE_URL`, `VAPID_PRIVATE_KEY`,
+  `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`.
+- No `<Config Type="Path">` (the container uses no mounts) and no published
+  ports (br0 gives the container its own IP).
+
+**Generation (secret-safe):** the template is generated **on the box**, reading
+env values from `docker inspect roguemeso` and writing them straight into the XML
+on the flash — secret values never transit the assistant's context or the repo. A
+**redacted reference copy** is committed at `deploy/unraid-roguemeso.xml` (secret
+values blanked) for version-controlled reproducibility.
+
+**One-time adoption:** after the template exists, adopt it once via the Unraid GUI
+(Docker → Add Container → select the `RogueMeso` template → Apply). This makes the
+running container template-managed so the Update button recreates it correctly.
+Because the template is generated from the current container, the recreate is a
+no-op change in config — only the image differs on future updates.
+
+**Steady-state deploy:** when CI pushes a new image, Unraid shows "update ready";
+click **Update** → it pulls and recreates from the template. The entrypoint runs
+`prisma migrate deploy` on boot.
+
+**Rollback:** Unraid keeps the prior container; or re-pull a prior
+`:<short-sha>` tag and update.
 
 ## Out of scope (YAGNI)
 
-- **No Watchtower / no auto-pull** — deploy stays a manual decision.
+- **No Watchtower / no scheduled auto-update plugin** — updates stay a deliberate
+  one-click action via the Unraid **Update** button (user declined auto-update).
 - **No semver / VERSION file** — the codebase is SHA-based and the user won't
   maintain a version number. A human-readable version label, if ever wanted, is a
   separate feature.
@@ -124,7 +146,11 @@ and recreate.
   push an image (job skipped after the detect step).
 - Branch pushes and PRs never trigger `build-push`.
 - The pushed image's baked `changelog.json` reflects the built commit.
-- `docs/deploy.md` documents the manual `pull` + recreate + rollback procedure.
+- A dockerMan template `my-RogueMeso.xml` exists on the Unraid flash, accurately
+  capturing the live container's image, `br0`/`10.0.0.232`, env, icon, and webui;
+  Unraid shows roguemeso as template-managed with a working **Update** button.
+- A redacted reference copy is committed at `deploy/unraid-roguemeso.xml`.
+- Secret env values never enter the repo or the assistant's context.
 
 ## Follow-ups (not in this spec)
 
