@@ -8,6 +8,28 @@ household: an admin provisions accounts, and each person's training data is priv
 
 Built with Next.js 16, Postgres, and Prisma.
 
+## Screenshots
+
+> Light theme shown; the app defaults to dark and is fully responsive (mobile-first PWA with a bottom-tab nav).
+
+![Current workout — log sets with weight, reps, and RIR targets](docs/screenshots/dashboard.png)
+<p align="center"><em>The current workout: log each set's weight, reps, and RIR against the engine's targets.</em></p>
+
+| Mesocycle overview | Logging a session |
+|:---:|:---:|
+| ![A mesocycle's full week-by-week, day-by-day plan with muscle-group priorities](docs/screenshots/mesocycle-overview.png) | ![A completed training day with logged weights, reps, and RIR](docs/screenshots/workout-day.png) |
+| The progression engine lays out every week and day, with per-muscle priorities. | A completed day — actuals logged against targets, set by set. |
+
+| Program templates | Exercise library |
+|:---:|:---:|
+| ![153 starter program templates with faceted filters for focus, days, sex, and equipment](docs/screenshots/templates.png) | ![The exercise catalog filtered by muscle group, with form-video links](docs/screenshots/exercise-library.png) |
+| 150+ starter programs, filterable by focus, days/week, and equipment. | The full exercise catalog, filterable by muscle group with form-video links. |
+
+| Insights & personal records | Your training blocks |
+|:---:|:---:|
+| ![Estimated-1RM history chart and a per-exercise personal-records table](docs/screenshots/insights.png) | ![A grid of mesocycles with status badges](docs/screenshots/mesocycles.png) |
+| Estimated-1RM trends and a per-exercise personal-records table. | Every training block at a glance, each with a ready/complete status. |
+
 ## Stack
 
 - **Next.js 16** (App Router, Server Actions, "Proxy" route protection)
