@@ -11,6 +11,8 @@
     "check:changelog": "node scripts/check-changelog.mjs",
     "db:seed": "tsx prisma/seed/index.ts",
     "db:admin": "tsx prisma/seed/createAdmin.ts",
+    "db:build-kettlebell": "tsx prisma/seed/buildKettlebell.ts",
+    "db:build-descriptions": "tsx prisma/seed/buildDescriptions.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

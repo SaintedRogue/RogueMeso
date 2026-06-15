@@ -17,7 +17,7 @@ export type TemplatePreview = {
 
 /**
  * On-demand detail for one template, fetched by the client picker when a card is
- * selected (we don't preload all 153 templates' day/slot trees into the page).
+ * selected (we don't preload every template's day/slot tree into the page).
  * Auth + shared-or-own ownership are enforced by getTemplate; we map to a minimal
  * shape so only what the UI draws crosses the wire.
  */

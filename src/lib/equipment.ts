@@ -1,5 +1,5 @@
 // Equipment-preference helpers for the exercise pickers. Equipment lives on the catalog as
-// the `exerciseType` enum (9 values); equipClass() folds those onto 6 coarse buckets, which
+// the `exerciseType` enum (10 values); equipClass() folds those onto 7 coarse buckets, which
 // are what we surface as preference chips. The preference is *soft*: it reorders the candidate
 // list (preferred float to the top) but never hides anything.
 
