@@ -12,10 +12,11 @@ import {
   type TemplateBuilderInput,
 } from "@/lib/templateActions";
 
-type BuilderDay = { slots: BuilderSlot[] };
+type BuilderDay = { label: string; slots: BuilderSlot[] };
 
 export type TemplateBuilderInitial = {
   name: string;
+  description?: string | null;
   days: BuilderDay[];
   priorities: { muscleGroupId: number; priority: MgPriority }[];
 };
@@ -41,7 +42,8 @@ const PRIORITY_OPTIONS: { value: MgPriority; label: string }[] = [
  */
 export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [days, setDays] = useState<BuilderDay[]>(initial?.days ?? [{ slots: [] }]);
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [days, setDays] = useState<BuilderDay[]>(initial?.days ?? [{ label: "", slots: [] }]);
   const [priorities, setPriorities] = useState<Map<number, MgPriority>>(
     new Map(initial?.priorities.map((p) => [p.muscleGroupId, p.priority])),
   );
@@ -58,8 +60,10 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
     return muscleGroups.filter((m) => used.has(m.id)).map((m) => m.id);
   }, [days, muscleGroups]);
 
-  const addDay = () => setDays((ds) => [...ds, { slots: [] }]);
+  const addDay = () => setDays((ds) => [...ds, { label: "", slots: [] }]);
   const removeDay = (di: number) => setDays((ds) => ds.filter((_, i) => i !== di));
+  const setDayLabel = (di: number, label: string) =>
+    setDays((ds) => ds.map((d, i) => (i === di ? { ...d, label } : d)));
   const moveDay = (di: number, dir: -1 | 1) =>
     setDays((ds) => {
       const j = di + dir;
@@ -70,11 +74,11 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
     });
 
   const addSlot = (di: number) =>
-    setDays((ds) => ds.map((d, i) => (i === di ? { slots: [...d.slots, newSlot()] } : d)));
+    setDays((ds) => ds.map((d, i) => (i === di ? { ...d, slots: [...d.slots, newSlot()] } : d)));
   const updateSlot = (di: number, si: number, slot: BuilderSlot) =>
-    setDays((ds) => ds.map((d, i) => (i === di ? { slots: d.slots.map((s, j) => (j === si ? slot : s)) } : d)));
+    setDays((ds) => ds.map((d, i) => (i === di ? { ...d, slots: d.slots.map((s, j) => (j === si ? slot : s)) } : d)));
   const removeSlot = (di: number, si: number) =>
-    setDays((ds) => ds.map((d, i) => (i === di ? { slots: d.slots.filter((_, j) => j !== si) } : d)));
+    setDays((ds) => ds.map((d, i) => (i === di ? { ...d, slots: d.slots.filter((_, j) => j !== si) } : d)));
 
   const setPriority = (mgId: number, priority: MgPriority) =>
     setPriorities((p) => new Map(p).set(mgId, priority));
@@ -84,7 +88,8 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
       setError(null);
       const input: TemplateBuilderInput = {
         name,
-        days: days.map((d) => ({ slots: d.slots.map((s) => ({ muscleGroupId: s.muscleGroupId, exerciseId: s.exerciseId })) })),
+        description,
+        days: days.map((d) => ({ label: d.label, slots: d.slots.map((s) => ({ muscleGroupId: s.muscleGroupId, exerciseId: s.exerciseId })) })),
         // Persist a priority for every used group (default maintain) — matches the picker's display.
         priorities: usedMgIds.map((id) => ({ muscleGroupId: id, priority: priorities.get(id) ?? "maintain" })),
       };
@@ -110,6 +115,17 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Upper / Lower Split"
         />
+
+        <label htmlFor="tpl-desc" className="mb-1 mt-4 block text-sm font-medium text-muted">
+          Description <span className="font-normal text-muted/70">(optional)</span>
+        </label>
+        <textarea
+          id="tpl-desc"
+          className="input min-h-[4.5rem]"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="How the program is run — e.g. rep scheme, work:rest, weekly progression."
+        />
       </div>
 
       {/* Days */}
@@ -117,7 +133,13 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
         {days.map((day, di) => (
           <div key={di} className="card overflow-hidden">
             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
-              <span className="text-sm font-semibold">Day {di + 1}</span>
+              <input
+                className="input flex-1 py-1.5 text-sm font-semibold"
+                value={day.label}
+                onChange={(e) => setDayLabel(di, e.target.value)}
+                placeholder={`Day ${di + 1}`}
+                aria-label={`Day ${di + 1} name`}
+              />
               <div className="flex items-center gap-1">
                 <button
                   type="button"

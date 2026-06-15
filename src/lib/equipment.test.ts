@@ -57,7 +57,22 @@ describe("sortByEquipmentPreference", () => {
     ]);
   });
 
-  it("exposes the six coarse buckets as chips", () => {
+  it("floats kettlebell exercises to the top when preferred", () => {
+    const list = [
+      ex("barbell row", "barbell"),
+      ex("kb swing", "kettlebell"),
+      ex("db curl", "dumbbell"),
+      ex("kb goblet squat", "kettlebell"),
+    ];
+    expect(names(sortByEquipmentPreference(list, new Set(["kettlebell"])))).toEqual([
+      "kb swing",
+      "kb goblet squat",
+      "barbell row",
+      "db curl",
+    ]);
+  });
+
+  it("exposes the coarse buckets as chips (incl. kettlebell)", () => {
     expect(EQUIPMENT_CLASSES.map((c) => c.value)).toEqual([
       "barbell",
       "dumbbell",
@@ -65,6 +80,7 @@ describe("sortByEquipmentPreference", () => {
       "machine",
       "smith",
       "bodyweight",
+      "kettlebell",
     ]);
   });
 });

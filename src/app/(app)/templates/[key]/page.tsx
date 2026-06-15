@@ -21,6 +21,8 @@ export default async function TemplateDetail({ params }: { params: Promise<{ key
         {isOwner && <TemplateOwnerActions templateKey={t.key} />}
       </PageHeader>
 
+      {t.description && <p className="mb-6 max-w-2xl text-sm text-muted">{t.description}</p>}
+
       {t.priorities.length > 0 && (
         <div className="card mb-6 p-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Priorities</div>
@@ -39,7 +41,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ key
         {t.days.map((d) => (
           <div key={d.id} className="card overflow-hidden">
             <div className="border-b border-line px-4 py-2.5 text-sm font-semibold">
-              Day {d.position + 1}
+              {d.label ?? `Day ${d.position + 1}`}
             </div>
             <div className="divide-y divide-line/60">
               {d.slots.map((s) => (

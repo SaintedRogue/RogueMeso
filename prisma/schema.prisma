@@ -23,6 +23,7 @@ enum ExerciseType {
   bodyweightOnly        @map("bodyweight-only")
   bodyweightLoadable    @map("bodyweight-loadable")
   machineAssistance     @map("machine-assistance")
+  kettlebell
 }
 
 enum MgPriority {
@@ -145,6 +146,7 @@ model Template {
   key              String @unique          // stable slug
   name             String
   emphasis         String
+  description      String?                 // optional protocol notes (how the program is run)
   sex              String
   frequency        Int?
   sourceTemplateId Int?                    // provenance (source ids), informational
@@ -168,6 +170,7 @@ model TemplateDay {
   templateId Int
   template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
   position   Int
+  label      String?  // optional day name (e.g. "Complex (ABC)", "Swings & Rows")
 
   slots TemplateSlot[]
 

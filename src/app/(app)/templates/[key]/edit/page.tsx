@@ -14,7 +14,9 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ k
   const muscleGroups = await getMuscleGroups();
   const initial: TemplateBuilderInitial = {
     name: t.name,
+    description: t.description ?? "",
     days: t.days.map((d) => ({
+      label: d.label ?? "",
       slots: d.slots.map((s) => ({
         muscleGroupId: s.muscleGroupId,
         exerciseId: s.exerciseId,

@@ -14,6 +14,7 @@ export const EQUIPMENT_CLASSES = [
   { value: "machine", label: "Machine" },
   { value: "smith", label: "Smith" },
   { value: "bodyweight", label: "Bodyweight" },
+  { value: "kettlebell", label: "Kettlebell" },
 ] as const;
 
 /**
