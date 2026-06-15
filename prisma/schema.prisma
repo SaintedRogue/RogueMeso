@@ -1,6 +1,8 @@
 // RogueMeso — self-hosted hypertrophy training app.
-// Reference data (muscle groups, exercises, templates) is loaded by the seed scripts;
-// mesocycles hold training blocks + logged sets, owned per user.
+// Reference data (muscle groups, exercises, templates) is loaded by the seed scripts:
+// the base library from prisma/seed-data.sql (empty DB only), plus idempotent additive
+// SQL applied on every boot (prisma/descriptions.sql, prisma/kettlebell.sql) so existing
+// DBs gain new data. Mesocycles hold training blocks + logged sets, owned per user.
 
 generator client {
   provider = "prisma-client-js"

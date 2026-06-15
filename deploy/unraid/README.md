@@ -49,9 +49,11 @@ scp deploy/unraid/roguemeso-db.xml deploy/unraid/roguemeso.xml \
    - `AUTH_SECRET` → `openssl rand -base64 48` (must be 32+ chars).
    - Start it.
 
-On first start the app waits for the DB, runs migrations, seeds the library, then
-serves on port 3000. Watch progress: **Docker → roguemeso → Logs** — you should see
-`empty database — loading exercise + template seed...` then `seed loaded.`
+On first start the app waits for the DB, runs migrations, seeds the library (only when
+empty), applies the additive exercise-description and kettlebell seeds, then serves on
+port 3000. Watch progress: **Docker → roguemeso → Logs** — on a fresh DB you should see
+`empty database — loading exercise + template seed...` then `seed loaded.`, followed by
+`kettlebell seed applied.`
 
 3. **Create your account.** Open `http://10.0.0.232:3000` — on a fresh database the app
    shows a one-time **setup screen**. Enter a name, email, and password to create the
@@ -65,12 +67,16 @@ serves on port 3000. Watch progress: **Docker → roguemeso → Logs** — you s
 
 ## Notes
 
-- **Restarts are safe.** Migrations and the seed are idempotent; the seed only loads
-  when the DB has zero exercises, so your data is never clobbered.
+- **Restarts are safe.** Migrations and seeds are idempotent; the base library seed only
+  loads when the DB has zero exercises, and the additive description/kettlebell seeds use
+  conflict guards — so your data is never clobbered or duplicated. (Existing installs gain
+  the kettlebell catalog + programs on their next update.)
 - **Reboot autostart:** enable autostart for both containers in the Docker tab so they
   return after a server reboot (toggle order: db, then app).
 - **Updating the app:** push a new `:latest` (see repo root), then in Unraid use
   *Force update* / *check for updates* on the `roguemeso` container.
-- **Refreshing the seeded library:** regenerate the snapshot from a populated DB with
+- **Refreshing the seeded library:** regenerate the base snapshot from a populated DB with
   `scripts/db-export-seed.sh`, rebuild, and push. Existing databases keep their data
-  (seed only runs on an empty DB) — use `scripts/db-setup.sh` to seed a DB by hand.
+  (the base seed only runs on an empty DB) — use `scripts/db-setup.sh` to seed a DB by hand.
+  The kettlebell add-on is maintained separately (`prisma/seed/data/kettlebell*.json` →
+  `npx tsx prisma/seed/buildKettlebell.ts --write`) and applied additively on every boot.

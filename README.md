@@ -32,7 +32,10 @@ npx prisma migrate deploy
 # 4. (optional) Seed the reference data + template library
 #    Load the committed snapshot (313 exercises, 153 templates):
 psql "$DATABASE_URL" -f prisma/seed-data.sql
-#    (The legacy `npm run db:seed` rebuilds it from a SEED_DATA_DIR JSON export.)
+#    Then the additive kettlebell add-on (66 exercises, 20 programs) — idempotent,
+#    safe on fresh or existing DBs; brings the live library to ~379 exercises / ~173 programs:
+psql "$DATABASE_URL" -f prisma/kettlebell.sql
+#    (The legacy `npm run db:seed` rebuilds the base snapshot from a SEED_DATA_DIR JSON export.)
 
 # 5. Create the first admin account (uses ADMIN_* from .env)
 npm run db:admin
@@ -64,13 +67,16 @@ adapt the model to your own methodology. See `src/lib/features/README.md` to ext
 The app ships as a self-contained Docker image that **bootstraps itself** on first
 start: it waits for Postgres, applies Prisma migrations to build the schema, then —
 only if the database is empty — loads the exercise + program-template library from
-`prisma/seed-data.sql`. No user accounts are seeded — on first visit the app shows a
+`prisma/seed-data.sql`. After that it applies two **idempotent additive** SQL files on
+every boot: `prisma/descriptions.sql` (exercise form cues) and `prisma/kettlebell.sql`
+(the kettlebell catalog + programs) — so even existing installs gain the kettlebell
+library on their next update. No user accounts are seeded — on first visit the app shows a
 one-time **setup screen** to create the admin account, then locks it; you start a fresh
-mesocycle with the full library available. The seed gate is idempotent, so restarts
-never re-seed or clobber your data.
+mesocycle with the full library available. Every seed step is idempotent, so restarts
+never duplicate data or clobber your edits.
 
 ```
-docker-entrypoint.sh:  wait for DB → migrate deploy → seed if empty → next start
+docker-entrypoint.sh:  wait for DB → migrate deploy → seed if empty → backfill descriptions → apply kettlebell add-on → next start
 ```
 
 ### Unraid (two containers on br0)
@@ -140,7 +146,16 @@ docker build -t roguemeso .               # rebuild so the image carries the upd
 scripts/db-setup.sh                       # (escape hatch) migrate + seed a DB by hand
 ```
 
-Existing databases keep their data — the seed only loads into an empty DB.
+Existing databases keep their data — `seed-data.sql` only loads into an empty DB.
+
+The **kettlebell** catalog + programs are maintained separately as reviewable JSON and
+shipped as an *additive* seed (applied on every boot, so it reaches existing DBs too).
+Edit the JSON, then regenerate the SQL:
+
+```bash
+# edit prisma/seed/data/kettlebell.json (exercises) / kettlebell-templates.json (programs)
+npx tsx prisma/seed/buildKettlebell.ts --write   # → prisma/kettlebell.sql (idempotent)
+```
 
 ## License
 
