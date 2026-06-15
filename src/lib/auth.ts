@@ -19,6 +19,10 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   // admin's deactivation takes effect on the user's very next request (requireUser
   // then bounces them to /login, where login() also refuses them).
   if (!user?.active) return null;
+  // Sessions are stateless, so a password change can't delete old cookies directly. Instead
+  // each password change/reset bumps User.sessionVersion; a token minted before that bump
+  // now carries a stale `ver` and is rejected here — "sign out everywhere" on credential change.
+  if (user.sessionVersion !== session.ver) return null;
   return user;
 });
 

@@ -5,10 +5,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-openmeso}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openmeso_dev_pw}
+      # Required — no weak default. Set POSTGRES_PASSWORD in .env (see .env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (set it in .env)}
       POSTGRES_DB: ${POSTGRES_DB:-openmeso}
     ports:
-      - "5432:5432"
+      # Bind to loopback only so Postgres is never exposed on the host's LAN interface.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

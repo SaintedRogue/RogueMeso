@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ok, fail, type ActionResult } from "@/lib/actionResult";
 import { sendWebPush, PushGoneError, isPushConfigured } from "@/lib/webPush";
+import { validatePushEndpoint } from "@/lib/pushEndpoint";
 
 export type PushSubscriptionInput = {
   endpoint: string;
@@ -20,6 +21,8 @@ export type PushSubscriptionInput = {
 export async function subscribePush(sub: PushSubscriptionInput): Promise<ActionResult> {
   const me = await requireUser();
   if (!sub?.endpoint || !sub.p256dh || !sub.auth) return fail("Invalid subscription");
+  // Don't persist an endpoint the server would later refuse (or shouldn't) POST to — SSRF guard.
+  if (!validatePushEndpoint(sub.endpoint).ok) return fail("Invalid subscription endpoint");
 
   await prisma.pushSubscription.upsert({
     where: { endpoint: sub.endpoint },

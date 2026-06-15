@@ -9,6 +9,7 @@ const ERRORS: Record<string, string> = {
   mismatch: "Passwords don't match.",
   weak: "Password must be 8–72 characters.",
   taken: "That email is already in use.",
+  locked: "Too many attempts. Try again shortly.",
 };
 
 export default async function SetupPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {

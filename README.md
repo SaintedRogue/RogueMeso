@@ -43,6 +43,8 @@ Built with Next.js 16, Postgres, and Prisma.
 cp .env.example .env
 #    Edit .env: set the DB vars, then generate AUTH_SECRET with
 #    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+#    POSTGRES_PASSWORD is required — `docker compose up` fails fast if it's unset
+#    (no weak default). Postgres is bound to 127.0.0.1 only, not the LAN.
 
 # 2. Start Postgres + install deps
 docker compose up -d

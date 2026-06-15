@@ -2,7 +2,9 @@
 // both Edge (proxy) and the Node runtime. Passwords are verified separately via bcrypt.
 
 export const SESSION_COOKIE = "openmeso_session";
-export type Session = { uid: number; exp: number };
+// `ver` mirrors User.sessionVersion at sign time; getCurrentUser rejects the token once the
+// stored version moves past it, so a password change/reset revokes every prior cookie.
+export type Session = { uid: number; ver: number; exp: number };
 
 const enc = new TextEncoder();
 
@@ -45,9 +47,9 @@ async function hmacKey(secret: string) {
   ]);
 }
 
-/** Create a signed session token for a user, valid for `days`. */
-export async function signSession(uid: number, days = 30): Promise<string> {
-  const payload = b64url(enc.encode(JSON.stringify({ uid, exp: Date.now() + days * 864e5 })));
+/** Create a signed session token for a user at session-version `ver`, valid for `days`. */
+export async function signSession(uid: number, ver: number, days = 30): Promise<string> {
+  const payload = b64url(enc.encode(JSON.stringify({ uid, ver, exp: Date.now() + days * 864e5 })));
   const sig = await crypto.subtle.sign("HMAC", await hmacKey(getSecret()), src(enc.encode(payload)));
   return `${payload}.${b64url(sig)}`;
 }
@@ -61,7 +63,15 @@ export async function verifySession(token: string | undefined): Promise<Session 
     const ok = await crypto.subtle.verify("HMAC", key, src(fromB64url(sig)), src(enc.encode(payload)));
     if (!ok) return null;
     const data = JSON.parse(new TextDecoder().decode(fromB64url(payload)));
-    if (typeof data?.uid !== "number" || typeof data?.exp !== "number" || data.exp <= Date.now()) return null;
+    // `ver` is required: a legacy token minted before session-versioning lacks it and is
+    // rejected, so upgrading the app signs everyone out exactly once (acceptable + safe).
+    if (
+      typeof data?.uid !== "number" ||
+      typeof data?.ver !== "number" ||
+      typeof data?.exp !== "number" ||
+      data.exp <= Date.now()
+    )
+      return null;
     return data as Session;
   } catch {
     return null;

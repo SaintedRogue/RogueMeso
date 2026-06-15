@@ -144,9 +144,15 @@ export async function resetUserPassword(id: number, password: string): Promise<A
   if (!isValidPassword(password)) return fail("Password must be 8–72 characters");
   const target = await prisma.user.findUnique({ where: { id }, select: SELECT });
   if (!target) return fail("User not found");
+  // Bumping sessionVersion revokes the target's existing cookies — exactly what a reset
+  // should do, since the point is to lock out whoever currently holds the old credentials.
   await prisma.user.update({
     where: { id },
-    data: { passwordHash: await bcrypt.hash(password, 10), mustChangePassword: true },
+    data: {
+      passwordHash: await bcrypt.hash(password, 10),
+      mustChangePassword: true,
+      sessionVersion: { increment: 1 },
+    },
   });
   await recordAudit(me, AUDIT_ACTIONS.passwordReset, target);
   revalidateUser(id);
