@@ -29,6 +29,7 @@ const EXERCISE_TYPE_MAP: Record<string, ExerciseType> = {
   "bodyweight-only": "bodyweightOnly",
   "bodyweight-loadable": "bodyweightLoadable",
   "machine-assistance": "machineAssistance",
+  kettlebell: "kettlebell",
 };
 
 export function mapExerciseType(raw: string): ExerciseType {

@@ -50,5 +50,17 @@ if [ -f prisma/descriptions.sql ]; then
   fi
 fi
 
+# 5. Apply the additive kettlebell catalog + programs. Idempotent (ON CONFLICT / WHERE NOT
+#    EXISTS), so it's safe on every start and adds kettlebell data to EXISTING databases too
+#    (the gated seed above only ever loads an empty DB). Non-fatal — must not block startup.
+if [ -f prisma/kettlebell.sql ]; then
+  echo "[entrypoint] applying kettlebell seed..."
+  if psql "$PSQL_URL" -q -f prisma/kettlebell.sql; then
+    echo "[entrypoint] kettlebell seed applied."
+  else
+    echo "[entrypoint] kettlebell seed failed (non-fatal) — continuing." >&2
+  fi
+fi
+
 echo "[entrypoint] starting Next.js server on ${HOSTNAME}:${PORT}"
 exec node server.js

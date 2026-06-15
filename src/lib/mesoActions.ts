@@ -10,8 +10,9 @@ import { generateMesocycle } from "@/lib/generateMeso";
 
 /** Slim, serializable shape the TemplatePicker preview renders — no raw DB rows. */
 export type TemplatePreview = {
+  description: string | null;
   priorities: { name: string; priority: string }[];
-  days: { position: number; slots: { mg: string; exercise: string | null }[] }[];
+  days: { position: number; label: string | null; slots: { mg: string; exercise: string | null }[] }[];
 };
 
 /**
@@ -25,9 +26,11 @@ export async function getTemplatePreview(key: string): Promise<TemplatePreview |
   const t = await getTemplate(key, me.id);
   if (!t) return null;
   return {
+    description: t.description ?? null,
     priorities: t.priorities.map((p) => ({ name: p.muscleGroup.name, priority: p.priority })),
     days: t.days.map((d) => ({
       position: d.position,
+      label: d.label ?? null,
       slots: d.slots.map((s) => ({ mg: s.muscleGroup.name, exercise: s.exercise?.name ?? null })),
     })),
   };

@@ -1,0 +1,1490 @@
+[
+  {
+    "sourceId": 910001,
+    "key": "kettlebell-full-body-male-3x",
+    "name": "Kettlebell Full Body",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "Three full-body kettlebell sessions per week, rotating days A/B/C across all major muscle groups. Sets and reps progress automatically by your muscle-group priorities each week.",
+    "userId": null,
+    "priorities": {
+      "2": "emphasize",
+      "5": "emphasize",
+      "6": "grow",
+      "7": "grow",
+      "12": "maintain"
+    },
+    "days": [
+      {
+        "label": "Full Body A",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900007
+          }
+        ]
+      },
+      {
+        "label": "Full Body B",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900003
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900004
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900054
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900009
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900045
+          }
+        ]
+      },
+      {
+        "label": "Full Body C",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900031
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900010
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910002,
+    "key": "kettlebell-full-body-female-3x",
+    "name": "Kettlebell Full Body",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "Three full-body kettlebell sessions per week, rotating days A/B/C across all major muscle groups. Sets and reps progress automatically by your muscle-group priorities each week.",
+    "userId": null,
+    "priorities": {
+      "2": "grow",
+      "5": "grow",
+      "6": "emphasize",
+      "7": "emphasize",
+      "12": "maintain"
+    },
+    "days": [
+      {
+        "label": "Full Body A",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900007
+          }
+        ]
+      },
+      {
+        "label": "Full Body B",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900003
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900004
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900054
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900009
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900045
+          }
+        ]
+      },
+      {
+        "label": "Full Body C",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900031
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900010
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910003,
+    "key": "kettlebell-minimalist-male-3x",
+    "name": "Kettlebell Swing & Get-Up",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "A minimalist program built on the two-hand swing and Turkish get-up — the foundational ballistic and grind — plus a goblet squat. Excellent for conditioning and movement quality on limited time.",
+    "userId": null,
+    "priorities": {
+      "6": "grow",
+      "7": "emphasize",
+      "12": "grow"
+    },
+    "days": [
+      {
+        "label": "Session 1",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      },
+      {
+        "label": "Session 2",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      },
+      {
+        "label": "Session 3",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910004,
+    "key": "kettlebell-minimalist-female-3x",
+    "name": "Kettlebell Swing & Get-Up",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "A minimalist program built on the two-hand swing and Turkish get-up — the foundational ballistic and grind — plus a goblet squat. Excellent for conditioning and movement quality on limited time.",
+    "userId": null,
+    "priorities": {
+      "6": "maintain",
+      "7": "emphasize",
+      "12": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Session 1",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      },
+      {
+        "label": "Session 2",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      },
+      {
+        "label": "Session 3",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910005,
+    "key": "kettlebell-upper-body-male-3x",
+    "name": "Kettlebell Upper Body",
+    "emphasis": "Arms & Shoulders",
+    "sex": "male",
+    "frequency": 3,
+    "description": "A push/pull upper-body kettlebell program: presses, rows, cleans and snatches across three sessions, with carries and halos for shoulder health.",
+    "userId": null,
+    "priorities": {
+      "1": "grow",
+      "2": "grow",
+      "5": "emphasize",
+      "10": "maintain",
+      "11": "maintain"
+    },
+    "days": [
+      {
+        "label": "Press & Row",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          },
+          {
+            "muscleGroupSourceId": 1,
+            "exerciseSourceId": 900050
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900009
+          }
+        ]
+      },
+      {
+        "label": "Push & Carry",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900054
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900010
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900031
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900006
+          }
+        ]
+      },
+      {
+        "label": "Snatch & Pull",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900056
+          },
+          {
+            "muscleGroupSourceId": 10,
+            "exerciseSourceId": 900041
+          },
+          {
+            "muscleGroupSourceId": 1,
+            "exerciseSourceId": 900050
+          },
+          {
+            "muscleGroupSourceId": 11,
+            "exerciseSourceId": 900022
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910006,
+    "key": "kettlebell-upper-body-female-3x",
+    "name": "Kettlebell Upper Body",
+    "emphasis": "Arms & Shoulders",
+    "sex": "female",
+    "frequency": 3,
+    "description": "A push/pull upper-body kettlebell program: presses, rows, cleans and snatches across three sessions, with carries and halos for shoulder health.",
+    "userId": null,
+    "priorities": {
+      "1": "grow",
+      "2": "emphasize",
+      "5": "grow",
+      "10": "maintain",
+      "11": "maintain"
+    },
+    "days": [
+      {
+        "label": "Press & Row",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          },
+          {
+            "muscleGroupSourceId": 1,
+            "exerciseSourceId": 900050
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900009
+          }
+        ]
+      },
+      {
+        "label": "Push & Carry",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900054
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900010
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900031
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900006
+          }
+        ]
+      },
+      {
+        "label": "Snatch & Pull",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900056
+          },
+          {
+            "muscleGroupSourceId": 10,
+            "exerciseSourceId": 900041
+          },
+          {
+            "muscleGroupSourceId": 1,
+            "exerciseSourceId": 900050
+          },
+          {
+            "muscleGroupSourceId": 11,
+            "exerciseSourceId": 900022
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910007,
+    "key": "kettlebell-lower-body-male-3x",
+    "name": "Kettlebell Lower Body & Core",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "A lower-body and core kettlebell program centered on the hinge (swings, deadlifts) and squat patterns, with loaded carries, windmills and get-ups for the trunk.",
+    "userId": null,
+    "priorities": {
+      "6": "emphasize",
+      "7": "emphasize",
+      "8": "grow",
+      "12": "maintain"
+    },
+    "days": [
+      {
+        "label": "Hinge & Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900005
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900007
+          }
+        ]
+      },
+      {
+        "label": "Pull & Lunge",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900003
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900004
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900035
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900045
+          }
+        ]
+      },
+      {
+        "label": "Squat & Core",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900047
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910008,
+    "key": "kettlebell-lower-body-female-3x",
+    "name": "Kettlebell Lower Body & Core",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "A lower-body and core kettlebell program centered on the hinge (swings, deadlifts) and squat patterns, with loaded carries, windmills and get-ups for the trunk.",
+    "userId": null,
+    "priorities": {
+      "6": "grow",
+      "7": "emphasize",
+      "8": "emphasize",
+      "12": "maintain"
+    },
+    "days": [
+      {
+        "label": "Hinge & Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900002
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900005
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900007
+          }
+        ]
+      },
+      {
+        "label": "Pull & Lunge",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900003
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900004
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900035
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900045
+          }
+        ]
+      },
+      {
+        "label": "Squat & Core",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900047
+          },
+          {
+            "muscleGroupSourceId": 12,
+            "exerciseSourceId": 900011
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910009,
+    "key": "kettlebell-the-wolf-male-3x",
+    "name": "The Wolf (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "A double-kettlebell complex from the More Kettlebell Muscle tradition. Each round chains Clean, Front Squat and Press (Day 3 adds the Snatch), performed for 3-5 sets per movement at roughly a 1:2 work:rest ratio, progressing across the weeks. Squat-driven — the legs feed the wolf.",
+    "userId": null,
+    "priorities": {
+      "5": "grow",
+      "6": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Day 1",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Day 2",
+        "slots": [
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          }
+        ]
+      },
+      {
+        "label": "Day 3",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900026
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910010,
+    "key": "kettlebell-the-wolf-female-3x",
+    "name": "The Wolf (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "A double-kettlebell complex from the More Kettlebell Muscle tradition. Each round chains Clean, Front Squat and Press (Day 3 adds the Snatch), performed for 3-5 sets per movement at roughly a 1:2 work:rest ratio, progressing across the weeks. Squat-driven — the legs feed the wolf.",
+    "userId": null,
+    "priorities": {
+      "5": "grow",
+      "6": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Day 1",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Day 2",
+        "slots": [
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          }
+        ]
+      },
+      {
+        "label": "Day 3",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900026
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910011,
+    "key": "kettlebell-dfw-male-3x",
+    "name": "Dry Fighting Weight (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "Dry Fighting Weight: alternate Clean & Press with Front Squat using a pair of kettlebells at your 5RM press weight, accumulating as many quality sets as possible inside a 30-minute window, three days a week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow"
+    },
+    "days": [
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910012,
+    "key": "kettlebell-dfw-female-3x",
+    "name": "Dry Fighting Weight (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "Dry Fighting Weight: alternate Clean & Press with Front Squat using a pair of kettlebells at your 5RM press weight, accumulating as many quality sets as possible inside a 30-minute window, three days a week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow"
+    },
+    "days": [
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910013,
+    "key": "kettlebell-dfw-remix-male-6x",
+    "name": "Dry Fighting Weight Remix (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 6,
+    "description": "A six-day remix of Dry Fighting Weight: three Clean & Press / Front Squat strength days alternated with three conditioning days of 200 swings plus 10 sets of rows or pull-ups.",
+    "userId": null,
+    "priorities": {
+      "2": "grow",
+      "5": "emphasize",
+      "6": "grow",
+      "7": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910014,
+    "key": "kettlebell-dfw-remix-female-6x",
+    "name": "Dry Fighting Weight Remix (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 6,
+    "description": "A six-day remix of Dry Fighting Weight: three Clean & Press / Front Squat strength days alternated with three conditioning days of 200 swings plus 10 sets of rows or pull-ups.",
+    "userId": null,
+    "priorities": {
+      "2": "grow",
+      "5": "emphasize",
+      "6": "grow",
+      "7": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press / Front Squat",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Swings & Rows",
+        "slots": [
+          {
+            "muscleGroupSourceId": 7,
+            "exerciseSourceId": 900001
+          },
+          {
+            "muscleGroupSourceId": 2,
+            "exerciseSourceId": 900066
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910015,
+    "key": "kettlebell-giant-male-3x",
+    "name": "The Giant (Kettlebell Clean & Press)",
+    "emphasis": "Arms & Shoulders",
+    "sex": "male",
+    "frequency": 3,
+    "description": "The Giant: a pure double-kettlebell Clean & Press program. Pick a rep max, set a 20-30 minute timer, and perform as many sets as possible, adding a set each week. Three sessions a week with varied daily set targets.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910016,
+    "key": "kettlebell-giant-female-3x",
+    "name": "The Giant (Kettlebell Clean & Press)",
+    "emphasis": "Arms & Shoulders",
+    "sex": "female",
+    "frequency": 3,
+    "description": "The Giant: a pure double-kettlebell Clean & Press program. Pick a rep max, set a 20-30 minute timer, and perform as many sets as possible, adding a set each week. Three sessions a week with varied daily set targets.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize"
+    },
+    "days": [
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Clean & Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910017,
+    "key": "kettlebell-armor-building-male-3x",
+    "name": "Armor Building Formula (Kettlebell)",
+    "emphasis": "Arms & Shoulders",
+    "sex": "male",
+    "frequency": 3,
+    "description": "Built on the Armor Building Complex (ABC): Double Clean x2, Press x1, Front Squat x3, performed for rounds. Two dedicated pressing days bracket one complex day each week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow"
+    },
+    "days": [
+      {
+        "label": "Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Complex (ABC)",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910018,
+    "key": "kettlebell-armor-building-female-3x",
+    "name": "Armor Building Formula (Kettlebell)",
+    "emphasis": "Arms & Shoulders",
+    "sex": "female",
+    "frequency": 3,
+    "description": "Built on the Armor Building Complex (ABC): Double Clean x2, Press x1, Front Squat x3, performed for rounds. Two dedicated pressing days bracket one complex day each week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow"
+    },
+    "days": [
+      {
+        "label": "Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      },
+      {
+        "label": "Complex (ABC)",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900063
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900029
+          }
+        ]
+      },
+      {
+        "label": "Press",
+        "slots": [
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900065
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910019,
+    "key": "kettlebell-iron-cardio-male-3x",
+    "name": "Iron Cardio (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "male",
+    "frequency": 3,
+    "description": "Iron Cardio: a continuous single-kettlebell flow of Clean + Press + Squat, alternating sides, performed as a relaxed strength-aerobics session three times a week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow",
+      "8": "grow"
+    },
+    "days": [
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      },
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      },
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "sourceId": 910020,
+    "key": "kettlebell-iron-cardio-female-3x",
+    "name": "Iron Cardio (Kettlebell)",
+    "emphasis": "Whole Body",
+    "sex": "female",
+    "frequency": 3,
+    "description": "Iron Cardio: a continuous single-kettlebell flow of Clean + Press + Squat, alternating sides, performed as a relaxed strength-aerobics session three times a week.",
+    "userId": null,
+    "priorities": {
+      "5": "emphasize",
+      "6": "grow",
+      "8": "grow"
+    },
+    "days": [
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      },
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      },
+      {
+        "label": "Iron Cardio Session",
+        "slots": [
+          {
+            "muscleGroupSourceId": 8,
+            "exerciseSourceId": 900048
+          },
+          {
+            "muscleGroupSourceId": 5,
+            "exerciseSourceId": 900013
+          },
+          {
+            "muscleGroupSourceId": 6,
+            "exerciseSourceId": 900014
+          }
+        ]
+      }
+    ]
+  }
+]

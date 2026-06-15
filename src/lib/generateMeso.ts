@@ -58,6 +58,7 @@ export async function generateMesocycle(opts: {
       days.push({
         week: w,
         position: td.position,
+        label: td.label, // carry the template day's name onto each generated MesoDay
         status: w === 0 && td.position === 0 ? "ready" : "pending",
         exercises: { create: exercises },
       });
@@ -76,6 +77,7 @@ export async function generateMesocycle(opts: {
       status: "ready",
       generatedFrom: "template",
       sourceTemplateId: template.sourceId ?? null,
+      notes: template.description ?? null, // protocol notes flow template → mesocycle
       startedAt: null,
       // activeAt is stamped by createMesocycleAction in the same transaction that benches the
       // others, so the single-active invariant never has a window where two blocks are active.

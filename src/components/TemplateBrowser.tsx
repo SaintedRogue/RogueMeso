@@ -25,18 +25,19 @@ export type PickerTemplate = {
   days: number;
 };
 
-type Equip = "barbell" | "dumbbell" | "gym";
+type Equip = "barbell" | "dumbbell" | "kettlebell" | "gym";
 
 /** Equipment isn't a column — it only appears as a word inside the template name. */
 function equipOf(name: string): Equip | null {
   const n = name.toLowerCase();
+  if (n.includes("kettlebell")) return "kettlebell";
   if (n.includes("barbell")) return "barbell";
   if (n.includes("dumbbell")) return "dumbbell";
   if (n.includes("gym")) return "gym";
   return null;
 }
 
-const EQUIP_LABEL: Record<Equip, string> = { barbell: "Barbell", dumbbell: "Dumbbell", gym: "Gym" };
+const EQUIP_LABEL: Record<Equip, string> = { barbell: "Barbell", dumbbell: "Dumbbell", kettlebell: "Kettlebell", gym: "Gym" };
 
 function Chip({
   active,
@@ -188,6 +189,9 @@ export function TemplateBrowser({
           <p className="py-6 text-sm text-muted">Couldn’t load this template’s details.</p>
         ) : (
           <div className="space-y-4">
+            {previews[selectedKey!]!.description && (
+              <p className="text-sm text-muted">{previews[selectedKey!]!.description}</p>
+            )}
             {previews[selectedKey!]!.priorities.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {previews[selectedKey!]!.priorities.map((p) => (
@@ -201,7 +205,9 @@ export function TemplateBrowser({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {previews[selectedKey!]!.days.map((d) => (
                 <div key={d.position} className="rounded-lg border border-line">
-                  <div className="border-b border-line px-3 py-2 text-xs font-semibold">Day {d.position + 1}</div>
+                  <div className="border-b border-line px-3 py-2 text-xs font-semibold">
+                    {d.label ?? `Day ${d.position + 1}`}
+                  </div>
                   <div className="divide-y divide-line/60">
                     {d.slots.map((s, i) => (
                       <div key={i} className="flex items-center gap-2.5 px-3 py-1.5 text-xs">

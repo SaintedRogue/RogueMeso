@@ -15,11 +15,12 @@ import { getExercises } from "@/lib/data";
 
 /** One exercise line within a day. `exerciseId` null = an empty slot (dropped at generation). */
 export type TemplateSlotInput = { muscleGroupId: number; exerciseId: number | null };
-/** A day's slots, in order. Day/slot `position` is the array index, never stored in client state. */
-export type TemplateDayInput = { slots: TemplateSlotInput[] };
+/** A day's slots, in order, with an optional day name. Day/slot `position` is the array index. */
+export type TemplateDayInput = { label?: string | null; slots: TemplateSlotInput[] };
 export type TemplatePriorityInput = { muscleGroupId: number; priority: MgPriority };
 export type TemplateBuilderInput = {
   name: string;
+  description?: string | null;
   days: TemplateDayInput[];
   priorities: TemplatePriorityInput[];
 };
@@ -65,7 +66,8 @@ async function assertTemplateOwner(key: string, userId: number) {
 /** The validated, position-stamped shape a create/update writes. */
 type BuiltTemplate = {
   name: string;
-  days: { position: number; slots: { position: number; muscleGroupId: number; exerciseId: number | null }[] }[];
+  description: string | null;
+  days: { position: number; label: string | null; slots: { position: number; muscleGroupId: number; exerciseId: number | null }[] }[];
   priorities: { muscleGroupId: number; priority: MgPriority }[];
 };
 
@@ -108,8 +110,10 @@ async function validateAndBuild(input: TemplateBuilderInput, userId: number): Pr
 
   return {
     name,
+    description: input.description?.trim().slice(0, 2000) || null,
     days: input.days.map((d, di) => ({
       position: di,
+      label: d.label?.trim().slice(0, 80) || null,
       slots: d.slots.map((s, si) => ({
         position: si,
         muscleGroupId: s.muscleGroupId,
@@ -136,12 +140,13 @@ export async function createTemplateAction(input: TemplateBuilderInput): Promise
     data: {
       key,
       name: built.name,
+      description: built.description,
       emphasis: "Custom",
       sex: sexFor(me.bodySex),
       frequency: built.days.length,
       userId: me.id,
       sharedWithInstance: false,
-      days: { create: built.days.map((d) => ({ position: d.position, slots: { create: d.slots } })) },
+      days: { create: built.days.map((d) => ({ position: d.position, label: d.label, slots: { create: d.slots } })) },
       priorities: { create: built.priorities },
     },
   });
@@ -168,8 +173,9 @@ export async function updateTemplateAction(key: string, input: TemplateBuilderIn
       where: { id: tpl.id },
       data: {
         name: built.name,
+        description: built.description,
         frequency: built.days.length,
-        days: { create: built.days.map((d) => ({ position: d.position, slots: { create: d.slots } })) },
+        days: { create: built.days.map((d) => ({ position: d.position, label: d.label, slots: { create: d.slots } })) },
         priorities: { create: built.priorities },
       },
     });
