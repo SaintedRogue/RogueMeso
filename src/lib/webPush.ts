@@ -3,6 +3,7 @@
 // at import time. Server-only.
 import webpush from "web-push";
 import type { NotificationPayload } from "@/lib/features/adhdMode";
+import { validatePushEndpoint } from "@/lib/pushEndpoint";
 
 let configured: boolean | null = null;
 
@@ -34,6 +35,10 @@ type SubKeys = { endpoint: string; p256dh: string; auth: string };
 /** Encrypt + deliver one notification to one device. Throws PushGoneError on 404/410. */
 export async function sendWebPush(sub: SubKeys, payload: NotificationPayload): Promise<void> {
   if (!isPushConfigured()) throw new Error("Web push not configured (missing VAPID env vars)");
+  // Defense-in-depth: subscribePush already validates on the way in, but re-check here so the
+  // scheduler never POSTs to a disallowed endpoint (e.g. a row predating this guard). Treat a
+  // bad endpoint as gone so the caller prunes the row.
+  if (!validatePushEndpoint(sub.endpoint).ok) throw new PushGoneError(sub.endpoint);
   try {
     await webpush.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },

@@ -57,6 +57,10 @@ model User {
   // on next login — set by an admin password reset, cleared by changeMyPassword.
   active             Boolean @default(true)
   mustChangePassword Boolean @default(false)
+  // Bumped on every password change/reset to revoke all previously-issued session cookies
+  // (the signed token carries this number; getCurrentUser rejects a stale one). Lets a
+  // password change act as "sign out everywhere" even though sessions are otherwise stateless.
+  sessionVersion     Int     @default(0)
   unit         Unit     @default(lb)
   heightCm      Float?
   birthDate     DateTime?

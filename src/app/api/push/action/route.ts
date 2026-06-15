@@ -6,8 +6,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ADHD_MODE_CONSTANTS } from "@/lib/features/adhdMode";
 import { snoozeReminder } from "@/lib/features/adhdData";
+import { isSameOrigin } from "@/lib/originCheck";
 
 export async function POST(req: NextRequest) {
+  // CSRF defense-in-depth (atop SameSite=Lax): the service worker calls this same-origin, so a
+  // browser always sends a matching Origin on the POST; a cross-site forgery won't.
+  if (!isSameOrigin(req.headers.get("origin"), req.headers.get("referer"), req.headers.get("host"))) {
+    return NextResponse.json({ ok: false }, { status: 403 });
+  }
+
   const me = await getCurrentUser();
   if (!me) return NextResponse.json({ ok: false }, { status: 401 });
 
