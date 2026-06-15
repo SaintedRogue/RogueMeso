@@ -22,13 +22,21 @@ Built with Next.js 16, Postgres, and Prisma.
 
 | Program templates | Exercise library |
 |:---:|:---:|
-| ![153 starter program templates with faceted filters for focus, days, sex, and equipment](docs/screenshots/templates.png) | ![The exercise catalog filtered by muscle group, with form-video links](docs/screenshots/exercise-library.png) |
-| 150+ starter programs, filterable by focus, days/week, and equipment. | The full exercise catalog, filterable by muscle group with form-video links. |
+| ![173 starter program templates with faceted filters for focus, days, sex, and equipment](docs/screenshots/templates.png) | ![The exercise catalog filtered by muscle group, with form-video links](docs/screenshots/exercise-library.png) |
+| 170+ starter programs (incl. kettlebell), filterable by focus, days/week, and equipment. | The full exercise catalog, filterable by muscle group with form-video links. |
 
 | Insights & personal records | Your training blocks |
 |:---:|:---:|
 | ![Estimated-1RM history chart and a per-exercise personal-records table](docs/screenshots/insights.png) | ![A grid of mesocycles with status badges](docs/screenshots/mesocycles.png) |
-| Estimated-1RM trends and a per-exercise personal-records table. | Every training block at a glance, each with a ready/complete status. |
+| Weekly volume vs. MEV/MRV landmarks, estimated-1RM trends, and a per-exercise personal-records table. | Every training block at a glance, each with an active/ready/complete status. |
+
+| First-run setup | Multi-user management |
+|:---:|:---:|
+| ![Create the first admin account on a fresh instance](docs/screenshots/account-setup.png) | ![Admin user management with an add-user form and activity log](docs/screenshots/admin-users.png) |
+| On a fresh instance, create the first admin account — the setup screen then locks itself. | An admin provisions accounts (with temp passwords) and sees a recent-activity log. |
+
+![The opt-in community: a weekly leaderboard, activity feed, and shared templates](docs/screenshots/community.png)
+<p align="center"><em>The opt-in community — a weekly leaderboard, activity feed, and shared templates across everyone on the instance.</em></p>
 
 ## Stack
 
