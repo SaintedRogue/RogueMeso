@@ -2,11 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { Unit } from "@prisma/client";
+import type { MgPriority, Unit } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTemplate } from "@/lib/data";
 import { generateMesocycle } from "@/lib/generateMeso";
+import { DONE_STATUSES } from "@/lib/dayStatus";
+import { plannedSets } from "@/lib/progression";
+import { nextSetData, reconcileSetCount } from "@/lib/setOps";
+import { PRIORITIES } from "@/lib/priorities";
 
 /** Slim, serializable shape the TemplatePicker preview renders — no raw DB rows. */
 export type TemplatePreview = {
@@ -136,6 +140,96 @@ export async function unarchiveMesocycle(key: string) {
     data: { status: m?.finishedAt ? "complete" : "ready" },
   });
   revalidateMeso(key);
+}
+
+/**
+ * Retune a muscle group's volume priority on a live block. Set counts are reconciled toward the
+ * new priority's planned volume for every UNTRAINED day from the week the user has reached
+ * forward — past and in-progress days are left exactly as they were logged. Raising adds sets;
+ * lowering trims trailing unlogged sets (never a logged set, never below one). The stored
+ * MesoPriority is upserted so the change sticks and shows on the detail page.
+ */
+export async function updateMesoPriority(key: string, muscleGroupId: number, priority: MgPriority) {
+  const me = await requireUser();
+  if (!PRIORITIES.includes(priority)) throw new Error("Invalid priority.");
+
+  // Read + reconcile + write all inside one transaction so a set logged concurrently between
+  // the snapshot and the writes can't be deleted on stale data.
+  const touchedDays = new Map<string, { week: number; position: number }>();
+  await prisma.$transaction(async (tx) => {
+    const meso = await tx.mesocycle.findUnique({
+      where: { key },
+      select: {
+        id: true,
+        userId: true,
+        unit: true,
+        weeksCount: true,
+        days: {
+          select: {
+            week: true,
+            position: true,
+            exercises: {
+              select: {
+                id: true,
+                muscleGroupId: true,
+                sets: {
+                  select: {
+                    id: true,
+                    position: true,
+                    status: true,
+                    repsTarget: true,
+                    weightTarget: true,
+                    weightTargetMin: true,
+                    weightTargetMax: true,
+                    unit: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!meso || meso.userId !== me.id) throw new Error("Forbidden");
+    if (!meso.days.some((d) => d.exercises.some((e) => e.muscleGroupId === muscleGroupId)))
+      throw new Error("Muscle group not in this mesocycle.");
+
+    // How far the user has trained: the latest week with any logged/skipped set (-1 if untouched,
+    // so week 0 isn't mistaken for a reached week and its untrained days are still reconciled).
+    const dayTrained = (d: (typeof meso.days)[number]) =>
+      d.exercises.some((e) => e.sets.some((s) => DONE_STATUSES.has(s.status)));
+    let reachedWeek = -1;
+    for (const d of meso.days) if (dayTrained(d) && d.week > reachedWeek) reachedWeek = d.week;
+
+    const toCreate: { dayExerciseId: number; position: number; setType: string; repsTarget: number | null; weightTarget: number | null; weightTargetMin: number | null; weightTargetMax: number | null; unit: string | null; status: string }[] = [];
+    const removeIds: number[] = [];
+    for (const d of meso.days) {
+      if (d.week < reachedWeek || dayTrained(d)) continue; // protect past + in-progress days
+      const target = plannedSets(priority, d.week, meso.weeksCount);
+      for (const ex of d.exercises) {
+        if (ex.muscleGroupId !== muscleGroupId) continue;
+        const { add, removeIds: rm } = reconcileSetCount(ex.sets, target);
+        if (add === 0 && rm.length === 0) continue;
+        if (add > 0) {
+          const base = nextSetData(ex.sets, meso.unit);
+          for (let i = 0; i < add; i++) toCreate.push({ dayExerciseId: ex.id, ...base, position: base.position + i });
+        }
+        removeIds.push(...rm);
+        touchedDays.set(`${d.week}:${d.position}`, { week: d.week, position: d.position });
+      }
+    }
+
+    if (toCreate.length) await tx.exerciseSet.createMany({ data: toCreate });
+    if (removeIds.length) await tx.exerciseSet.deleteMany({ where: { id: { in: removeIds } } });
+    await tx.mesoPriority.upsert({
+      where: { mesoId_muscleGroupId: { mesoId: meso.id, muscleGroupId } },
+      create: { mesoId: meso.id, muscleGroupId, priority },
+      update: { priority },
+    });
+  });
+
+  revalidateMeso(key);
+  for (const d of touchedDays.values()) revalidatePath(`/mesocycles/${key}/${d.week}/${d.position}`);
 }
 
 /** Hard delete — cascades to days/exercises/sets/priorities. */

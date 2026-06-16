@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { PageHeader, MgDot } from "@/components/ui";
 import { mgColor } from "@/lib/format";
 import { TemplateOwnerActions } from "@/components/TemplateOwnerActions";
+import { CopyTemplateButton } from "@/components/CopyTemplateButton";
 
 export default async function TemplateDetail({ params }: { params: Promise<{ key: string }> }) {
   const me = await requireUser();
@@ -18,7 +19,10 @@ export default async function TemplateDetail({ params }: { params: Promise<{ key
         title={t.name}
         subtitle={`${t.emphasis} · ${t.sex}${t.frequency ? ` · ${t.frequency}×/wk` : ""}`}
       >
-        {isOwner && <TemplateOwnerActions templateKey={t.key} />}
+        <div className="flex items-center gap-2">
+          <CopyTemplateButton templateKey={t.key} />
+          {isOwner && <TemplateOwnerActions templateKey={t.key} />}
+        </div>
       </PageHeader>
 
       {t.description && <p className="mb-6 max-w-2xl text-sm text-muted">{t.description}</p>}

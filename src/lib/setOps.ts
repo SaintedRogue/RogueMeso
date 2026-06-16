@@ -2,6 +2,7 @@
 // "use server" action module (which may only export async actions) so they stay unit-testable.
 
 import { DEFAULT_REPS_TARGET } from "@/lib/progression";
+import { DONE_STATUSES } from "@/lib/dayStatus";
 
 /** The minimal shape of an existing set needed to derive an appended set. */
 type SetShape = {
@@ -60,4 +61,29 @@ export function reindex(remaining: { id: number; position: number }[]): { id: nu
     if (s.position !== i) changes.push({ id: s.id, position: i });
   });
   return changes;
+}
+
+/**
+ * Decide how to move an exercise group's set count toward `target` (e.g. after a volume-priority
+ * change): how many sets to append, or which UNLOGGED sets to drop. Removal walks from the
+ * highest position down and skips logged/skipped sets, so it never deletes recorded work and
+ * never drops the group below one set. The caller only reconciles untrained days (no logged
+ * sets), where this trims a pure tail and positions stay contiguous — no reindex needed.
+ */
+export function reconcileSetCount(
+  sets: { id: number; position: number; status: string }[],
+  target: number,
+): { add: number; removeIds: number[] } {
+  const safeTarget = Math.max(1, target);
+  if (sets.length <= safeTarget) return { add: safeTarget - sets.length, removeIds: [] };
+
+  const removeIds: number[] = [];
+  let remaining = sets.length;
+  for (const s of [...sets].sort((a, b) => b.position - a.position)) {
+    if (remaining <= safeTarget || remaining <= 1) break;
+    if (DONE_STATUSES.has(s.status)) continue; // keep logged/skipped sets
+    removeIds.push(s.id);
+    remaining--;
+  }
+  return { add: 0, removeIds };
 }
