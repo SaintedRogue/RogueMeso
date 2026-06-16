@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { getDay, getMuscleGroups } from "@/lib/data";
+import { getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill } from "@/components/ui";
@@ -20,6 +20,8 @@ export default async function DayPage({
   const muscleGroups = await getMuscleGroups();
 
   const meso = d.meso;
+  // Carry the same day from last week forward as a shaded target until the user logs.
+  const suggestions = await getDaySuggestions(key, wk, pos, meso.weeksCount, me.id, d.exercises);
   const prev = pos > 0 ? `/mesocycles/${key}/${wk}/${pos - 1}` : null;
   const next = pos + 1 < meso.daysPerWeek ? `/mesocycles/${key}/${wk}/${pos + 1}` : null;
   const prevWeek = wk > 0 ? `/mesocycles/${key}/${wk - 1}/${pos}` : null;
@@ -49,6 +51,7 @@ export default async function DayPage({
         day={d}
         meso={{ key, name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }}
         muscleGroups={muscleGroups}
+        suggestions={suggestions}
       />
     </>
   );

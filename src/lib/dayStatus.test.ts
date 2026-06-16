@@ -6,9 +6,18 @@ const skip = { status: "skipped" };
 const open = { status: "pendingWeight" };
 
 describe("rolledUpDayStatus", () => {
-  it("is complete when every exercise's sets are all done or skipped", () => {
+  // Finishing is explicit (the Complete-session button). Logging the last set must NOT
+  // auto-promote the day; it stays "partial" so the user can still make edits.
+  it("does not auto-promote to complete when every set is done but the day wasn't completed", () => {
     const exercises = [{ sets: [done, done] }, { sets: [done, skip] }];
-    expect(rolledUpDayStatus(exercises, "partial")).toBe("complete");
+    expect(rolledUpDayStatus(exercises, "partial")).toBe("partial");
+    expect(rolledUpDayStatus(exercises, "pending")).toBe("partial");
+  });
+
+  // Sticky: once explicitly completed, re-editing a still-finished set keeps it complete.
+  it("preserves complete when the day was already complete and every set is still done", () => {
+    const exercises = [{ sets: [done, done] }, { sets: [done, skip] }];
+    expect(rolledUpDayStatus(exercises, "complete")).toBe("complete");
   });
 
   it("is partial when some work is logged but not all", () => {

@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { maybePostWorkoutActivity, maybePostPrActivity } from "@/lib/features/community";
-
-const DONE = new Set(["complete", "skipped"]);
+import { rolledUpDayStatus, DONE_STATUSES as DONE } from "@/lib/dayStatus";
 
 /**
  * Post community feed activities for a set mutation, best-effort. The social layer is
@@ -39,8 +38,10 @@ async function assertSetOwner(setId: number, userId: number) {
 
 /**
  * Recompute the exercise's and day's roll-up status after a set changes.
- * Returns the day's route coordinates (meso key / week / position) so callers
- * can revalidate the exact pages that render it, or null if the row is gone.
+ * Day status comes from the shared pure `rolledUpDayStatus`, which never auto-promotes a
+ * day to "complete" (that's the explicit Complete-session button); it only preserves a
+ * day already finished. Returns the day's route coordinates (meso key / week / position)
+ * so callers can revalidate the exact pages that render it, or null if the row is gone.
  */
 async function recomputeRollups(dayExerciseId: number) {
   const ex = await prisma.dayExercise.findUnique({
@@ -57,14 +58,11 @@ async function recomputeRollups(dayExerciseId: number) {
   await prisma.dayExercise.update({ where: { id: ex.id }, data: { status: exStatus } });
 
   const day = ex.day;
-  const exStatuses = day.exercises.map((e) =>
-    e.id === ex.id ? exStatus : e.sets.length > 0 && e.sets.every((s) => DONE.has(s.status)) ? "complete" : "pending",
-  );
-  const allComplete = exStatuses.length > 0 && exStatuses.every((s) => s === "complete");
-  const anyStarted = day.exercises.some((e) => e.sets.some((s) => DONE.has(s.status)));
-  const dayStatus = allComplete ? "complete" : anyStarted ? "partial" : day.status;
-  const finishedAt = allComplete ? day.finishedAt ?? new Date() : null;
-  await prisma.mesoDay.update({ where: { id: day.id }, data: { status: dayStatus, finishedAt } });
+  const dayStatus = rolledUpDayStatus(day.exercises, day.status);
+  await prisma.mesoDay.update({
+    where: { id: day.id },
+    data: { status: dayStatus, finishedAt: dayStatus === "complete" ? day.finishedAt ?? new Date() : null },
+  });
 
   return { key: day.meso.key, week: day.week, position: day.position, dayId: day.id };
 }

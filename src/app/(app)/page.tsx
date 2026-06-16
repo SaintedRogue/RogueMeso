@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell } from "lucide-react";
-import { getActiveMeso, getDay, getMuscleGroups } from "@/lib/data";
+import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, ActiveBadge, EmptyState } from "@/components/ui";
@@ -29,6 +29,16 @@ export default async function Home() {
   if (!day) return null;
   const muscleGroups = await getMuscleGroups();
 
+  // Carry the same day from last week forward as a shaded target until the user logs.
+  const suggestions = await getDaySuggestions(
+    active.key,
+    current.week,
+    current.position,
+    active.weeksCount,
+    me.id,
+    day.exercises,
+  );
+
   return (
     <>
       <PageHeader
@@ -53,6 +63,7 @@ export default async function Home() {
         day={day}
         meso={{ key: active.key, name: active.name, weeksCount: active.weeksCount, unit: active.unit }}
         muscleGroups={muscleGroups}
+        suggestions={suggestions}
       />
     </>
   );

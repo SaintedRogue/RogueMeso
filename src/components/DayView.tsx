@@ -1,9 +1,9 @@
 import { mgColor, rirForWeek } from "@/lib/format";
+import { DONE_STATUSES } from "@/lib/dayStatus";
+import type { SetSuggestion } from "@/lib/suggestions";
 import { ExerciseSets } from "@/components/ExerciseSets";
 import { ExerciseInfo } from "@/components/ExerciseInfo";
 import { CompleteSession } from "@/components/CompleteSession";
-
-const DONE_STATUSES = new Set(["complete", "skipped"]);
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -37,10 +37,13 @@ export function DayView({
   day,
   meso,
   muscleGroups,
+  suggestions = {},
 }: {
   day: ViewDay;
   meso: { key: string; name: string; weeksCount: number; unit: string };
   muscleGroups: { id: number; name: string }[];
+  /** Shaded "same day last week" targets, keyed by current set id. */
+  suggestions?: Record<number, SetSuggestion>;
 }) {
   const openSets = day.exercises.reduce(
     (n, ex) => n + ex.sets.filter((s) => !DONE_STATUSES.has(s.status)).length,
@@ -70,7 +73,13 @@ export function DayView({
               muscleGroupId={ex.muscleGroup.id}
               muscleGroups={muscleGroups}
             />
-            <ExerciseSets sets={ex.sets} targetRir={targetRir} unit={meso.unit} dayExerciseId={ex.id} />
+            <ExerciseSets
+              sets={ex.sets}
+              targetRir={targetRir}
+              unit={meso.unit}
+              dayExerciseId={ex.id}
+              suggestions={suggestions}
+            />
           </div>
         );
       })}

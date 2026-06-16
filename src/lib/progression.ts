@@ -24,6 +24,22 @@ export function rirForWeek(week: number, weeksCount: number): number | null {
   return Math.max(0, start - week);
 }
 
+/**
+ * Suggested reps for this week at the SAME load as last week. As target RIR ramps down
+ * week-over-week the same weight gets relatively harder, so we add that RIR "drop" as
+ * extra reps (RIR 2→1 means one rep closer to failure ≈ +1 rep). A non-positive drop
+ * (RIR held flat, or last week was harder) adds nothing, and a deload (null RIR on either
+ * side) repeats last week's reps rather than pushing.
+ */
+export function suggestedReps(
+  lastReps: number,
+  lastWeekRir: number | null,
+  thisWeekRir: number | null,
+): number {
+  if (lastWeekRir == null || thisWeekRir == null) return lastReps;
+  return lastReps + Math.max(0, lastWeekRir - thisWeekRir);
+}
+
 /** Planned set count for one exercise, by its muscle group's priority and the week. */
 export function plannedSets(priority: MgPriority, week: number, weeksCount: number): number {
   if (isDeloadWeek(week, weeksCount)) return Math.max(1, MEV_SETS - 1); // ~half volume
