@@ -70,6 +70,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Provenance attestation: id-token signs via Sigstore, attestations writes
+      # the attestation back to the repo + registry so pulls are verifiable.
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -112,6 +116,7 @@ jobs:
 
       - name: Build and push
         if: steps.detect.outputs.build == 'true'
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -121,3 +126,14 @@ jobs:
             ghcr.io/saintedrogue/roguemeso:${{ steps.vars.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Signed provenance: proves this image was built by THIS workflow from THIS
+      # commit. Anyone can verify with `gh attestation verify oci://... -R <repo>`
+      # or `cosign verify-attestation`. Attaches to the image by digest.
+      - name: Attest build provenance
+        if: steps.detect.outputs.build == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/saintedrogue/roguemeso
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
