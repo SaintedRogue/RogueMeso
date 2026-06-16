@@ -7,10 +7,10 @@ import { PRIORITY_META } from "@/lib/priorities";
  * meso), plus the RIR/deload note. Pure + presentational — reused by the template builder
  * (example block) and the live-meso priority editor (the real block).
  */
-export function VolumeExplainer({ weeksCount }: { weeksCount: number }) {
+export function VolumeExplainer({ weeksCount, defaultOpen = false }: { weeksCount: number; defaultOpen?: boolean }) {
   const lastWeek = weeksCount - 1;
   return (
-    <details className="rounded-md border border-line/60 bg-bg/40 text-sm">
+    <details open={defaultOpen} className="rounded-md border border-line/60 bg-bg/40 text-sm">
       <summary className="cursor-pointer select-none px-3 py-2 font-medium text-muted hover:text-text">
         How volume works
       </summary>
