@@ -20,11 +20,15 @@ type Props = {
   };
   targetRir: number | null;
   unit: string;
-  /** Weight is controlled by the parent so a logged set can pre-fill the next one. */
+  /** Weight + reps are controlled by the parent so a logged set can pre-fill the next one. */
   weight: string;
+  reps: string;
   onWeightChange: (value: string) => void;
-  /** Called with the logged weight after a successful log, to carry it down. */
-  onLogged: (weight: string) => void;
+  onRepsChange: (value: string) => void;
+  /** True while the shown weight/reps are an unconfirmed "last week" suggestion (render shaded). */
+  suggested: boolean;
+  /** Called after a successful log so the parent can carry weight + reps onto the next set. */
+  onLogged: () => void;
   /** Add a set to this group; "meso" also extends the same exercise's later occurrences. */
   onAdd: (scope: Scope) => void | Promise<void>;
   /** Whether this set may be deleted (false when it's the group's only set). */
@@ -38,17 +42,21 @@ export function SetLogger({
   targetRir,
   unit,
   weight,
+  reps,
+  suggested,
   onWeightChange,
+  onRepsChange,
   onLogged,
   onAdd,
   canRemove,
   onRemove,
 }: Props) {
-  const [reps, setReps] = useState(set.reps?.toString() ?? "");
   const [flash, setFlash] = useState(false);
   const [pending, start] = useTransition();
   const done = set.status === "complete";
   const skipped = set.status === "skipped";
+  // Shade an unconfirmed suggestion so it reads as a target, not a logged value.
+  const ghost = suggested && !done ? "italic text-muted" : "";
 
   const submit = () => {
     const w = weight === "" ? null : Number(weight);
@@ -57,7 +65,7 @@ export function SetLogger({
     setFlash(true);
     setTimeout(() => setFlash(false), 900);
     start(() => logSet(set.id, w, r));
-    onLogged(weight);
+    onLogged();
   };
 
   // Structural set actions (add/remove, each with day/meso scope) live in this popover menu,
@@ -87,7 +95,7 @@ export function SetLogger({
         {done ? <Check aria-hidden size={16} strokeWidth={2.5} /> : set.position + 1}
       </span>
       <input
-        className="input num py-1"
+        className={`input num py-1 ${ghost}`}
         inputMode="decimal"
         value={weight}
         onChange={(e) => onWeightChange(e.target.value)}
@@ -95,10 +103,10 @@ export function SetLogger({
         aria-label="weight"
       />
       <input
-        className="input num py-1"
+        className={`input num py-1 ${ghost}`}
         inputMode="numeric"
         value={reps}
-        onChange={(e) => setReps(e.target.value)}
+        onChange={(e) => onRepsChange(e.target.value)}
         placeholder={set.repsTarget ? `${set.repsTarget} reps` : "reps"}
         aria-label="reps"
       />

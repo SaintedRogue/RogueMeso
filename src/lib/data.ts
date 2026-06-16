@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { rirForWeek } from "@/lib/progression";
+import { buildSetSuggestions } from "@/lib/suggestions";
 
 // All queries are scoped to a user. Mesocycles are private; exercises/templates are the shared
 // shared library (userId null) PLUS the user's own creations (userId === me).
@@ -86,6 +88,30 @@ export function getDay(mesoKey: string, week: number, position: number, userId: 
     where: { meso: { key: mesoKey, userId }, week, position },
     include: { ...dayInclude, meso: true },
   });
+}
+
+/**
+ * Shaded "same day last week" targets for the current day's sets, keyed by current set id.
+ * Empty on week 0 (nothing to look back to) or when the prior week's day is missing. The
+ * single place the "look back one week" policy lives, shared by the home and day screens.
+ */
+export async function getDaySuggestions(
+  mesoKey: string,
+  week: number,
+  position: number,
+  weeksCount: number,
+  userId: number,
+  currentExercises: Parameters<typeof buildSetSuggestions>[0],
+) {
+  if (week === 0) return {};
+  const prev = await getDay(mesoKey, week - 1, position, userId);
+  if (!prev) return {};
+  return buildSetSuggestions(
+    currentExercises,
+    prev.exercises,
+    rirForWeek(week - 1, weeksCount),
+    rirForWeek(week, weeksCount),
+  );
 }
 
 export async function getExercises(userId: number, search?: string, muscleGroupId?: number) {

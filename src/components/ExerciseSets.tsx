@@ -4,41 +4,82 @@ import { useState } from "react";
 import { SetLogger } from "@/components/SetLogger";
 import { addSet, removeSet } from "@/lib/setActions";
 import type { ViewSet } from "@/components/DayView";
+import type { SetSuggestion } from "@/lib/suggestions";
 
 /**
- * Owns the weight inputs for one exercise's sets so logging a set can pre-fill the
- * NEXT set's weight ("assume the same load again"). Reps stay local to each SetLogger —
- * only weight carries down. The fill is a non-destructive default: it never overwrites a
- * next set that already has a value or has been logged/skipped, so manual edits win.
+ * Owns the weight AND reps inputs for one exercise's sets so logging a set can pre-fill the
+ * NEXT set ("assume the same effort again"). Both carry down as a non-destructive default:
+ * they never overwrite a next set the user has already typed into or logged/skipped.
  *
- * Add/remove are surfaced through each row's ⋮ menu (in SetLogger) rather than an
- * always-visible control, so a structural change is deliberate. After either action
- * revalidatePath re-renders this subtree with the fresh set list — there's no separate
- * client-side set list to keep in sync.
+ * Sets also seed from "same day last week" suggestions (weight + RIR-bumped reps). A seeded
+ * value renders shaded and lives in `suggestedIds` until it's "locked in" — the user edits it
+ * (their value now) or logs it. Carry-down outranks an unconfirmed suggestion (your most recent
+ * set is a stronger signal than last week), but a value you typed always wins.
+ *
+ * Add/remove are surfaced through each row's ⋮ menu (in SetLogger). After either action
+ * revalidatePath re-renders this subtree with the fresh set list.
  */
 export function ExerciseSets({
   sets,
   targetRir,
   unit,
   dayExerciseId,
+  suggestions = {},
 }: {
   sets: ViewSet[];
   targetRir: number | null;
   unit: string;
   dayExerciseId: number;
+  suggestions?: Record<number, SetSuggestion>;
 }) {
+  // Seed each field: a logged value wins, else the last-week suggestion, else empty.
   const [weights, setWeights] = useState<Record<number, string>>(() =>
-    Object.fromEntries(sets.map((s) => [s.id, s.weight?.toString() ?? ""])),
+    Object.fromEntries(
+      sets.map((s) => [s.id, s.weight?.toString() ?? suggestions[s.id]?.weight.toString() ?? ""]),
+    ),
+  );
+  const [reps, setReps] = useState<Record<number, string>>(() =>
+    Object.fromEntries(
+      sets.map((s) => [s.id, s.reps?.toString() ?? suggestions[s.id]?.reps.toString() ?? ""]),
+    ),
+  );
+  // Sets whose seeded values are still an unconfirmed suggestion (shaded, not locked in).
+  const [suggestedIds, setSuggestedIds] = useState<Set<number>>(
+    () => new Set(sets.filter((s) => suggestions[s.id]).map((s) => s.id)),
   );
 
-  const setWeight = (id: number, value: string) =>
-    setWeights((prev) => ({ ...prev, [id]: value }));
+  // Touching a field locks it in: it's the user's value now, not a suggestion.
+  const confirm = (id: number) =>
+    setSuggestedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
 
-  const fillNext = (index: number, value: string) => {
+  const setWeight = (id: number, value: string) => {
+    setWeights((prev) => ({ ...prev, [id]: value }));
+    confirm(id);
+  };
+  const setRepsFor = (id: number, value: string) => {
+    setReps((prev) => ({ ...prev, [id]: value }));
+    confirm(id);
+  };
+
+  // After logging set `index`, carry its weight + reps onto the next set. Overwrites an empty
+  // or still-suggested next set; leaves a value the user typed alone.
+  const fillNext = (index: number) => {
+    const cur = sets[index];
     const next = sets[index + 1];
     if (!next || next.status === "complete" || next.status === "skipped") return;
-    // Only seed an empty next set — don't clobber a weight the user already entered.
-    setWeights((prev) => (prev[next.id] ? prev : { ...prev, [next.id]: value }));
+    const w = weights[cur.id] ?? "";
+    const r = reps[cur.id] ?? "";
+    const canFill = (map: Record<number, string>) => !map[next.id] || suggestedIds.has(next.id);
+    setWeights((prev) => (canFill(prev) ? { ...prev, [next.id]: w } : prev));
+    setReps((prev) => (canFill(prev) ? { ...prev, [next.id]: r } : prev));
+    // A carried-down value is a concrete default, no longer "last week". Safe no-op when the
+    // next set wasn't a suggestion (confirm only deletes a present id).
+    confirm(next.id);
   };
 
   return (
@@ -50,8 +91,11 @@ export function ExerciseSets({
           targetRir={targetRir}
           unit={unit}
           weight={weights[s.id] ?? ""}
+          reps={reps[s.id] ?? ""}
+          suggested={suggestedIds.has(s.id)}
           onWeightChange={(v) => setWeight(s.id, v)}
-          onLogged={(v) => fillNext(i, v)}
+          onRepsChange={(v) => setRepsFor(s.id, v)}
+          onLogged={() => fillNext(i)}
           onAdd={(scope) => addSet(dayExerciseId, scope)}
           canRemove={sets.length > 1}
           onRemove={(scope) => removeSet(s.id, scope)}
