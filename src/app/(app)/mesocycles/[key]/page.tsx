@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getMesocycle } from "@/lib/data";
 import { PageHeader, StatusPill, ActiveBadge, MgDot } from "@/components/ui";
 import { MesoMenu } from "@/components/MesoMenu";
+import { MesoPriorities } from "@/components/MesoPriorities";
 import { requireUser } from "@/lib/auth";
 import { mgColor } from "@/lib/format";
 
@@ -33,17 +34,15 @@ export default async function MesoDetail({ params }: { params: Promise<{ key: st
       </PageHeader>
 
       {meso.priorities.length > 0 && (
-        <div className="card mb-6 p-4">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Priorities</div>
-          <div className="flex flex-wrap gap-2">
-            {meso.priorities.map((p) => (
-              <span key={p.id} className="chip" style={{ borderColor: mgColor(p.muscleGroup.name) }}>
-                <MgDot color={mgColor(p.muscleGroup.name)} />
-                {p.muscleGroup.name} · {p.priority}
-              </span>
-            ))}
-          </div>
-        </div>
+        <MesoPriorities
+          mesoKey={meso.key}
+          weeksCount={meso.weeksCount}
+          priorities={meso.priorities.map((p) => ({
+            muscleGroupId: p.muscleGroupId,
+            name: p.muscleGroup.name,
+            priority: p.priority,
+          }))}
+        />
       )}
 
       {/* Break the week rows out of the shared max-w-5xl shell to fill <main>, so all

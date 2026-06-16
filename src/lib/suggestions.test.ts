@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { suggestedReps } from "@/lib/progression";
+import { suggestedReps, setRampPreview } from "@/lib/progression";
 import { buildSetSuggestions } from "@/lib/suggestions";
+
+describe("setRampPreview", () => {
+  it("emphasize ramps +1 set/week from MEV toward the MRV cap, with a deload last week", () => {
+    expect(setRampPreview("emphasize", 5)).toEqual([2, 3, 4, 5, 1]);
+  });
+
+  it("grow adds a set every other week", () => {
+    expect(setRampPreview("grow", 5)).toEqual([2, 2, 3, 3, 1]);
+  });
+
+  it("maintain holds steady until the deload", () => {
+    expect(setRampPreview("maintain", 5)).toEqual([2, 2, 2, 2, 1]);
+  });
+});
 
 describe("suggestedReps", () => {
   it("adds the RIR drop as reps at the same load (RIR 2→1 → +1 rep)", () => {

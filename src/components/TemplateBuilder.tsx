@@ -6,6 +6,8 @@ import type { MgPriority } from "@prisma/client";
 import { MgDot } from "@/components/ui";
 import { mgColor } from "@/lib/format";
 import { TemplateSlotPicker, type BuilderSlot } from "@/components/TemplateSlotPicker";
+import { VolumeExplainer } from "@/components/VolumeExplainer";
+import { PRIORITY_META } from "@/lib/priorities";
 import {
   createTemplateAction,
   updateTemplateAction,
@@ -28,11 +30,6 @@ type Props = {
   initial?: TemplateBuilderInitial;
 };
 
-const PRIORITY_OPTIONS: { value: MgPriority; label: string }[] = [
-  { value: "maintain", label: "Maintain" },
-  { value: "grow", label: "Grow" },
-  { value: "emphasize", label: "Emphasize" },
-];
 
 /**
  * Custom-template builder. Manages days -> slots and per-muscle-group volume priorities, then
@@ -210,9 +207,10 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
       {usedMgIds.length > 0 && (
         <div className="card p-5">
           <div className="mb-1 text-sm font-semibold">Volume priority</div>
-          <p className="mb-4 text-xs text-muted">
-            How hard to push each muscle group — sets ramp from MEV toward MRV across the block.
-          </p>
+          <p className="mb-3 text-xs text-muted">How hard to push each muscle group across the block.</p>
+          <div className="mb-4">
+            <VolumeExplainer weeksCount={5} />
+          </div>
           <div className="space-y-2">
             {usedMgIds.map((id) => (
               <div key={id} className="flex items-center gap-3">
@@ -226,7 +224,7 @@ export function TemplateBuilder({ muscleGroups, mode, templateKey, initial }: Pr
                   onChange={(e) => setPriority(id, e.target.value as MgPriority)}
                   aria-label={`${mgName(id)} priority`}
                 >
-                  {PRIORITY_OPTIONS.map((o) => (
+                  {PRIORITY_META.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>

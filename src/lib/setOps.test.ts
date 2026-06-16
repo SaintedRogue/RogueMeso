@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { nextSetData, reindex } from "@/lib/setOps";
+import { nextSetData, reindex, reconcileSetCount } from "@/lib/setOps";
 import { DEFAULT_REPS_TARGET } from "@/lib/progression";
+
+const s = (id: number, position: number, status = "pendingWeight") => ({ id, position, status });
 
 const set = (position: number, over: Partial<Parameters<typeof nextSetData>[0][number]> = {}) => ({
   position,
@@ -58,5 +60,32 @@ describe("reindex", () => {
       { id: 2, position: 0 },
       { id: 3, position: 1 },
     ]);
+  });
+});
+
+describe("reconcileSetCount", () => {
+  it("appends the shortfall when below target", () => {
+    expect(reconcileSetCount([s(1, 0), s(2, 1)], 4)).toEqual({ add: 2, removeIds: [] });
+  });
+
+  it("is a no-op when already at target", () => {
+    expect(reconcileSetCount([s(1, 0), s(2, 1)], 2)).toEqual({ add: 0, removeIds: [] });
+  });
+
+  it("trims trailing sets (highest position first) when above target", () => {
+    expect(reconcileSetCount([s(1, 0), s(2, 1), s(3, 2), s(4, 3)], 2)).toEqual({
+      add: 0,
+      removeIds: [4, 3],
+    });
+  });
+
+  it("never removes a logged/skipped set, even if that leaves the count above target", () => {
+    // positions 2 and 3 are logged; only the unlogged tail (id 5, pos 4) can go.
+    const sets = [s(1, 0), s(2, 1), s(3, 2, "complete"), s(4, 3, "skipped"), s(5, 4)];
+    expect(reconcileSetCount(sets, 2)).toEqual({ add: 0, removeIds: [5, 2, 1] });
+  });
+
+  it("never drops the group below one set", () => {
+    expect(reconcileSetCount([s(1, 0), s(2, 1)], 0)).toEqual({ add: 0, removeIds: [2] });
   });
 });

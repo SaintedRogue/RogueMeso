@@ -50,3 +50,9 @@ export function plannedSets(priority: MgPriority, week: number, weeksCount: numb
   // maintain: stays at base (MV)
   return Math.min(MRV_SETS, base + added);
 }
+
+/** Per-week planned set counts for a priority across a whole block — powers the
+ *  "How volume works" explainer. Index = 0-based week; the final entry is the deload. */
+export function setRampPreview(priority: MgPriority, weeksCount: number): number[] {
+  return Array.from({ length: Math.max(0, weeksCount) }, (_, w) => plannedSets(priority, w, weeksCount));
+}

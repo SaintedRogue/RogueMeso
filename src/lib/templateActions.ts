@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import type { MgPriority } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getExercises } from "@/lib/data";
+import { getExercises, getTemplate } from "@/lib/data";
+import { PRIORITIES } from "@/lib/priorities";
 
 // Write side for user-owned templates. Reads + mesocycle generation already handle them
 // (see generateMeso.ts / data.ts); this module only creates/edits/deletes them. The payload
@@ -32,8 +33,6 @@ export type TemplateExercise = {
   exerciseType: string;
   muscleGroupId: number;
 };
-
-const PRIORITIES: MgPriority[] = ["maintain", "grow", "emphasize"];
 
 /**
  * Candidate exercises for a builder slot. Browsing is scoped to the slot's muscle group, but
@@ -130,29 +129,59 @@ function sexFor(bodySex: string | null): string {
   return bodySex === "F" ? "female" : "male";
 }
 
-/** Create a user-owned template and go to its detail page. */
-export async function createTemplateAction(input: TemplateBuilderInput): Promise<void> {
-  const me = await requireUser();
-  const built = await validateAndBuild(input, me.id);
+/** Persist a validated template owned by `userId`; returns its new key. Shared by create + copy. */
+async function persistNewTemplate(built: BuiltTemplate, userId: number, bodySex: string | null): Promise<string> {
   const key = randomUUID().replace(/-/g, "").slice(0, 12);
-
   await prisma.template.create({
     data: {
       key,
       name: built.name,
       description: built.description,
       emphasis: "Custom",
-      sex: sexFor(me.bodySex),
+      sex: sexFor(bodySex),
       frequency: built.days.length,
-      userId: me.id,
+      userId,
       sharedWithInstance: false,
       days: { create: built.days.map((d) => ({ position: d.position, label: d.label, slots: { create: d.slots } })) },
       priorities: { create: built.priorities },
     },
   });
+  return key;
+}
 
+/** Create a user-owned template and go to its detail page. */
+export async function createTemplateAction(input: TemplateBuilderInput): Promise<void> {
+  const me = await requireUser();
+  const built = await validateAndBuild(input, me.id);
+  const key = await persistNewTemplate(built, me.id, me.bodySex);
   revalidatePath("/templates");
   redirect(`/templates/${key}`); // throws a control-flow signal — keep outside any try/catch
+}
+
+/**
+ * Duplicate any template the user can see (a seeded library one, a shared one, or their own)
+ * into a fresh editable copy they own, then open it in the builder. This is how you customize
+ * a built-in template: copy it, then tweak days/exercises/priorities on your own version.
+ */
+export async function copyTemplateAction(key: string): Promise<void> {
+  const me = await requireUser();
+  const t = await getTemplate(key, me.id); // enforces accessible (library / shared / own)
+  if (!t) throw new Error("Forbidden");
+  const built = await validateAndBuild(
+    {
+      name: `Copy of ${t.name}`.slice(0, 80),
+      description: t.description,
+      days: t.days.map((d) => ({
+        label: d.label,
+        slots: d.slots.map((s) => ({ muscleGroupId: s.muscleGroupId, exerciseId: s.exerciseId })),
+      })),
+      priorities: t.priorities.map((p) => ({ muscleGroupId: p.muscleGroupId, priority: p.priority })),
+    },
+    me.id,
+  );
+  const newKey = await persistNewTemplate(built, me.id, me.bodySex);
+  revalidatePath("/templates");
+  redirect(`/templates/${newKey}/edit`); // land in the builder so they can immediately tweak
 }
 
 /**
