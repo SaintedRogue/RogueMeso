@@ -8,15 +8,14 @@ register your own and immediately have the full exercise library to build a meso
 | Container | Image | Suggested IP | Purpose |
 |-----------|-------|--------------|---------|
 | `roguemeso-db` | `postgres:17-alpine` (public) | `10.0.0.231` | PostgreSQL data store |
-| `roguemeso` | `ghcr.io/SaintedRogue/roguemeso:latest` (**private**) | `10.0.0.232` | The app |
+| `roguemeso` | `ghcr.io/saintedrogue/roguemeso:latest` (public) | `10.0.0.232` | The app |
 
-## One-time: let the server pull the private image
-
-The app image lives in a private GHCR repo, so the server needs registry creds once:
+The app image is **public** on GHCR — the server pulls it with no `docker login` and
+no credentials. Each image carries signed build provenance; verify it came from this
+repo's CI with:
 
 ```sh
-# on RogueServer (Unraid console / SSH), with a GitHub PAT that has read:packages
-docker login ghcr.io -u SaintedRogue
+gh attestation verify oci://ghcr.io/saintedrogue/roguemeso:latest -R SaintedRogue/RogueMeso
 ```
 
 ## Import the templates

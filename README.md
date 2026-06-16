@@ -115,8 +115,8 @@ docker-entrypoint.sh:  wait for DB → migrate deploy → seed if empty → back
 
 The intended target. `deploy/unraid/` contains importable templates for the Postgres
 and app containers plus a step-by-step guide — see **[`deploy/unraid/README.md`](deploy/unraid/README.md)**.
-In short: `docker login ghcr.io` once on the server, import both XMLs via
-**Docker → Add Container → Template**, start the DB (set `POSTGRES_PASSWORD`), then the
+In short: import both XMLs via **Docker → Add Container → Template** (the app image is
+public — no `docker login` needed), start the DB (set `POSTGRES_PASSWORD`), then the
 app (point `DATABASE_URL` at the DB, set a 32+ char `AUTH_SECRET`).
 
 ### Any Docker host

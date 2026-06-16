@@ -16,7 +16,7 @@
   <PostArgs/>
   <DonateText/>
   <DonateLink/>
-  <Description>RogueMeso app. Private image — the server needs a one-time `docker login ghcr.io` before pulling. Set DATABASE_URL to point at the roguemeso-db container (same user/password/db) and AUTH_SECRET to a 32+ char random string.</Description>
+  <Description>RogueMeso app. Public image on GHCR — pulls with no docker login. Set DATABASE_URL to point at the roguemeso-db container (same user/password/db) and AUTH_SECRET to a 32+ char random string.</Description>
   <Config Name="WebUI port" Target="3000" Default="3000" Mode="tcp" Description="App HTTP port. On br0 reach the app at this IP:3000." Type="Port" Display="always" Required="false" Mask="false">3000</Config>
   <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgresql://roguemeso:CHANGE_ME@10.0.0.231:5432/roguemeso?schema=public" Mode="" Description="Postgres connection string. Replace CHANGE_ME with POSTGRES_PASSWORD and the IP with the roguemeso-db container's IP. Keep ?schema=public." Type="Variable" Display="always" Required="true" Mask="true">postgresql://roguemeso:CHANGE_ME@10.0.0.231:5432/roguemeso?schema=public</Config>
   <Config Name="AUTH_SECRET" Target="AUTH_SECRET" Default="" Mode="" Description="Session signing secret, 32+ chars. Generate: openssl rand -base64 48" Type="Variable" Display="always" Required="true" Mask="true"></Config>
