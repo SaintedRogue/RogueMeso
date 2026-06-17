@@ -3,7 +3,7 @@
 -- so routines reach fresh AND existing DBs (the gated seed-data.sql only loads an empty DB).
 -- sourceId band: recovery routines 920000-929999.
 --
--- Evidence base (full reference: docs/research/recovery-evidence.md):
+-- Evidence base (full reference: research/recovery-science.md):
 --   active_recovery — light movement cuts DOMS SMD -0.94; walking 10-20 min rivals foam
 --     rolling (PMC5932411; NSCA 2022).
 --   foam_rolling    — small soreness benefit g=0.47 that grows from 24h, no downside

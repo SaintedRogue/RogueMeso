@@ -2,7 +2,7 @@
 //   1. PURE functions below — no I/O, deterministic, unit-tested. They encode the
 //      evidence base; every coefficient lives in BODY_TUNING_CONSTANTS with a citation.
 //   2. Async Prisma wrappers (Task 6) that fetch rows and feed these.
-// Evidence + sources: docs/research/body-tuning-evidence.md
+// Evidence + sources: research/body-tuning-science.md
 import { prisma } from "@/lib/prisma";
 
 export type Sex = "M" | "F";
