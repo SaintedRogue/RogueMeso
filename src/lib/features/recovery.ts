@@ -5,7 +5,8 @@
 //
 // The readiness score is ADVISORY ONLY. It is surfaced to the user but never feeds back
 // into progression.ts / programmed sets / RIR — auto-regulation evidence is weak, so we
-// show a signal and let the user decide. See the Recovery hub plan + deep-research pass.
+// show a signal and let the user decide.
+// Evidence + sources: docs/superpowers/specs/2026-06-16-recovery-evidence.md
 import { prisma } from "@/lib/prisma";
 import { getActiveMeso } from "@/lib/data";
 import { getTrainingState } from "@/lib/features/adhdData";
