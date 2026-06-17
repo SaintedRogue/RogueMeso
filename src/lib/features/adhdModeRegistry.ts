@@ -37,7 +37,7 @@ const within = (c: ReminderContext, minute: number): number[] =>
   minute >= wake(c) && minute <= bed(c) ? [minToHhmm(minute)] : [];
 /** `n` reminder times spread evenly across the waking window, each centered in its slot
  *  (the `+0.5` offset keeps the first/last off the wake/bed boundaries). */
-const evenlySpaced = (c: ReminderContext, n: number): string[] => {
+const evenlySpaced = (c: ReminderContext, n: number): number[] => {
   const span = wakingSpanMin(c.schedule.wakeHHMM, c.schedule.bedtimeHHMM);
   return Array.from({ length: n }, (_, i) => minToHhmm(wake(c) + (span * (i + 0.5)) / n));
 };
