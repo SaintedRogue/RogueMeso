@@ -95,6 +95,24 @@ export function selectRoutineCategory(isDeload: boolean, isTrainingDay: boolean)
   return C.OFF_DAY_CATEGORY as RecoveryCategory;
 }
 
+/** Stable display order for the browsable library when nothing is suggested first. */
+export const CATEGORY_ORDER: RecoveryCategory[] = ["active_recovery", "foam_rolling", "mobility"];
+
+/**
+ * Group routines by category for the browsable library. Empty categories are dropped, and
+ * when a `suggested` category is given it floats to the front so today's pick reads first.
+ * Generic over the routine shape (only `.category` is read) so it stays trivially testable.
+ */
+export function groupRoutinesByCategory<T extends { category: RecoveryCategory }>(
+  routines: T[],
+  suggested?: RecoveryCategory,
+): { category: RecoveryCategory; routines: T[] }[] {
+  const order = suggested ? [suggested, ...CATEGORY_ORDER.filter((c) => c !== suggested)] : CATEGORY_ORDER;
+  return order
+    .map((category) => ({ category, routines: routines.filter((r) => r.category === category) }))
+    .filter((g) => g.routines.length > 0);
+}
+
 /** Whether to nudge the user toward more sleep (below the 7–9 h target band). */
 export function shouldSuggestSleepExtension(sleepHours: number): boolean {
   return sleepHours < RECOVERY_CONSTANTS.SLEEP_TARGET_H;
@@ -126,6 +144,8 @@ export type ReadinessView = {
   score: number;
 };
 
+export type RoutineGroup = { category: RecoveryCategory; routines: RecoveryRoutineView[] };
+
 export type RecoveryResult = {
   latestEntry: ReadinessView | null;
   todayLogged: boolean;
@@ -133,7 +153,10 @@ export type RecoveryResult = {
   label: ReadinessLabel | null;
   suggestSleepExtension: boolean;
   suggestedCategory: RecoveryCategory;
+  /** Today's suggested-category routines (a shortcut into `library`). */
   routines: RecoveryRoutineView[];
+  /** The full browsable library, grouped by category with the suggested one first. */
+  library: RoutineGroup[];
   isDeload: boolean;
   isTrainingDay: boolean;
 };
@@ -167,13 +190,20 @@ export async function getLatestReadiness(userId: number): Promise<ReadinessView 
   return row;
 }
 
-/** All curated routines in a category, shortest first. */
-export async function getRoutinesByCategory(category: RecoveryCategory): Promise<RecoveryRoutineView[]> {
-  const rows = await prisma.recoveryRoutine.findMany({
-    where: { category },
-    orderBy: { durationMin: "asc" },
-  });
-  return rows.map((r) => ({
+/** Map a RecoveryRoutine row to its typed view (steps coerced from JSON). */
+function toRoutineView(r: {
+  id: number;
+  key: string;
+  name: string;
+  category: string;
+  durationMin: number;
+  bodyFocus: string;
+  steps: unknown;
+  rationale: string;
+  citation: string;
+  guardrail: string | null;
+}): RecoveryRoutineView {
+  return {
     id: r.id,
     key: r.key,
     name: r.name,
@@ -184,7 +214,24 @@ export async function getRoutinesByCategory(category: RecoveryCategory): Promise
     rationale: r.rationale,
     citation: r.citation,
     guardrail: r.guardrail,
-  }));
+  };
+}
+
+/** All curated routines in a category, shortest first. */
+export async function getRoutinesByCategory(category: RecoveryCategory): Promise<RecoveryRoutineView[]> {
+  const rows = await prisma.recoveryRoutine.findMany({
+    where: { category },
+    orderBy: { durationMin: "asc" },
+  });
+  return rows.map(toRoutineView);
+}
+
+/** The entire curated routine library, ordered by category then duration. */
+export async function getAllRoutines(): Promise<RecoveryRoutineView[]> {
+  const rows = await prisma.recoveryRoutine.findMany({
+    orderBy: [{ category: "asc" }, { durationMin: "asc" }],
+  });
+  return rows.map(toRoutineView);
 }
 
 /**
@@ -193,10 +240,11 @@ export async function getRoutinesByCategory(category: RecoveryCategory): Promise
  * active-meso day status) READ-ONLY — it never writes back to the training plan.
  */
 export async function computeRecovery(userId: number, now: Date): Promise<RecoveryResult> {
-  const [latest, training, active] = await Promise.all([
+  const [latest, training, active, allRoutines] = await Promise.all([
     getLatestReadiness(userId),
     getTrainingState(userId),
     getActiveMeso(userId),
+    getAllRoutines(),
   ]);
 
   // Deload = the final programmed week of the active block (mirrors the ADHD deload habit).
@@ -208,7 +256,10 @@ export async function computeRecovery(userId: number, now: Date): Promise<Recove
   const isTrainingDay = !!active?.days.some((d) => !["complete", "skipped"].includes(d.status));
 
   const suggestedCategory = selectRoutineCategory(isDeload, isTrainingDay);
-  const routines = await getRoutinesByCategory(suggestedCategory);
+  // Full browsable library with the suggested category first; the suggested-only list is
+  // just a shortcut into it (no extra query).
+  const library = groupRoutinesByCategory(allRoutines, suggestedCategory);
+  const routines = library.find((g) => g.category === suggestedCategory)?.routines ?? [];
 
   const today = utcDay(now);
   const todayLogged = !!latest && utcDay(latest.date).getTime() === today.getTime();
@@ -222,6 +273,7 @@ export async function computeRecovery(userId: number, now: Date): Promise<Recove
     suggestSleepExtension: latest != null && shouldSuggestSleepExtension(latest.sleepHours),
     suggestedCategory,
     routines,
+    library,
     isDeload,
     isTrainingDay,
   };

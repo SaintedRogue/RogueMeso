@@ -6,10 +6,19 @@ import { ReadinessCard } from "@/components/recovery/ReadinessCard";
 import { CheckInForm } from "@/components/recovery/CheckInForm";
 import { RoutineCard } from "@/components/recovery/RoutineCard";
 
-const CATEGORY_LABEL: Record<RecoveryCategory, string> = {
-  active_recovery: "Active recovery",
-  foam_rolling: "Foam rolling",
-  mobility: "Mobility & yoga",
+const CATEGORY_META: Record<RecoveryCategory, { label: string; blurb: string }> = {
+  active_recovery: {
+    label: "Active recovery",
+    blurb: "Light movement (walk, easy cycle, gentle flow) — eases soreness without adding fatigue. Best on off days.",
+  },
+  foam_rolling: {
+    label: "Foam rolling",
+    blurb: "Self-myofascial release after training. The soreness benefit is small but grows from 24h, with no downside.",
+  },
+  mobility: {
+    label: "Mobility & yoga",
+    blurb: "Range-of-motion work for moving better — not a soreness cure (see the note on each routine).",
+  },
 };
 
 export default async function RecoveryPage() {
@@ -48,19 +57,38 @@ export default async function RecoveryPage() {
           </p>
         )}
 
-        <section>
-          <div className="mb-2 flex items-center gap-2">
-            <HeartPulse aria-hidden size={16} className="text-accent" />
-            <h2 className="font-semibold">Suggested today · {CATEGORY_LABEL[r.suggestedCategory]}</h2>
-          </div>
-          <p className="mb-3 text-sm text-muted">{context}</p>
-
-          {r.routines.length ? (
-            <div className="space-y-3">
-              {r.routines.map((routine) => (
-                <RoutineCard key={routine.id} routine={routine} />
-              ))}
+        <section className="space-y-6">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <HeartPulse aria-hidden size={16} className="text-accent" />
+              <h2 className="font-semibold">Recovery library</h2>
             </div>
+            <p className="text-sm text-muted">{context} Browse all options below and pick whatever fits.</p>
+          </div>
+
+          {r.library.length ? (
+            r.library.map((group) => {
+              const meta = CATEGORY_META[group.category];
+              const suggested = group.category === r.suggestedCategory;
+              return (
+                <div key={group.category}>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold">{meta.label}</h3>
+                    {suggested && (
+                      <span className="chip text-accent" style={{ borderColor: "var(--color-accent)" }}>
+                        Suggested today
+                      </span>
+                    )}
+                  </div>
+                  <p className="mb-3 text-sm text-muted">{meta.blurb}</p>
+                  <div className="space-y-3">
+                    {group.routines.map((routine) => (
+                      <RoutineCard key={routine.id} routine={routine} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })
           ) : (
             <EmptyState
               icon={HeartPulse}
