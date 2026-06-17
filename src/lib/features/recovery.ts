@@ -10,6 +10,8 @@
 import { prisma } from "@/lib/prisma";
 import { getActiveMeso } from "@/lib/data";
 import { getTrainingState } from "@/lib/features/adhdData";
+import { DONE_STATUSES } from "@/lib/dayStatus";
+import { utcMidnight } from "@/lib/format";
 
 export type RecoveryCategory = "active_recovery" | "foam_rolling" | "mobility";
 export type ReadinessBandColor = "good" | "warn" | "bad";
@@ -97,7 +99,7 @@ export function selectRoutineCategory(isDeload: boolean, isTrainingDay: boolean)
 }
 
 /** Stable display order for the browsable library when nothing is suggested first. */
-export const CATEGORY_ORDER: RecoveryCategory[] = ["active_recovery", "foam_rolling", "mobility"];
+const CATEGORY_ORDER: RecoveryCategory[] = ["active_recovery", "foam_rolling", "mobility"];
 
 /**
  * Group routines by category for the browsable library. Empty categories are dropped, and
@@ -162,13 +164,6 @@ export type RecoveryResult = {
   isTrainingDay: boolean;
 };
 
-/** UTC midnight for a given instant — matches how dated logs (WeightEntry) are keyed. */
-function utcDay(now: Date): Date {
-  const d = new Date(now);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
-
 /** Coerce the JSON `steps` blob into a typed array, tolerating malformed rows. */
 function asSteps(value: unknown): RecoveryStep[] {
   if (!Array.isArray(value)) return [];
@@ -218,15 +213,6 @@ function toRoutineView(r: {
   };
 }
 
-/** All curated routines in a category, shortest first. */
-export async function getRoutinesByCategory(category: RecoveryCategory): Promise<RecoveryRoutineView[]> {
-  const rows = await prisma.recoveryRoutine.findMany({
-    where: { category },
-    orderBy: { durationMin: "asc" },
-  });
-  return rows.map(toRoutineView);
-}
-
 /** The entire curated routine library, ordered by category then duration. */
 export async function getAllRoutines(): Promise<RecoveryRoutineView[]> {
   const rows = await prisma.recoveryRoutine.findMany({
@@ -254,7 +240,7 @@ export async function computeRecovery(userId: number, now: Date): Promise<Recove
 
   // Training day = an active block with an actionable (not complete/skipped) day queued up.
   // No active block, or every day done, reads as an off day → active recovery.
-  const isTrainingDay = !!active?.days.some((d) => !["complete", "skipped"].includes(d.status));
+  const isTrainingDay = !!active?.days.some((d) => !DONE_STATUSES.has(d.status));
 
   const suggestedCategory = selectRoutineCategory(isDeload, isTrainingDay);
   // Full browsable library with the suggested category first; the suggested-only list is
@@ -262,8 +248,8 @@ export async function computeRecovery(userId: number, now: Date): Promise<Recove
   const library = groupRoutinesByCategory(allRoutines, suggestedCategory);
   const routines = library.find((g) => g.category === suggestedCategory)?.routines ?? [];
 
-  const today = utcDay(now);
-  const todayLogged = !!latest && utcDay(latest.date).getTime() === today.getTime();
+  const today = utcMidnight(now);
+  const todayLogged = !!latest && utcMidnight(latest.date).getTime() === today.getTime();
   const score = latest?.score ?? null;
 
   return {

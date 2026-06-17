@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getExercises, getTemplate } from "@/lib/data";
 import { PRIORITIES } from "@/lib/priorities";
+import { assertTemplateOwner } from "@/lib/ownership";
 
 // Write side for user-owned templates. Reads + mesocycle generation already handle them
 // (see generateMeso.ts / data.ts); this module only creates/edits/deletes them. The payload
@@ -54,12 +55,6 @@ export async function getTemplateExercises(
     exerciseType: e.exerciseType,
     muscleGroupId: e.muscleGroupId,
   }));
-}
-
-async function assertTemplateOwner(key: string, userId: number) {
-  const t = await prisma.template.findUnique({ where: { key }, select: { userId: true } });
-  // Library templates (userId null) and other users' templates are immutable.
-  if (!t || t.userId !== userId) throw new Error("Forbidden");
 }
 
 /** The validated, position-stamped shape a create/update writes. */

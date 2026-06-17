@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { maybePostWorkoutActivity, maybePostPrActivity } from "@/lib/features/community";
 import { rolledUpDayStatus, DONE_STATUSES as DONE } from "@/lib/dayStatus";
+import { revalidateMesoDays } from "@/lib/dayRollup";
 
 /**
  * Post community feed activities for a set mutation, best-effort. The social layer is
@@ -22,9 +22,7 @@ async function postCommunityActivity(dayId: number, userId: number, setId?: numb
 
 /** A logged set is rendered on the home screen, the meso detail, and the day page — refresh just those. */
 function revalidateForDay(info: { key: string; week: number; position: number }) {
-  revalidatePath("/");
-  revalidatePath(`/mesocycles/${info.key}`);
-  revalidatePath(`/mesocycles/${info.key}/${info.week}/${info.position}`);
+  revalidateMesoDays(info.key, [{ week: info.week, position: info.position }]);
 }
 
 /** Verify the set belongs to the given user (set -> dayExercise -> day -> meso.userId). */

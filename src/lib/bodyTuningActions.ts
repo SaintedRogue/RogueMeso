@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { toKg, ftInToCm } from "@/lib/format";
+import { toKg, ftInToCm, parseDateField } from "@/lib/format";
 import { ok, fail, type ActionResult } from "@/lib/actionResult";
 
 /** Log (or overwrite) today's bodyweight check-in. Weight is entered in the user's unit. */
@@ -12,9 +12,7 @@ export async function logWeight(_prev: ActionResult, formData: FormData): Promis
   const weightRaw = Number(formData.get("weight"));
   if (!Number.isFinite(weightRaw) || weightRaw <= 0) return fail("Enter a valid weight");
 
-  const dateStr = String(formData.get("date") ?? "");
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(dateStr) : new Date();
-  date.setUTCHours(0, 0, 0, 0);
+  const date = parseDateField(formData.get("date"));
 
   const bfRaw = Number(formData.get("bodyFatPct"));
   const bodyFatPct = Number.isFinite(bfRaw) && bfRaw > 0 && bfRaw < 70 ? bfRaw / 100 : null;
