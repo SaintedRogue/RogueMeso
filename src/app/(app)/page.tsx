@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Dumbbell, HeartPulse } from "lucide-react";
 import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
 import { getLatestReadiness, readinessLabel } from "@/lib/features/recovery";
+import { DONE_STATUSES } from "@/lib/dayStatus";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, ActiveBadge, EmptyState } from "@/components/ui";
@@ -24,7 +25,7 @@ export default async function Home() {
 
   // Pick the current day from the shallow status list, then deep-load only that day.
   const current =
-    active.days.find((d) => !["complete", "skipped"].includes(d.status)) ?? active.days[0];
+    active.days.find((d) => !DONE_STATUSES.has(d.status)) ?? active.days[0];
   if (!current) return null;
   const day = await getDay(active.key, current.week, current.position, me.id);
   if (!day) return null;

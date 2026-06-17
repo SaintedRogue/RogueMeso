@@ -1,32 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { dedupeDays, recomputeDayStatus } from "@/lib/dayRollup";
+import { dedupeDays, recomputeDayStatus, revalidateMesoDays } from "@/lib/dayRollup";
+import { assertDayExerciseOwner } from "@/lib/ownership";
 import { nextSetData, reindex } from "@/lib/setOps";
 
 type Scope = "day" | "meso";
-
-/** Verify a DayExercise belongs to the user; return the coordinates add/remove need. */
-async function assertDayExerciseOwner(dayExerciseId: number, userId: number) {
-  const de = await prisma.dayExercise.findUnique({
-    where: { id: dayExerciseId },
-    select: {
-      exerciseId: true,
-      day: {
-        select: {
-          week: true,
-          position: true,
-          mesoId: true,
-          meso: { select: { key: true, unit: true, userId: true } },
-        },
-      },
-    },
-  });
-  if (!de || de.day.meso.userId !== userId) throw new Error("Forbidden");
-  return de;
-}
 
 /** Every later occurrence of an exercise: remaining slots this week + all future weeks.
  *  Anchored after (week, position) so past/logged days are never touched. */
@@ -45,9 +25,7 @@ async function finalize(mesoId: number, key: string, groupIds: number[]) {
   });
   const days = dedupeDays(groups.map((g) => g.day));
   for (const d of days) await recomputeDayStatus(mesoId, d.week, d.position);
-  revalidatePath("/");
-  revalidatePath(`/mesocycles/${key}`);
-  for (const d of days) revalidatePath(`/mesocycles/${key}/${d.week}/${d.position}`);
+  revalidateMesoDays(key, days);
 }
 
 /**

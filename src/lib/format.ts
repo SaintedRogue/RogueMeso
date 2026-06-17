@@ -57,6 +57,19 @@ export function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** Truncate an instant to UTC midnight — how dated logs (WeightEntry, ReadinessEntry) are keyed. */
+export function utcMidnight(d: Date): Date {
+  const out = new Date(d);
+  out.setUTCHours(0, 0, 0, 0);
+  return out;
+}
+
+/** Parse a `YYYY-MM-DD` form field to a UTC-midnight Date, falling back to today's date. */
+export function parseDateField(value: FormDataEntryValue | null | undefined): Date {
+  const s = String(value ?? "");
+  return utcMidnight(/^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s) : new Date());
+}
+
 export const LB_PER_KG = 2.2046226218;
 
 /** Convert a weight entered in the user's unit to canonical kilograms. */

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { isAllowedEmoji } from "@/lib/features/community";
+import { assertTemplateOwner } from "@/lib/ownership";
 
 /** Flip the current user's community participation. Opting out instantly hides them from
  *  the feed + leaderboard (queries filter communityOptIn) without deleting any history. */
@@ -22,11 +23,6 @@ export async function toggleCommunityOptIn(): Promise<void> {
   revalidatePath("/community");
   revalidatePath("/profile");
   revalidatePath("/templates"); // the per-template Share control is gated on opt-in
-}
-
-async function assertTemplateOwner(key: string, userId: number) {
-  const t = await prisma.template.findUnique({ where: { key }, select: { userId: true } });
-  if (!t || t.userId !== userId) throw new Error("Forbidden");
 }
 
 /** Share / unshare one of your own templates with the instance. */

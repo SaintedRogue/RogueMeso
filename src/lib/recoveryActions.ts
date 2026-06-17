@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeReadinessScore } from "@/lib/features/recovery";
+import { parseDateField } from "@/lib/format";
 import { ok, fail, type ActionResult } from "@/lib/actionResult";
 
 /** Log (or overwrite) today's recovery readiness check-in. Advisory only — never adjusts load. */
@@ -23,9 +24,7 @@ export async function logReadiness(_prev: ActionResult, formData: FormData): Pro
   const noteRaw = String(formData.get("note") ?? "").trim();
   const note = noteRaw.length ? noteRaw.slice(0, 500) : null;
 
-  const dateStr = String(formData.get("date") ?? "");
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(dateStr) : new Date();
-  date.setUTCHours(0, 0, 0, 0);
+  const date = parseDateField(formData.get("date"));
 
   const score = computeReadinessScore(sleepHours, soreness, energy);
 

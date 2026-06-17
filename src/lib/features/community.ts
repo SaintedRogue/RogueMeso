@@ -313,18 +313,21 @@ export async function getLeaderboard(now = new Date()): Promise<LeaderboardRow[]
   });
   if (members.length === 0) return [];
 
-  const days = await prisma.mesoDay.findMany({
-    where: { status: "complete", finishedAt: { gte: since30 }, meso: { user: { communityOptIn: true, active: true } } },
-    select: { finishedAt: true, meso: { select: { userId: true } } },
-  });
-  const sets = await prisma.exerciseSet.findMany({
-    where: {
-      status: "complete",
-      finishedAt: { gte: since7 },
-      dayExercise: { day: { meso: { user: { communityOptIn: true, active: true } } } },
-    },
-    select: { weight: true, reps: true, dayExercise: { select: { day: { select: { meso: { select: { userId: true } } } } } } },
-  });
+  // Independent of each other and only reached when there are members — run them together.
+  const [days, sets] = await Promise.all([
+    prisma.mesoDay.findMany({
+      where: { status: "complete", finishedAt: { gte: since30 }, meso: { user: { communityOptIn: true, active: true } } },
+      select: { finishedAt: true, meso: { select: { userId: true } } },
+    }),
+    prisma.exerciseSet.findMany({
+      where: {
+        status: "complete",
+        finishedAt: { gte: since7 },
+        dayExercise: { day: { meso: { user: { communityOptIn: true, active: true } } } },
+      },
+      select: { weight: true, reps: true, dayExercise: { select: { day: { select: { meso: { select: { userId: true } } } } } } },
+    }),
+  ]);
 
   const today = dayIndex(now);
   const input: LeaderboardInput[] = members.map((m) => {

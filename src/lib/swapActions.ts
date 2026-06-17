@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { getExercises } from "@/lib/data";
-import { dedupeDays, recomputeDayStatus } from "@/lib/dayRollup";
+import { dedupeDays, recomputeDayStatus, revalidateMesoDays } from "@/lib/dayRollup";
+import { assertDayExerciseOwner } from "@/lib/ownership";
 
 /** Slim, serializable shape the SwapPanel renders — no raw DB rows. */
 export type SwapCandidate = {
@@ -37,19 +37,6 @@ export async function getSwapCandidates(
     exerciseType: e.exerciseType,
     muscleGroupId: e.muscleGroupId,
   }));
-}
-
-/** Verify a DayExercise belongs to the user and return the coordinates a swap needs. */
-async function assertDayExerciseOwner(dayExerciseId: number, userId: number) {
-  const de = await prisma.dayExercise.findUnique({
-    where: { id: dayExerciseId },
-    select: {
-      exerciseId: true,
-      day: { select: { week: true, position: true, mesoId: true, meso: { select: { key: true, userId: true } } } },
-    },
-  });
-  if (!de || de.day.meso.userId !== userId) throw new Error("Forbidden");
-  return de;
 }
 
 /** Reset a set of DayExercises onto a new exercise: keep set count, clear logged values.
@@ -121,7 +108,5 @@ export async function swapExercise(dayExerciseId: number, newExerciseId: number,
   // Recompute each affected day's roll-up status, then refresh the pages that render them.
   const days = dedupeDays(targets.map((t) => t.day));
   for (const d of days) await recomputeDayStatus(mesoId, d.week, d.position);
-  revalidatePath("/");
-  revalidatePath(`/mesocycles/${key}`);
-  for (const d of days) revalidatePath(`/mesocycles/${key}/${d.week}/${d.position}`);
+  revalidateMesoDays(key, days);
 }

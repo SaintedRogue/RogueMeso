@@ -35,6 +35,12 @@ const bed = (c: ReminderContext) => hhmmToMin(c.schedule.bedtimeHHMM);
 /** Fire at an absolute local minute, but only if it lands within the waking window. */
 const within = (c: ReminderContext, minute: number): number[] =>
   minute >= wake(c) && minute <= bed(c) ? [minToHhmm(minute)] : [];
+/** `n` reminder times spread evenly across the waking window, each centered in its slot
+ *  (the `+0.5` offset keeps the first/last off the wake/bed boundaries). */
+const evenlySpaced = (c: ReminderContext, n: number): number[] => {
+  const span = wakingSpanMin(c.schedule.wakeHHMM, c.schedule.bedtimeHHMM);
+  return Array.from({ length: n }, (_, i) => minToHhmm(wake(c) + (span * (i + 0.5)) / n));
+};
 /** Per-meal macro split from the daily Body Tuning totals. */
 const perMeal = (c: ReminderContext) => {
   const n = Math.max(1, c.schedule.mealsPerDay);
@@ -221,9 +227,7 @@ export const HABIT_REGISTRY: HabitDefinition[] = [
     defaultEnabled: true,
     params: [],
     computeFireTimes(ctx) {
-      const n = Math.max(1, ctx.schedule.mealsPerDay);
-      const span = wakingSpanMin(ctx.schedule.wakeHHMM, ctx.schedule.bedtimeHHMM);
-      return Array.from({ length: n }, (_, i) => minToHhmm(wake(ctx) + (span * (i + 0.5)) / n));
+      return evenlySpaced(ctx, Math.max(1, ctx.schedule.mealsPerDay));
     },
     buildPayload(ctx, i) {
       const n = Math.max(1, ctx.schedule.mealsPerDay);
@@ -641,9 +645,7 @@ export const HABIT_REGISTRY: HabitDefinition[] = [
       },
     ],
     computeFireTimes(ctx) {
-      const n = num(ctx.params.remindersPerDay, 6);
-      const span = wakingSpanMin(ctx.schedule.wakeHHMM, ctx.schedule.bedtimeHHMM);
-      return Array.from({ length: n }, (_, i) => minToHhmm(wake(ctx) + (span * (i + 0.5)) / n));
+      return evenlySpaced(ctx, num(ctx.params.remindersPerDay, 6));
     },
     buildPayload(ctx, i) {
       const ml = num(ctx.params.mlPerReminder, 350);
