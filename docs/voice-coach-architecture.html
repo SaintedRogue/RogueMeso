@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RogueMeso — Voice Workout Coach · Architecture &amp; Implementation Plan</title>
+<style>
+  :root{
+    --bg:#0c0f14; --panel:#141922; --panel2:#1a212d; --line:#27303f;
+    --ink:#e7ecf3; --muted:#9aa7b8; --faint:#6b7891;
+    --accent:#5db0ff; --accent2:#7ee0c0; --warn:#ffb454; --danger:#ff6b6b;
+    --pill:#202938; --code:#0f141c;
+    --r:14px; --maxw:1080px;
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#16202e 0,var(--bg) 55%);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+
+  /* header */
+  header.hero{padding:64px 0 36px;border-bottom:1px solid var(--line)}
+  .eyebrow{font:600 12px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);margin-bottom:16px}
+  h1{font-size:40px;line-height:1.08;margin:0 0 14px;letter-spacing:-.02em}
+  .lede{font-size:18px;color:var(--muted);max-width:760px;margin:0}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .pill{background:var(--pill);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 13px;font:600 12.5px/1 var(--sans)}
+  .pill b{color:var(--ink);font-weight:700}
+
+  /* layout */
+  .grid-nav{display:grid;grid-template-columns:215px 1fr;gap:42px;align-items:start;margin-top:14px}
+  nav.toc{position:sticky;top:20px;padding:20px 0;font-size:14px}
+  nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav.toc li{counter-increment:s;margin:2px 0}
+  nav.toc a{display:block;color:var(--faint);padding:6px 10px;border-left:2px solid transparent;border-radius:0 6px 6px 0}
+  nav.toc a:hover{color:var(--ink);background:var(--panel);text-decoration:none}
+  nav.toc a::before{content:counter(s) ".";color:var(--accent);font:600 12px var(--mono);margin-right:8px}
+
+  section{padding:40px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:25px;letter-spacing:-.01em;margin:0 0 6px;scroll-margin-top:20px}
+  section .sub{color:var(--faint);font-size:14px;margin:0 0 22px}
+  h3{font-size:17px;margin:26px 0 10px;color:var(--ink)}
+  p{margin:0 0 14px}
+  .muted{color:var(--muted)}
+
+  /* cards */
+  .cards{display:grid;gap:16px}
+  .cards.c2{grid-template-columns:1fr 1fr}
+  .cards.c3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px}
+  .card h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:14px;color:var(--muted);margin:0}
+  .tag{font:600 11px/1 var(--mono);letter-spacing:.05em;padding:4px 8px;border-radius:6px;background:var(--pill);color:var(--accent2);border:1px solid var(--line)}
+  .tag.cloud{color:var(--accent)} .tag.local{color:var(--accent2)} .tag.free{color:#9be29b}
+
+  /* callouts */
+  .note{border-left:3px solid var(--accent);background:var(--panel);border-radius:0 10px 10px 0;padding:14px 16px;margin:18px 0;font-size:14.5px}
+  .note.warn{border-color:var(--warn)}
+  .note.danger{border-color:var(--danger)}
+  .note .lbl{font:700 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .note.danger .lbl{color:var(--danger)} .note.warn .lbl{color:var(--warn)} .note .lbl{color:var(--accent)}
+
+  /* code + diagram */
+  pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font:13px/1.55 var(--mono);color:#cdd6e3}
+  pre.diagram{color:#aeb9cb;font-size:12.5px;line-height:1.5}
+  code{font-family:var(--mono);font-size:.9em;background:var(--pill);padding:1.5px 6px;border-radius:5px;color:#dfe7f2}
+  pre code{background:none;padding:0}
+  .kw{color:#7ee0c0}.fn{color:#5db0ff}.str{color:#e0a978}.cm{color:#6b7891;font-style:italic}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:8px 0 6px;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font:600 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  td code{font-size:12.5px}
+  tbody tr:hover{background:var(--panel)}
+  .ok{color:var(--accent2)} .nope{color:var(--danger)} .cost{color:#9be29b;font-weight:700}
+
+  /* phase steps */
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12.5px;position:relative}
+  .step .n{font:700 11px var(--mono);color:var(--accent);display:block;margin-bottom:4px}
+  .step b{display:block;font-size:13px;margin-bottom:3px}
+  .step span{color:var(--muted)}
+
+  .filelist{font-size:13.5px}
+  .filelist .new{color:var(--accent2)} .filelist .mod{color:var(--warn)}
+  .filelist li{margin:5px 0}
+  .filelist code{font-size:12.5px}
+
+  ul.clean{padding-left:20px} ul.clean li{margin:7px 0;font-size:14.5px;color:var(--muted)}
+  ul.clean li b{color:var(--ink)}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0;font-size:12.5px;color:var(--faint)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  footer{padding:34px 0 70px;color:var(--faint);font-size:13px}
+  .roadmap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){
+    .grid-nav{grid-template-columns:1fr} nav.toc{position:static;border-bottom:1px solid var(--line)}
+    .cards.c2,.cards.c3,.roadmap{grid-template-columns:1fr} .flow{grid-template-columns:1fr 1fr}
+    h1{font-size:30px}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">RogueMeso · Architecture Brief</div>
+    <h1>Voice Workout Coach</h1>
+    <p class="lede">A hands-free, conversational assistant you talk to mid-session — log sets by voice and ask
+    questions like "what should I be lifting on this?" or "what's my best set on incline press?" — built on
+    a hybrid stack: local speech, a cheap cloud brain, and your existing data layer as the agent's tools.</p>
+    <div class="meta-row">
+      <span class="pill"><b>Stack:</b>&nbsp;Hybrid (local STT/TTS + cloud LLM)</span>
+      <span class="pill"><b>Rollout:</b>&nbsp;Phased — tap-to-talk → continuous</span>
+      <span class="pill"><b>Host:</b>&nbsp;Unraid (CPU), 4090 optional</span>
+      <span class="pill"><b>Budget:</b>&nbsp;&lt; $5/mo</span>
+      <span class="pill"><b>Platform:</b>&nbsp;Next.js 16 · React 19 · Prisma 6</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="grid-nav">
+
+  <nav class="toc">
+    <ol>
+      <li><a href="#overview">Overview &amp; decisions</a></li>
+      <li><a href="#diagram">System architecture</a></li>
+      <li><a href="#components">Component choices</a></li>
+      <li><a href="#tools">The tool layer</a></li>
+      <li><a href="#phase1">Phase 1 · Tap-to-talk</a></li>
+      <li><a href="#phase2">Phase 2 · Continuous</a></li>
+      <li><a href="#files">File-by-file plan</a></li>
+      <li><a href="#risks">Risks &amp; prerequisites</a></li>
+      <li><a href="#verify">Verification</a></li>
+      <li><a href="#roadmap">Roadmap &amp; cost</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- 1 -->
+  <section id="overview">
+    <h2>Overview &amp; decisions</h2>
+    <p class="sub">Why this exists and the choices that shape everything downstream.</p>
+    <p>Today RogueMeso has <b>no AI, voice, or streaming infrastructure</b> — only Web Push. This is greenfield.
+    But the platform already exposes the seams a voice agent needs: clean server actions for set logging, an
+    analytics layer for e1RM / volume / PRs, and a <code>userId</code>-scoped data layer. The agent is mostly a
+    thin LLM loop that maps spoken intent onto functions that already exist.</p>
+
+    <div class="cards c2">
+      <div class="card">
+        <h4>🎙️ Hybrid brain</h4>
+        <p>Audio stays <b>local &amp; private</b> (Whisper + Piper, free). The tool-calling <b>brain is a cheap cloud
+        LLM</b> — reliable tool-calling is the real bottleneck, and a $0.10/M model nails it where a CPU-hosted
+        small model would flake. You spend cloud money only where it buys reliability.</p>
+      </div>
+      <div class="card">
+        <h4>🪜 Phased rollout</h4>
+        <p><b>Phase 1: tap-to-talk</b> inside the existing app — no new framework, proves the agent + tool design.
+        <b>Phase 2: continuous / barge-in</b> via a Pipecat container that reuses the exact same tool layer. Phase 1
+        de-risks the expensive part.</p>
+      </div>
+      <div class="card">
+        <h4>🖥️ Self-hosted host</h4>
+        <p>Runs on the <b>Unraid box (CPU)</b>. faster-whisper <code>base/small</code> handles short turns fine on
+        CPU; Piper is CPU-native. The <b>4090 box is an escape hatch</b> — repoint <code>STT_URL</code> to run
+        <code>large-v3</code> later. Not required for v1.</p>
+      </div>
+      <div class="card">
+        <h4>🧩 One tool layer, two callers</h4>
+        <p>The substance is the <b>tool layer</b>, written once in TypeScript against existing logic. The Phase-1
+        route handler calls it in-process; the Phase-2 Pipecat agent calls it over HTTP. <b>Single source of truth</b>
+        for auth, ownership, and business rules.</p>
+      </div>
+    </div>
+
+    <div class="note danger">
+      <span class="lbl">Hard prerequisite</span>
+      The microphone (<code>getUserMedia</code>) only works in a <b>secure context</b> — <code>https://</code> or
+      <code>localhost</code>. Your app serves LAN-only over <code>http://10.0.0.232:3000</code>, so the mic is
+      <b>blocked on your phone</b> until a TLS reverse proxy (SWAG / Caddy) fronts it. This is the #1 blocker —
+      resolve before any voice code, and ensure the proxy passes streamed responses through without buffering.
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="diagram">
+    <h2>System architecture</h2>
+    <p class="sub">Phase 1 turn flow. Everything in the LAN box is yours; only the brain is cloud.</p>
+<pre class="diagram">
+   PHONE  (installed PWA, HTTPS)              UNRAID  ·  br0 LAN                          CLOUD
+  ┌──────────────────────────┐            ┌───────────────────────────────────┐
+  │  /coach screen           │            │  Next.js app  (10.0.0.232)        │
+  │  ┌────────────────────┐  │   POST     │  ┌─────────────────────────────┐  │
+  │  │ tap-to-talk button │──┼── audio ──▶│  │  POST /api/coach            │  │
+  │  │ MediaRecorder      │  │            │  │  (streaming route handler)  │  │
+  │  │ audio playback     │◀─┼── SSE ─────┼──│   1 transcribe ───────────┐ │  │
+  │  └────────────────────┘  │  stream    │  │   2 runCoach (LLM loop)   │ │  │──▶ Gemini Flash-Lite
+  └──────────────────────────┘            │  │   3 executeTool ──────┐   │ │  │    · OR Groq (free tier)
+            ▲                              │  │   4 synthesize ─────┐ │   │ │  │    tool-calling brain
+   TLS proxy│(SWAG/Caddy)                  │  └─────────────────────┼─┼───┼─┘  │◀── tool schemas + text
+   terminates HTTPS so the                 │        STT sidecar ◀───┘ │   │    │
+   mic is allowed at all                   │     (faster-whisper)     │   │    └───────────────────────
+                                           │        TTS sidecar ◀─────┘   │
+                                           │         (Piper)              ▼
+                                           │     Prisma ── data.ts · insights.ts
+                                           │     setOps.ts ─ ownership + rollups
+                                           └───────────────────────────────────┘
+</pre>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--accent2)"></span> Local &amp; free (your hardware)</span>
+      <span><span class="dot" style="background:var(--accent)"></span> Cloud (cheap, brain only)</span>
+      <span><span class="dot" style="background:var(--warn)"></span> Prerequisite infra</span>
+    </div>
+    <p class="muted" style="margin-top:18px">A single <b>SSE stream</b> multiplexes everything back to the phone:
+    <code>transcript</code> → <code>text</code> deltas → <code>tool</code> results → base64 <code>audio</code> →
+    <code>done</code>. One connection, simplest for the PWA. Verified against the installed v16 docs
+    (<code>node_modules/next/dist/docs/01-app/02-guides/streaming.md</code> → "Streaming in Route Handlers").</p>
+  </section>
+
+  <!-- 3 -->
+  <section id="components">
+    <h2>Component choices</h2>
+    <p class="sub">Mid-2026 landscape, filtered to the hybrid path. Each layer is swappable behind one file.</p>
+    <table>
+      <thead><tr><th>Layer</th><th>Pick</th><th>Where</th><th>Why</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>STT</b><br><span class="muted">speech → text</span></td>
+          <td><code>faster-whisper</code> <span class="tag local">local</span><br><span class="muted">base / small</span></td>
+          <td>Sidecar container on Unraid (CPU); needs ffmpeg</td>
+          <td>~4× faster than vanilla Whisper, same quality. Short tap-to-talk turns are ~0.5–1.5s on CPU. Move to 4090 for <code>large-v3</code> later.</td>
+          <td class="cost">$0</td>
+        </tr>
+        <tr>
+          <td><b>Brain</b><br><span class="muted">LLM + tool-calling</span></td>
+          <td>Gemini Flash-Lite <span class="tag cloud">cloud</span><br><span class="muted">or Groq (free tier)</span></td>
+          <td>Cloud API, called from <code>llm.ts</code></td>
+          <td>Reliable tool-calling is the bottleneck; cheap cloud models nail it. Provider hidden behind one file — swap freely.</td>
+          <td class="cost">~$0.10 / $0.40 per&nbsp;M</td>
+        </tr>
+        <tr>
+          <td><b>TTS</b><br><span class="muted">text → speech</span></td>
+          <td><code>Piper</code> <span class="tag local">local</span></td>
+          <td>Sidecar container on Unraid (CPU)</td>
+          <td>Fast, natural, designed for CPU (runs on a Raspberry Pi). Keeps the voice consistent &amp; private.</td>
+          <td class="cost">$0</td>
+        </tr>
+        <tr>
+          <td><b>Transport</b><br><span class="muted">conversation</span></td>
+          <td>SSE route handler <span class="tag">P1</span><br>Pipecat container <span class="tag">P2</span></td>
+          <td>Next.js (P1) → dedicated container (P2)</td>
+          <td>P1 needs no new framework. P2 adds WebRTC VAD + barge-in only once tools are proven.</td>
+          <td class="cost">$0</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <span class="lbl">Why not fully-local?</span>
+      You have a 4090, but on alternate hardware you'd rather not commit. The unglamorous truth: a CPU-hosted small
+      model is unreliable at <em>tool-calling</em> specifically — the one thing this feature lives or dies on. Renting
+      a $0.10/M cloud model for the brain (cents per session) while keeping the bandwidth-heavy, privacy-sensitive
+      audio local is the best reliability-per-dollar. If you later dedicate the 4090, swapping <code>llm.ts</code> to a
+      local Qwen3-14B is a one-file change.
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section id="tools">
+    <h2>The tool layer <span class="muted" style="font-size:15px;font-weight:400">— the real product</span></h2>
+    <p class="sub">Not the voice plumbing — this is where the engineering value lives, and it's identical in both phases.</p>
+    <p>Your existing functions already encode the hard parts: ownership checks, e1RM math, the set lifecycle.
+    The agent maps spoken intent → these functions. The key refactor is extracting the logic out of the
+    RSC-only <code>"use server"</code> actions so it's callable from a route handler (or HTTP) without
+    <code>redirect()</code> baggage.</p>
+
+    <h3>Write tools — built on existing logging</h3>
+    <table>
+      <thead><tr><th>Tool</th><th>Maps to</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>logSet</code></td><td><code>setOps.logSetFor(userId, setId, w, r)</code></td><td>Extracted from <code>actions.ts:logSet</code>; keeps <code>assertSetOwner</code> + <code>recomputeRollups</code> + <code>revalidatePath</code></td></tr>
+        <tr><td><code>skipSet</code></td><td><code>setOps.skipSetFor(userId, setId)</code></td><td>Sets <code>status:"skipped"</code></td></tr>
+        <tr><td><code>clearSet</code></td><td><code>setOps.clearSetFor(userId, setId)</code></td><td>Resets weight/reps</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Read tools — wrap existing analytics (no refactor)</h3>
+    <table>
+      <thead><tr><th>Tool</th><th>Source</th><th>Answers</th></tr></thead>
+      <tbody>
+        <tr><td><code>getActiveSet</code></td><td><code>data.ts</code> · set <code>status</code> lifecycle</td><td>Resolves "log 185 for 8" to the next <em>pending</em> set — no need to name the exercise</td></tr>
+        <tr><td><code>getPlannedLoad</code></td><td><code>weightTarget*</code>, <code>repsTarget</code>, <code>rirForWeek</code> (<code>progression.ts</code>)</td><td>"What should I be lifting on this?"</td></tr>
+        <tr><td><code>getBestSet</code> <span class="tag">new</span></td><td><code>estimated1RM</code> + <code>getExerciseHistory</code> (<code>insights.ts</code>)</td><td>"What's my best set on incline press?" — thin new query; max-e1RM set w/ weight·reps·date</td></tr>
+        <tr><td><code>getExerciseHistory</code></td><td><code>insights.ts</code> (direct)</td><td>Trend over time</td></tr>
+        <tr><td><code>getPersonalRecords</code> · <code>getVolumeData</code></td><td><code>insights.ts</code> (direct)</td><td>PRs, weekly volume per muscle group</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note warn">
+      <span class="lbl">The one correction worth internalizing</span>
+      <b>Don't call <code>"use server"</code> actions from the route handler.</b> They embed <code>requireUser()</code>
+      → <code>redirect("/login")</code> and <code>revalidatePath</code> semantics meant for page renders — wrong in a
+      fetch/stream context. Extract <code>userId</code>-parameterized functions (<code>logSetFor</code>) into
+      <code>setOps.ts</code>, keep <code>assertSetOwner</code> as the security boundary, and make the existing
+      <code>actions.ts</code> functions thin wrappers. Existing workout-UI callers stay unchanged.
+    </div>
+
+<pre><span class="cm">// src/lib/coach/setOps.ts — logic extracted; userId is a param, no redirect machinery</span>
+<span class="kw">export async function</span> <span class="fn">logSetFor</span>(userId, setId, weight, reps){
+  <span class="kw">await</span> <span class="fn">assertSetOwner</span>(setId, userId);   <span class="cm">// security boundary stays here</span>
+  <span class="kw">const</span> set = <span class="kw">await</span> prisma.exerciseSet.<span class="fn">update</span>({ <span class="cm">/* … weight, reps, status … */</span> });
+  <span class="kw">await</span> <span class="fn">recomputeRollups</span>(set.dayExerciseId);
+  <span class="fn">revalidateForDay</span>(set);                <span class="cm">// safe + useful: keeps PWA fresh for next nav</span>
+  <span class="kw">return</span> set;
+}
+
+<span class="cm">// src/lib/actions.ts — now a thin wrapper; UI callers untouched</span>
+<span class="str">"use server"</span>;
+<span class="kw">export async function</span> <span class="fn">logSet</span>(setId, weight, reps){
+  <span class="kw">const</span> me = <span class="kw">await</span> <span class="fn">requireUser</span>();      <span class="cm">// redirect lives only here, at the RSC edge</span>
+  <span class="kw">return</span> <span class="fn">logSetFor</span>(me.id, setId, weight, reps);
+}</pre>
+  </section>
+
+  <!-- 5 -->
+  <section id="phase1">
+    <h2>Phase 1 · Tap-to-talk MVP</h2>
+    <p class="sub">No new framework. Proves the agent loop, the tools, and the iOS-PWA audio path.</p>
+    <div class="flow">
+      <div class="step"><span class="n">01</span><b>Capture</b><span>Tap button → <code>getUserMedia</code> + <code>MediaRecorder</code>; POST the audio turn</span></div>
+      <div class="step"><span class="n">02</span><b>Transcribe</b><span><code>/api/coach</code> → STT sidecar → text</span></div>
+      <div class="step"><span class="n">03</span><b>Reason</b><span><code>runCoach</code>: cloud LLM with tool schemas, loops tool calls</span></div>
+      <div class="step"><span class="n">04</span><b>Act</b><span><code>executeTool</code> → <code>setOps</code> + read fns, under the user's identity</span></div>
+      <div class="step"><span class="n">05</span><b>Speak</b><span>Piper TTS → stream text + audio back over SSE; play clip on gesture</span></div>
+    </div>
+
+    <h3>The streaming endpoint (v16-correct)</h3>
+    <p>A <code>ReadableStream</code> in a <code>Response</code> — the blessed Web-Streams path, no Next wrapper needed.
+    Auth via <code>getCurrentUser()</code> + manual 401 (the proven pattern from
+    <code>src/app/api/push/action/route.ts</code>), <b>not</b> <code>requireUser()</code> which redirects.</p>
+<pre><span class="kw">export const</span> runtime = <span class="str">"nodejs"</span>;        <span class="cm">// Prisma + server libs</span>
+<span class="kw">export const</span> dynamic = <span class="str">"force-dynamic"</span>;  <span class="cm">// reads cookie/body</span>
+
+<span class="kw">export async function</span> <span class="fn">POST</span>(req){
+  <span class="kw">const</span> me = <span class="kw">await</span> <span class="fn">getCurrentUser</span>();      <span class="cm">// no redirect in a handler</span>
+  <span class="kw">if</span>(!me) <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">"…"</span>,{status:<span class="str">401</span>});
+  <span class="kw">const</span> audio = <span class="kw">await</span> req.<span class="fn">arrayBuffer</span>();
+  <span class="kw">const</span> stream = <span class="kw">new</span> <span class="fn">ReadableStream</span>({ <span class="kw">async</span> <span class="fn">start</span>(c){
+    <span class="kw">const</span> t = <span class="kw">await</span> <span class="fn">transcribe</span>(audio);              <span class="fn">send</span>(<span class="str">"transcript"</span>,{t});
+    <span class="kw">for await</span>(<span class="kw">const</span> turn <span class="kw">of</span> <span class="fn">runCoach</span>(me, t)) <span class="fn">send</span>(turn.type, turn);
+    <span class="fn">send</span>(<span class="str">"done"</span>,{}); c.<span class="fn">close</span>();
+  }});
+  <span class="kw">return new</span> <span class="fn">Response</span>(stream,{ headers:{
+    <span class="str">"Content-Type"</span>:<span class="str">"text/event-stream"</span>,
+    <span class="str">"Cache-Control"</span>:<span class="str">"no-cache, no-transform"</span>,
+    <span class="str">"X-Accel-Buffering"</span>:<span class="str">"no"</span>          <span class="cm">// defeat reverse-proxy buffering</span>
+  }});
+}</pre>
+    <div class="note">
+      <span class="lbl">v16 gotchas confirmed against installed docs</span>
+      Do <b>not</b> add <code>unstable_instant</code> — that's a page-navigation export, irrelevant to route handlers.
+      Middleware is renamed <b>"Proxy"</b> (<code>src/proxy.ts</code>); add <code>/api/coach</code> to its matcher's
+      negative-lookahead so API callers get a real <code>401</code> instead of a <code>302 → /login</code>.
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="phase2">
+    <h2>Phase 2 · Continuous &amp; barge-in</h2>
+    <p class="sub">Only after v1 proves the tools. Adds true hands-free with interruption.</p>
+    <ul class="clean">
+      <li><b>Pipecat container</b> (Python) on br0: mic stream → VAD → STT → LLM → TTS with <b>barge-in</b>
+      (interrupt mid-sentence). Reuses the same local STT/TTS models.</li>
+      <li><b>Reuses the Phase-1 tool layer over HTTP</b> — a new <code>src/app/api/coach/tool/route.ts</code> exposes
+      <code>executeTool</code>. No business logic duplicated in Python.</li>
+      <li><b>Auth by cookie-forward:</b> the PWA forwards its signed <code>openmeso_session</code> cookie through
+      Pipecat; the tool endpoint verifies it with the existing <code>verifySession</code>
+      (<code>src/lib/session.ts</code>, already runtime-agnostic Web Crypto). The HMAC signature <em>is</em> the
+      authorization — no spoofable <code>userId</code>. For headless use, mint a short-lived token via the existing
+      <code>signSession(uid)</code>.</li>
+      <li>The <code>/coach</code> screen gains a "continuous" toggle that connects to Pipecat instead of POSTing
+      single turns.</li>
+    </ul>
+    <div class="note"><span class="lbl">Why this ordering matters</span>
+    Phase 2 is the expensive part (a second stack, WebRTC ops, Python). By making Phase 1 build the tool layer and
+    prove the prompt/tool design first, Phase 2 becomes "add a transport," not "design the agent." The risky design
+    work is already validated and reused verbatim.</div>
+  </section>
+
+  <!-- 7 -->
+  <section id="files">
+    <h2>File-by-file plan (Phase 1)</h2>
+    <p class="sub">Following the codebase's own conventions (<code>src/lib/features/README.md</code> pattern).</p>
+    <div class="cards c2">
+      <div class="card">
+        <h4>🆕 New files</h4>
+        <ul class="filelist" style="list-style:none;padding:0;margin:8px 0 0">
+          <li class="new"><code>src/lib/coach/setOps.ts</code><br><span class="muted">extracted logging + ownership/rollup helpers</span></li>
+          <li class="new"><code>src/lib/coach/tools.ts</code><br><span class="muted">tool schemas + <code>executeTool</code> dispatcher</span></li>
+          <li class="new"><code>src/lib/coach/stt.ts</code> · <code>tts.ts</code><br><span class="muted">sidecar <code>fetch</code> wrappers</span></li>
+          <li class="new"><code>src/lib/coach/llm.ts</code><br><span class="muted">cloud LLM loop (provider behind this file)</span></li>
+          <li class="new"><code>src/app/api/coach/route.ts</code><br><span class="muted">streaming SSE handler</span></li>
+          <li class="new"><code>src/app/(app)/coach/page.tsx</code> · <code>CoachClient.tsx</code><br><span class="muted">screen: mic capture + SSE + playback</span></li>
+          <li class="new"><code>deploy/unraid/roguemeso-stt.xml</code> · <code>-tts.xml</code><br><span class="muted">sidecar container templates</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>✏️ Modified files</h4>
+        <ul class="filelist" style="list-style:none;padding:0;margin:8px 0 0">
+          <li class="mod"><code>src/lib/actions.ts</code><br><span class="muted">→ thin wrappers over <code>setOps.ts</code> (UI unchanged)</span></li>
+          <li class="mod"><code>src/lib/nav.ts</code><br><span class="muted">add <code>{ href:"/coach", secondary:true }</code> (off the 5-tab bar)</span></li>
+          <li class="mod"><code>src/proxy.ts</code><br><span class="muted">exclude <code>/api/coach</code> for correct 401s</span></li>
+          <li class="mod"><code>deploy/unraid/roguemeso.xml</code><br><span class="muted">add <code>STT_URL</code>, <code>TTS_URL</code>, <code>COACH_LLM_API_KEY</code> (masked), <code>COACH_LLM_MODEL</code></span></li>
+          <li class="mod"><code>deploy/unraid/README.md</code><br><span class="muted">document sidecars + env</span></li>
+        </ul>
+        <p style="margin-top:14px;font-size:13px" class="muted"><b>No Prisma migration</b> for Phase 1 — tools operate
+        on existing models. Add a model only if you later persist transcripts.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="risks">
+    <h2>Risks &amp; prerequisites</h2>
+    <p class="sub">Stack-specific landmines, ordered by how likely they are to bite.</p>
+    <table>
+      <thead><tr><th>Risk</th><th>Why it bites</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td class="nope"><b>HTTPS / mic</b></td><td>App is LAN-only over HTTP; <code>getUserMedia</code> needs a secure context → mic silently blocked</td><td>TLS reverse proxy (SWAG/Caddy) for a local domain; must pass streamed responses through</td></tr>
+        <tr><td class="nope"><b>MediaRecorder format</b></td><td>iOS emits <code>audio/mp4</code>(AAC), Chrome <code>audio/webm;opus</code></td><td>Send reported mime to STT sidecar; ensure ffmpeg present to decode both</td></tr>
+        <tr><td class="nope"><b>iOS PWA audio</b></td><td>Standalone iOS is hostile to streamed/MSE audio &amp; needs a gesture to unlock playback</td><td>Play <em>complete</em> per-utterance clips triggered inside the tap gesture (reuse existing Web Audio patterns)</td></tr>
+        <tr><td><b>CPU STT latency</b></td><td>Larger Whisper models lag on CPU</td><td><code>base/small</code> for short turns; repoint <code>STT_URL</code> to the 4090 box if needed</td></tr>
+        <tr><td><b>LLM key secrecy</b></td><td>Real secret (unlike the public VAPID key)</td><td>Mask the Unraid <code>&lt;Config&gt;</code>; server-only in <code>llm.ts</code>; never via a route; degrade gracefully when unset</td></tr>
+        <tr><td><b><code>requireUser()</code> leak</b></td><td>Easiest mistake: redirect/revalidate semantics injected into a stream</td><td>Use <code>getCurrentUser()</code> in the handler; call <code>setOps</code>, never the <code>"use server"</code> actions</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 9 -->
+  <section id="verify">
+    <h2>Verification</h2>
+    <p class="sub">How to know each layer actually works, end to end.</p>
+    <ul class="clean">
+      <li><b>HTTPS/mic:</b> open the installed PWA over HTTPS on the phone; confirm the mic grants (fails silently over plain HTTP — check the proxy first).</li>
+      <li><b>STT sidecar:</b> <code>curl</code> a sample <code>audio/mp4</code> (iOS) and <code>audio/webm;opus</code> (Chrome) clip to <code>STT_URL</code>; confirm transcripts (ffmpeg present).</li>
+      <li><b>Tool layer (vitest — the repo's test runner):</b> unit-test <code>logSetFor</code> / <code>getActiveSet</code> / <code>getBestSet</code> with a seeded user; assert ownership rejection for another user's <code>setId</code>.</li>
+      <li><b>End-to-end:</b> on the day screen say "log 185 for 8" → active set written (<code>status:"complete"</code>, rollups updated), coach confirms by voice. Ask "what's my best set on this?" → reads back max-e1RM weight·reps. SSE renders transcript → text → audio progressively (proxy not buffering).</li>
+      <li><b>Cost:</b> after a full session, check token spend on the LLM dashboard — expect cents/session, comfortably under $5/mo.</li>
+      <li><b>Graceful degradation:</b> unset <code>COACH_LLM_API_KEY</code> → <code>/coach</code> shows "voice disabled", rest of app unaffected (mirrors VAPID-absent push).</li>
+    </ul>
+  </section>
+
+  <!-- 10 -->
+  <section id="roadmap">
+    <h2>Roadmap &amp; cost</h2>
+    <p class="sub">A pragmatic sequence; each milestone is independently useful.</p>
+    <div class="roadmap">
+      <div class="card"><h4>0 · Prereq <span class="tag">infra</span></h4><p>TLS reverse proxy for the PWA. Stand up STT (faster-whisper) + TTS (Piper) sidecar containers on br0. <span class="cost">~½ day</span></p></div>
+      <div class="card"><h4>1 · Tool layer <span class="tag">core</span></h4><p>Extract <code>setOps.ts</code>; build <code>tools.ts</code> + <code>getBestSet</code>; vitest coverage. The reusable heart. <span class="cost">~1–2 days</span></p></div>
+      <div class="card"><h4>2 · Tap-to-talk <span class="tag">P1</span></h4><p><code>/api/coach</code> SSE handler + <code>llm.ts</code> + <code>/coach</code> screen. First working voice loop. <span class="cost">~2–3 days</span></p></div>
+      <div class="card"><h4>3 · Continuous <span class="tag">P2</span></h4><p>Pipecat container + cookie-forward tool API + barge-in. Hands-free during a set. <span class="cost">~3–5 days</span></p></div>
+    </div>
+    <div class="note" style="margin-top:22px">
+      <span class="lbl">Running cost summary</span>
+      Local STT + TTS: <b class="cost">$0</b>. Cloud brain at ~$0.10/$0.40 per M tokens with short voice turns:
+      <b class="cost">cents per session</b> — a heavy month of daily training lands well under your <b>$5/mo</b> ceiling.
+      The only fixed cost is electricity for two small always-on containers.
+    </div>
+  </section>
+
+  <footer>
+    <p>RogueMeso · Voice Workout Coach — architecture brief. Grounded in the live codebase (Next.js 16 · React 19 ·
+    Prisma 6, Server Actions, custom signed-cookie auth, Unraid/GHCR deploy) and the mid-2026 open-source voice/LLM
+    landscape. This is a design document, not committed code.</p>
+  </footer>
+
+  </main>
+</div>
+</div>
+
+</body>
+</html>

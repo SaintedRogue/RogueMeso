@@ -20,7 +20,7 @@ the app as **mobility / range-of-motion** work only — never as a soreness or m
 remedy. That framing is enforced by the `guardrail` on every mobility routine.
 
 This stays consistent with the codebase convention (see
-[`2026-06-10-body-tuning-design.md`](./2026-06-10-body-tuning-design.md)): science lives as
+[`body-tuning-evidence.md`](./body-tuning-evidence.md)): science lives as
 **named, cited constants** next to the value it justifies, not in a doc that drifts. This
 page is the index; the code is the source of truth.
 
