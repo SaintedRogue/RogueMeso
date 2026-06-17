@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
+import { DayMenu } from "@/components/DayMenu";
 import { PageHeader, StatusPill } from "@/components/ui";
 
 export default async function DayPage({
@@ -33,7 +34,10 @@ export default async function DayPage({
         title={`Week ${wk + 1} · Day ${pos + 1}`}
         subtitle={`${meso.name}${d.label ? ` · ${d.label}` : ""}`}
       >
-        <StatusPill status={d.status} />
+        <div className="flex items-center gap-2">
+          <StatusPill status={d.status} />
+          {d.status === "complete" && <DayMenu mesoKey={key} week={wk} position={pos} />}
+        </div>
       </PageHeader>
 
       <div className="mb-4 flex items-center justify-between text-sm">

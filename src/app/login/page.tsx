@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { login } from "@/lib/authActions";
 import { prisma } from "@/lib/prisma";
 import { LogoMark, Wordmark } from "@/components/Brand";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default async function LoginPage({
   searchParams,
@@ -40,9 +41,7 @@ export default async function LoginPage({
             autoFocus
             autoComplete="username"
           />
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="password"
             placeholder="Password"
             autoComplete="current-password"

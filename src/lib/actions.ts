@@ -130,6 +130,37 @@ export async function completeDay(key: string, week: number, position: number) {
   revalidateForDay({ key, week, position });
 }
 
+/**
+ * Reopen a finished day for editing (the inverse of completeDay). Sets that were auto-skipped
+ * on completion because they were never logged (skipped + no weight/reps) flip back to open
+ * inputs so they can be filled in; genuinely logged or deliberately skipped sets are left as-is.
+ * Recomputing each exercise then demotes the day off "complete" and clears its finishedAt.
+ */
+export async function reopenDay(key: string, week: number, position: number) {
+  const me = await requireUser();
+  const day = await prisma.mesoDay.findFirst({
+    where: { meso: { key, userId: me.id }, week, position },
+    select: { id: true, exercises: { select: { id: true } } },
+  });
+  if (!day) throw new Error("Forbidden"); // not found or not the caller's meso
+
+  const exIds = day.exercises.map((e) => e.id);
+  if (exIds.length === 0) {
+    // No exercises to roll up from — just unlock the day directly.
+    await prisma.mesoDay.update({ where: { id: day.id }, data: { status: "pending", finishedAt: null } });
+  } else {
+    await prisma.exerciseSet.updateMany({
+      where: { dayExerciseId: { in: exIds }, status: "skipped", weight: null, reps: null },
+      data: { status: "pendingWeight", finishedAt: null },
+    });
+    // Recompute each exercise + the day from the now-open sets; the roll-up demotes the day
+    // off "complete" (sticky only while every set is done) and nulls finishedAt. Independent
+    // per-exercise reads/writes over the same post-update snapshot, so run them together.
+    await Promise.all(exIds.map((id) => recomputeRollups(id)));
+  }
+  revalidateForDay({ key, week, position });
+}
+
 export async function clearSet(setId: number) {
   const me = await requireUser();
   await assertSetOwner(setId, me.id);

@@ -6,6 +6,7 @@ import { PageHeader, CardLink } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ParticipationToggle } from "@/components/community/ParticipationToggle";
 import { ToastForm } from "@/components/forms";
+import { PasswordInput } from "@/components/PasswordInput";
 import { setBiometrics } from "@/lib/bodyTuningActions";
 import { cmToFtIn } from "@/lib/format";
 
@@ -230,16 +231,12 @@ export default async function ProfilePage({
           <label className="block text-sm font-medium text-muted">Change password</label>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex flex-1 flex-col gap-3">
-              <input
-                className="input"
-                type="password"
+              <PasswordInput
                 name="currentPassword"
                 placeholder="Current password"
                 autoComplete="current-password"
               />
-              <input
-                className="input"
-                type="password"
+              <PasswordInput
                 name="password"
                 placeholder="New password (min 8)"
                 autoComplete="new-password"
