@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Dumbbell } from "lucide-react";
+import { ArrowRight, Dumbbell, HeartPulse } from "lucide-react";
 import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
+import { getLatestReadiness, readinessLabel } from "@/lib/features/recovery";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, ActiveBadge, EmptyState } from "@/components/ui";
@@ -28,6 +29,11 @@ export default async function Home() {
   const day = await getDay(active.key, current.week, current.position, me.id);
   if (!day) return null;
   const muscleGroups = await getMuscleGroups();
+
+  // Advisory recovery nudge: only surfaced when the latest check-in flags low readiness.
+  // Purely informational — it links to the Recovery hub and never alters the day's targets.
+  const readiness = await getLatestReadiness(me.id);
+  const lowReadiness = readiness != null && readiness.score < 60;
 
   // Carry the same day from last week forward as a shaded target until the user logs.
   const suggestions = await getDaySuggestions(
@@ -58,6 +64,20 @@ export default async function Home() {
           </Link>
         </div>
       </PageHeader>
+
+      {lowReadiness && (
+        <Link
+          href="/recovery"
+          className="mb-4 flex items-center gap-2 rounded-lg border border-line bg-panel-2/40 p-3 text-sm text-muted transition-colors hover:border-accent-dim"
+        >
+          <HeartPulse aria-hidden size={16} className="shrink-0 text-warn" />
+          <span>
+            Readiness <span className="num text-warn">{readiness!.score}/100</span> · {readinessLabel(readiness!.score).label}.
+            Consider easing in today — see recovery options.
+          </span>
+          <ArrowRight aria-hidden size={14} className="ml-auto shrink-0" />
+        </Link>
+      )}
 
       <DayView
         day={day}

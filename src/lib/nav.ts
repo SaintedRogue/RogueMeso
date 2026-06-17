@@ -6,6 +6,7 @@ import {
   LayoutTemplate,
   Gauge,
   BellRing,
+  HeartPulse,
   Settings,
   Users,
   UsersRound,
@@ -40,6 +41,7 @@ export const NAV_LINKS: NavLink[] = [
   // via link cards on the Profile page.
   { href: "/templates", label: "Templates", shortLabel: "Templates", icon: LayoutTemplate, secondary: true },
   { href: "/body-tuning", label: "Body Tuning", shortLabel: "Tuning", icon: Gauge, secondary: true },
+  { href: "/recovery", label: "Recovery", shortLabel: "Recovery", icon: HeartPulse, secondary: true },
   { href: "/community", label: "Community", shortLabel: "Community", icon: UsersRound, secondary: true },
   { href: "/adhd-mode", label: "ADHD Mode", shortLabel: "ADHD", icon: BellRing, secondary: true },
   PROFILE_LINK,
