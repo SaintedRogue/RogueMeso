@@ -1,8 +1,12 @@
-# Recovery — Evidence Reference
+# Recovery — The Science
 
-**Date:** 2026-06-16
-**Status:** Reference (backs the shipped Recovery hub)
-**Author:** deep-research backed (fan-out web search → fetch → 3-vote adversarial verification → synthesis)
+**Status:** Evidence base for the Recovery hub (`src/lib/features/recovery.ts`, `prisma/recovery.sql`).
+**Last researched:** 2026-06-16
+**Verification:** 6 research angles → 26 sources fetched → 122 candidate claims → 25 adversarially verified (3-vote, kill on ≥2 refutes) → **21 confirmed, 4 killed**.
+
+> Every constant that drives a recommendation maps to a field in `RECOVERY_CONSTANTS` (or a
+> `citation`/`guardrail` value in the seed). When you change a number in the code, update the
+> rationale here too — and vice-versa.
 
 ## Summary
 
@@ -20,7 +24,7 @@ the app as **mobility / range-of-motion** work only — never as a soreness or m
 remedy. That framing is enforced by the `guardrail` on every mobility routine.
 
 This stays consistent with the codebase convention (see
-[`body-tuning-evidence.md`](./body-tuning-evidence.md)): science lives as
+[`body-tuning-science.md`](./body-tuning-science.md)): science lives as
 **named, cited constants** next to the value it justifies, not in a doc that drifts. This
 page is the index; the code is the source of truth.
 
