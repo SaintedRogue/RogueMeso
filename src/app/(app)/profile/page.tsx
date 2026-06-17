@@ -1,4 +1,4 @@
-import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound } from "lucide-react";
+import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound, HeartPulse } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
@@ -181,6 +181,19 @@ export default async function ProfilePage({
                 <div>
                   <div className="text-sm font-medium">Body Tuning</div>
                   <div className="text-xs text-muted">Log weigh-ins and set calorie &amp; macro targets.</div>
+                </div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+
+          <CardLink href="/recovery">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <HeartPulse aria-hidden size={18} className="shrink-0 text-accent" />
+                <div>
+                  <div className="text-sm font-medium">Recovery</div>
+                  <div className="text-xs text-muted">Readiness check-ins &amp; active-recovery routines.</div>
                 </div>
               </div>
               <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />

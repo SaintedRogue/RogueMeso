@@ -17,6 +17,8 @@ import {
   Pill,
   Tablets,
   PersonStanding,
+  Footprints,
+  Repeat,
   Moon,
   Sunrise,
   Zap,
@@ -469,6 +471,139 @@ export const HABIT_REGISTRY: HabitDefinition[] = [
         body: "Take magnesium (~300mg glycinate) to wind down for deeper sleep.",
         tag: "magnesium",
         actions: [{ action: "done", title: "Taken" }],
+      };
+    },
+  },
+
+  {
+    key: "activeRecovery",
+    label: "Active recovery",
+    description: "A rest-day nudge to do 10–20 min of light movement to ease soreness.",
+    icon: Footprints,
+    group: "recovery",
+    defaultEnabled: false,
+    params: [
+      {
+        key: "minutesAfterWake",
+        label: "After wake",
+        type: "minutes",
+        default: 120,
+        min: 30,
+        max: 480,
+        step: 15,
+        unit: "min",
+        citation: "PMC5932411",
+        hint: "Light active recovery (walk, easy cycle, yoga) cuts DOMS SMD -0.94; 10–20 min walking rivals foam rolling (PMC5932411; NSCA 2022).",
+      },
+    ],
+    computeFireTimes(ctx) {
+      // Rest days only — workoutHHMM null means no session is planned today.
+      if (ctx.schedule.workoutHHMM != null) return [];
+      return within(ctx, wake(ctx) + num(ctx.params.minutesAfterWake, 120));
+    },
+    buildPayload() {
+      return {
+        title: "🚶 Active recovery",
+        body: "Rest day — 10–20 min of light movement cuts soreness. See the Recovery hub for a routine.",
+        tag: "active-recovery",
+        actions: [{ action: "done", title: "Done" }, { action: "snooze", title: "+30m" }],
+      };
+    },
+  },
+
+  {
+    key: "foamRolling",
+    label: "Foam rolling",
+    description: "A post-workout self-myofascial release nudge to ease soreness.",
+    icon: Repeat,
+    group: "recovery",
+    defaultEnabled: false,
+    params: [
+      {
+        key: "afterWorkoutMin",
+        label: "After workout",
+        type: "minutes",
+        default: 15,
+        min: 0,
+        max: 60,
+        step: 5,
+        unit: "min",
+        citation: "PMC6465761",
+        hint: "Foam rolling post-session has a small soreness benefit (g=0.47) that grows from 24h, with no downside (PMC6465761; PubMed39593540).",
+      },
+      {
+        key: "durationMin",
+        label: "Roll for",
+        type: "integer",
+        default: 10,
+        min: 5,
+        max: 30,
+        step: 5,
+        unit: "min",
+        hint: "10–20 min over the muscle groups you trained today.",
+      },
+    ],
+    computeFireTimes(ctx) {
+      // Training days only — anchored to the end of the session.
+      if (ctx.schedule.workoutHHMM == null) return [];
+      return within(ctx, hhmmToMin(ctx.schedule.workoutHHMM) + num(ctx.params.afterWorkoutMin, 15));
+    },
+    buildPayload(ctx) {
+      const dur = num(ctx.params.durationMin, 10);
+      return {
+        title: "🔁 Foam rolling",
+        body: `${dur} min of foam rolling on the muscles you trained. The Recovery hub has a full SMR routine.`,
+        tag: "foam-rolling",
+        actions: [{ action: "done", title: "Done" }, { action: "snooze", title: "+15m" }],
+      };
+    },
+  },
+
+  {
+    key: "sleepExtension",
+    label: "Sleep extension nudge",
+    description: "An early evening prompt to wind down sooner when you want more sleep.",
+    icon: Moon,
+    group: "recovery",
+    defaultEnabled: false,
+    params: [
+      {
+        key: "targetHours",
+        label: "Target sleep",
+        type: "integer",
+        default: 8,
+        min: 6,
+        max: 10,
+        step: 1,
+        unit: "h",
+        citation: "PMC11996801",
+        hint: "Sleep extension (+26–106 min) improves recovery; under-sleep raises RPE SMD 0.39 (PMC11996801; Vitale 2021).",
+      },
+      {
+        key: "earlyWindDownMin",
+        label: "Wind down earlier by",
+        type: "minutes",
+        default: 30,
+        min: 15,
+        max: 90,
+        step: 15,
+        unit: "min",
+        hint: "Move tonight's wind-down earlier than usual to bank the extra sleep.",
+      },
+    ],
+    computeFireTimes(ctx) {
+      // ~1h before the (earlier) wind-down so there's time to wrap up the evening.
+      const fire = bed(ctx) - num(ctx.params.earlyWindDownMin, 30) - 60;
+      return fire >= wake(ctx) ? [minToHhmm(fire)] : [];
+    },
+    buildPayload(ctx) {
+      const hours = num(ctx.params.targetHours, 8);
+      const wind = num(ctx.params.earlyWindDownMin, 30);
+      return {
+        title: "😴 Sleep extension",
+        body: `Aim for ${hours}h tonight — start winding down ${wind} min earlier. More sleep = lower RPE tomorrow.`,
+        tag: "sleep-extension",
+        actions: [{ action: "done", title: "Will do" }, { action: "snooze", title: "+15m" }],
       };
     },
   },

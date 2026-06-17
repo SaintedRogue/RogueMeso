@@ -62,5 +62,17 @@ if [ -f prisma/kettlebell.sql ]; then
   fi
 fi
 
+# 6. Apply the additive Recovery routine library. Idempotent (ON CONFLICT), so it's safe on
+#    every start and adds recovery routines to EXISTING databases too. Non-fatal — must not
+#    block startup.
+if [ -f prisma/recovery.sql ]; then
+  echo "[entrypoint] applying recovery seed..."
+  if psql "$PSQL_URL" -q -f prisma/recovery.sql; then
+    echo "[entrypoint] recovery seed applied."
+  else
+    echo "[entrypoint] recovery seed failed (non-fatal) — continuing." >&2
+  fi
+fi
+
 echo "[entrypoint] starting Next.js server on ${HOSTNAME}:${PORT}"
 exec node server.js

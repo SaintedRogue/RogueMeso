@@ -81,6 +81,7 @@ model User {
   exercises     Exercise[] // user-created custom exercises
   templates     Template[] // user-created templates
   weightEntries WeightEntry[]
+  readinessEntries ReadinessEntry[] // daily recovery check-ins (Recovery hub)
   activities    Activity[] // community feed posts authored by this user
   reactions     Reaction[] // kudos this user gave
 
@@ -318,6 +319,53 @@ model WeightEntry {
   createdAt  DateTime @default(now())
 
   @@unique([userId, date])
+}
+
+// ----- Recovery hub -----
+// A standalone, ADVISORY recovery utility: a curated routine library + a daily readiness
+// check-in. The readiness score is informational only and NEVER mutates the training
+// engine (progression.ts) — auto-regulation evidence is weak, so we surface a signal and
+// let the user decide. Engine + cited constants live in src/lib/features/recovery.ts.
+
+// One dated self-report per user per day, mirroring WeightEntry. `score` is the advisory
+// 0–100 readiness value computed at write time (computeReadinessScore) so the home-screen
+// chip can read it without re-running the engine. Sleep lives here as a field rather than
+// its own model — it's an input to readiness, not a standalone tracker.
+model ReadinessEntry {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  sleepHours Float                        // 0..24; the heaviest-weighted readiness input
+  soreness   Int                          // 1 (none) .. 5 (very sore)
+  energy     Int                          // 1 (drained) .. 5 (great)
+  note       String?
+  score      Int                          // advisory 0..100, computed at write time
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+// Curated recovery-routine library — shared reference content (no userId), shipped via the
+// idempotent prisma/recovery.sql seed wired into docker-entrypoint.sh, exactly like the
+// kettlebell catalog. `sourceId` is the stable id the seed upserts on (band 920000–929999).
+// `steps` is a RecoveryStep[] JSON blob ({ movement, durationSec, cue? }). Mobility/yoga
+// routines carry a `guardrail` string — static stretching does not reduce DOMS, so they are
+// framed as range-of-motion tools only (PMC5932411; Cochrane CD004577).
+model RecoveryRoutine {
+  id          Int      @id @default(autoincrement())
+  sourceId    Int      @unique
+  key         String   @unique
+  name        String
+  category    String   // "active_recovery" | "foam_rolling" | "mobility"
+  durationMin Int
+  bodyFocus   String   // "full_body" | "lower" | "upper" | "posterior"
+  steps       Json     // RecoveryStep[]
+  rationale   String
+  citation    String
+  guardrail   String?
+  createdAt   DateTime @default(now())
 }
 
 // ----- ADHD Mode (notification / reminder engine) -----
