@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { signSession, verifySession } from "./session";
+import { signSession, verifySession } from "@/lib/session";
 
 // A fixed secret for the suite (getSecret() requires >= 32 chars).
 const SECRET = "test-secret-test-secret-test-secret-1234";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validatePushEndpoint } from "./pushEndpoint";
+import { validatePushEndpoint } from "@/lib/pushEndpoint";
 
 const ok = (s: string) => validatePushEndpoint(s).ok;
 

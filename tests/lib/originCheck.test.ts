@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSameOrigin } from "./originCheck";
+import { isSameOrigin } from "@/lib/originCheck";
 
 describe("isSameOrigin", () => {
   it("accepts a matching Origin host", () => {
