@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createFirstAdmin } from "@/lib/authActions";
 import { prisma } from "@/lib/prisma";
 import { LogoMark, Wordmark } from "@/components/Brand";
+import { PasswordInput } from "@/components/PasswordInput";
 
 const ERRORS: Record<string, string> = {
   email: "Enter a valid email address.",
@@ -32,17 +33,13 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
           <p className="text-sm text-muted">Create the first account. This admin can add others later.</p>
           <input className="input" name="name" placeholder="Name (optional)" autoComplete="name" />
           <input className="input" type="email" name="email" placeholder="Email" required autoFocus autoComplete="username" />
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="password"
             placeholder="Password (min 8)"
             required
             autoComplete="new-password"
           />
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="confirm"
             placeholder="Confirm password"
             required

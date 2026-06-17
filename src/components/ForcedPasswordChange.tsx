@@ -1,6 +1,7 @@
 import { forcePasswordChange } from "@/lib/authActions";
 import { LogoMark, Wordmark } from "@/components/Brand";
 import { ToastForm } from "@/components/forms";
+import { PasswordInput } from "@/components/PasswordInput";
 
 /**
  * Full-screen gate rendered by the app layout when the signed-in user has
@@ -23,25 +24,19 @@ export function ForcedPasswordChange({ name }: { name: string }) {
           <p className="text-sm text-muted">
             Welcome{name ? `, ${name}` : ""}. Your password was set by an admin — please choose your own to continue.
           </p>
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="currentPassword"
             placeholder="Temporary password"
             autoComplete="current-password"
             required
           />
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="password"
             placeholder="New password (min 8)"
             autoComplete="new-password"
             required
           />
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             name="confirm"
             placeholder="Confirm new password"
             autoComplete="new-password"
