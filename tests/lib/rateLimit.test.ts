@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RateLimiter, type RateLimitConfig } from "./rateLimit";
+import { RateLimiter, type RateLimitConfig } from "@/lib/rateLimit";
 
 const CFG: RateLimitConfig = {
   maxAttempts: 3,

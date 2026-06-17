@@ -7,6 +7,8 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    // Tests live in a top-level tests/ tree mirroring src/; they import app code via the
+    // "@/" alias above (same as app code), so they stay decoupled from their own location.
+    include: ["tests/**/*.test.ts"],
   },
 });
