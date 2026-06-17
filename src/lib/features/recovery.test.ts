@@ -7,6 +7,8 @@ import {
   readinessLabel,
   selectRoutineCategory,
   shouldSuggestSleepExtension,
+  groupRoutinesByCategory,
+  type RecoveryCategory,
 } from "@/lib/features/recovery";
 
 describe("sleepNormalised", () => {
@@ -90,5 +92,38 @@ describe("shouldSuggestSleepExtension", () => {
   it("does not nudge at or above target", () => {
     expect(shouldSuggestSleepExtension(8)).toBe(false);
     expect(shouldSuggestSleepExtension(9)).toBe(false);
+  });
+});
+
+describe("groupRoutinesByCategory", () => {
+  const r = (id: number, category: RecoveryCategory) => ({ id, category });
+  const sample = [
+    r(1, "mobility"),
+    r(2, "active_recovery"),
+    r(3, "foam_rolling"),
+    r(4, "active_recovery"),
+  ];
+
+  it("groups by category and drops empty categories", () => {
+    const groups = groupRoutinesByCategory([r(1, "mobility"), r(2, "mobility")]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].category).toBe("mobility");
+    expect(groups[0].routines.map((x) => x.id)).toEqual([1, 2]);
+  });
+
+  it("uses the stable default order when nothing is suggested", () => {
+    const groups = groupRoutinesByCategory(sample);
+    expect(groups.map((g) => g.category)).toEqual(["active_recovery", "foam_rolling", "mobility"]);
+  });
+
+  it("floats the suggested category to the front", () => {
+    const groups = groupRoutinesByCategory(sample, "mobility");
+    expect(groups.map((g) => g.category)).toEqual(["mobility", "active_recovery", "foam_rolling"]);
+  });
+
+  it("keeps every routine across the groups", () => {
+    const groups = groupRoutinesByCategory(sample, "foam_rolling");
+    const total = groups.reduce((n, g) => n + g.routines.length, 0);
+    expect(total).toBe(sample.length);
   });
 });
