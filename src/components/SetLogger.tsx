@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, X } from "lucide-react";
 import { logSet, skipSet, clearSet } from "@/lib/actions";
 import { SetMenu } from "@/components/SetMenu";
+import { toast } from "@/components/Toaster";
 import { fmtWeight } from "@/lib/format";
 
 type Scope = "day" | "meso";
@@ -59,13 +60,31 @@ export function SetLogger({
   const ghost = suggested && !done ? "italic text-muted" : "";
 
   const submit = () => {
-    const w = weight === "" ? null : Number(weight);
-    const r = reps === "" ? null : Number(reps);
-    if (w == null || r == null || Number.isNaN(w) || Number.isNaN(r)) return;
-    setFlash(true);
+    // Same validation as before — now we tell the user WHY a tap did nothing instead of
+    // silently bailing. Empty vs. non-numeric ("10 lbs") get distinct guidance.
+    if (weight.trim() === "" || reps.trim() === "") {
+      toast("Enter a weight and reps to log this set.", "error");
+      return;
+    }
+    const w = Number(weight);
+    const r = Number(reps);
+    if (Number.isNaN(w) || Number.isNaN(r)) {
+      toast("Weight and reps must be numbers — e.g. 135 and 8.", "error");
+      return;
+    }
+    setFlash(true); // immediate, cosmetic — fine to fire before the round-trip
     setTimeout(() => setFlash(false), 900);
-    start(() => logSet(set.id, w, r));
-    onLogged();
+    start(async () => {
+      try {
+        await logSet(set.id, w, r);
+        // Confirm what was recorded so the entry is unambiguous (the row also turns green),
+        // and carry the effort onto the next set — both only after the log actually lands.
+        toast(`${done ? "Updated" : "Logged"} ${fmtWeight(w, unit)} × ${r} reps`);
+        onLogged();
+      } catch {
+        toast("Couldn't save that set — try again.", "error");
+      }
+    });
   };
 
   // Structural set actions (add/remove, each with day/meso scope) live in this popover menu,
