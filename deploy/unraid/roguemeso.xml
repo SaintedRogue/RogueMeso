@@ -11,7 +11,7 @@
   <Overview>RogueMeso — self-hosted hypertrophy training app. On first start it waits for the database, applies Prisma migrations to build the schema, and seeds the exercise + program-template library (only if the DB is empty), then serves the web app on port 3000. No user accounts are seeded — register your own and start a fresh mesocycle with the full exercise library available. Requires the roguemeso-db container.</Overview>
   <Category>Tools: Other:</Category>
   <WebUI>http://[IP]:[PORT:3000]</WebUI>
-  <Icon>https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dumbbell.svg</Icon>
+  <Icon>https://cdn.jsdelivr.net/gh/SaintedRogue/RogueMeso@main/public/icon-512.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <DonateText/>
