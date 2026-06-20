@@ -1,7 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { rirForWeek } from "@/lib/progression";
-import { buildSetSuggestions } from "@/lib/suggestions";
+import {
+  buildSetSuggestions,
+  buildBodyweightSeeds,
+  isBodyweightType,
+  type SetSuggestion,
+  type SugExercise,
+} from "@/lib/suggestions";
 
 // All queries are scoped to a user. Mesocycles are private; exercises/templates are the shared
 // shared library (userId null) PLUS the user's own creations (userId === me).
@@ -91,9 +97,11 @@ export function getDay(mesoKey: string, week: number, position: number, userId: 
 }
 
 /**
- * Shaded "same day last week" targets for the current day's sets, keyed by current set id.
- * Empty on week 0 (nothing to look back to) or when the prior week's day is missing. The
- * single place the "look back one week" policy lives, shared by the home and day screens.
+ * Shaded targets for the current day's sets, keyed by current set id. Two layered sources:
+ *  - "same day last week" (current-meso progression) — empty on week 0 or if the prior day is missing.
+ *  - bodyweight fallback — each bodyweight exercise's last logged load, carried across all
+ *    mesocycles, for sets last week didn't already cover (incl. week 0 / a brand-new block).
+ * Last week wins on overlap. The single place this policy lives, shared by home and day screens.
  */
 export async function getDaySuggestions(
   mesoKey: string,
@@ -101,17 +109,55 @@ export async function getDaySuggestions(
   position: number,
   weeksCount: number,
   userId: number,
-  currentExercises: Parameters<typeof buildSetSuggestions>[0],
-) {
-  if (week === 0) return {};
-  const prev = await getDay(mesoKey, week - 1, position, userId);
-  if (!prev) return {};
-  return buildSetSuggestions(
-    currentExercises,
-    prev.exercises,
-    rirForWeek(week - 1, weeksCount),
-    rirForWeek(week, weeksCount),
+  currentExercises: SugExercise[],
+): Promise<Record<number, SetSuggestion>> {
+  let lastWeek: Record<number, SetSuggestion> = {};
+  if (week > 0) {
+    const prev = await getDay(mesoKey, week - 1, position, userId);
+    if (prev) {
+      lastWeek = buildSetSuggestions(
+        currentExercises,
+        prev.exercises,
+        rirForWeek(week - 1, weeksCount),
+        rirForWeek(week, weeksCount),
+      );
+    }
+  }
+  const bodyweightIds = currentExercises.flatMap((e) =>
+    e.exercise && isBodyweightType(e.exercise.exerciseType) ? [e.exercise.id] : [],
   );
+  const lastLogged = await getLastLoggedWeights(userId, bodyweightIds);
+  const bodyweightSeeds = buildBodyweightSeeds(currentExercises, lastLogged);
+  return { ...bodyweightSeeds, ...lastWeek };
+}
+
+/**
+ * Most recent logged weight per exercise for `userId`, across ALL their mesocycles. Used to seed
+ * bodyweight sets — added/assist load is stable session-to-session, so the last value is the best
+ * default. Returns exerciseId → weight; empty when no ids are requested. Orders real timestamps
+ * first (nulls last) so legacy/imported sets without a finishedAt never masquerade as the latest.
+ */
+export async function getLastLoggedWeights(
+  userId: number,
+  exerciseIds: number[],
+): Promise<Record<number, number>> {
+  if (exerciseIds.length === 0) return {};
+  const rows = await prisma.exerciseSet.findMany({
+    where: {
+      status: "complete",
+      weight: { not: null },
+      dayExercise: { exerciseId: { in: exerciseIds }, day: { meso: { userId } } },
+    },
+    orderBy: [{ finishedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    select: { weight: true, dayExercise: { select: { exerciseId: true } } },
+  });
+  const out: Record<number, number> = {};
+  for (const r of rows) {
+    const id = r.dayExercise.exerciseId;
+    // Rows are latest-first; the query already filters weight non-null, so first seen wins.
+    if (out[id] == null && r.weight != null) out[id] = r.weight;
+  }
+  return out;
 }
 
 export async function getExercises(userId: number, search?: string, muscleGroupId?: number) {

@@ -38,9 +38,11 @@ export function ExerciseSets({
       sets.map((s) => [s.id, s.weight?.toString() ?? suggestions[s.id]?.weight.toString() ?? ""]),
     ),
   );
+  // A bodyweight fallback seeds weight only (reps optional), so a missing reps suggestion leaves
+  // the field empty — it falls through to the set's own rep target placeholder.
   const [reps, setReps] = useState<Record<number, string>>(() =>
     Object.fromEntries(
-      sets.map((s) => [s.id, s.reps?.toString() ?? suggestions[s.id]?.reps.toString() ?? ""]),
+      sets.map((s) => [s.id, s.reps?.toString() ?? suggestions[s.id]?.reps?.toString() ?? ""]),
     ),
   );
   // Sets whose seeded values are still an unconfirmed suggestion (shaded, not locked in).

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { suggestedReps, setRampPreview } from "@/lib/progression";
-import { buildSetSuggestions } from "@/lib/suggestions";
+import { buildSetSuggestions, buildBodyweightSeeds, isBodyweightType } from "@/lib/suggestions";
 
 describe("setRampPreview", () => {
   it("emphasize ramps +1 set/week from MEV toward the MRV cap, with a deload last week", () => {
@@ -116,5 +116,69 @@ describe("buildSetSuggestions", () => {
     const current = [{ exercise: { id: 7 }, sets: [cur(1, 0)] }];
     const previous = [{ exercise: { id: 9 }, sets: [prev(0, 45, 13)] }];
     expect(buildSetSuggestions(current, previous, 2, 1)).toEqual({});
+  });
+});
+
+describe("isBodyweightType", () => {
+  it("matches all three bodyweight variants regardless of casing or punctuation", () => {
+    // Robust to whether Prisma surfaces the @map value or the enum identifier.
+    expect(isBodyweightType("bodyweight-only")).toBe(true);
+    expect(isBodyweightType("bodyweightOnly")).toBe(true);
+    expect(isBodyweightType("bodyweight-loadable")).toBe(true);
+    expect(isBodyweightType("bodyweightLoadable")).toBe(true);
+    expect(isBodyweightType("machine-assistance")).toBe(true);
+    expect(isBodyweightType("machineAssistance")).toBe(true);
+  });
+
+  it("rejects loaded equipment and empty values", () => {
+    expect(isBodyweightType("barbell")).toBe(false);
+    expect(isBodyweightType("dumbbell")).toBe(false);
+    expect(isBodyweightType("machine")).toBe(false);
+    expect(isBodyweightType(null)).toBe(false);
+    expect(isBodyweightType(undefined)).toBe(false);
+  });
+});
+
+describe("buildBodyweightSeeds", () => {
+  const cur = (id: number, position: number, over: Partial<{ weight: number | null; reps: number | null; status: string }> = {}) => ({
+    id,
+    position,
+    weight: null as number | null,
+    reps: null as number | null,
+    status: "pendingWeight",
+    ...over,
+  });
+
+  it("seeds every unlogged set of a bodyweight exercise with its last logged weight (weight only, no reps)", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "bodyweight-loadable" }, sets: [cur(1, 0), cur(2, 1)] }];
+    expect(buildBodyweightSeeds(current, { 7: 25 })).toEqual({
+      1: { weight: 25 },
+      2: { weight: 25 },
+    });
+  });
+
+  it("ignores non-bodyweight exercises entirely", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "barbell" }, sets: [cur(1, 0)] }];
+    expect(buildBodyweightSeeds(current, { 7: 135 })).toEqual({});
+  });
+
+  it("skips an exercise with no last logged weight", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "bodyweight-only" }, sets: [cur(1, 0)] }];
+    expect(buildBodyweightSeeds(current, {})).toEqual({});
+  });
+
+  it("seeds only sets the user hasn't engaged with (logged, skipped, or weight entered)", () => {
+    const current = [
+      {
+        exercise: { id: 7, exerciseType: "machine-assistance" },
+        sets: [cur(1, 0, { status: "complete", weight: 30 }), cur(2, 1, { weight: 20 }), cur(3, 2, { status: "skipped" }), cur(4, 3)],
+      },
+    ];
+    expect(buildBodyweightSeeds(current, { 7: 25 })).toEqual({ 4: { weight: 25 } });
+  });
+
+  it("seeds a zero added-load (a logged weight of 0 is a real value, not 'missing')", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "bodyweight-only" }, sets: [cur(1, 0)] }];
+    expect(buildBodyweightSeeds(current, { 7: 0 })).toEqual({ 1: { weight: 0 } });
   });
 });
