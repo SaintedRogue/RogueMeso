@@ -61,11 +61,18 @@ export default async function BodyTuningPage() {
     bt.goals.cycle ? { label: "Block goal", weight: toDisp(bt.goals.cycle.goalKg) } : null,
     bt.goals.longTerm ? { label: "Long-term", weight: toDisp(bt.goals.longTerm.goalKg) } : null,
   ].filter((g): g is { label: string; weight: number } => g != null);
+  // The projection chart shows only Logged → Projection (no EWMA line): the dashed forecast
+  // continues straight from the last logged point to the goal, so the date matches the visual.
   const projChart =
     farthest && actual.length >= 2
       ? {
           data: [
-            ...actual.map((p, i) => (i === actual.length - 1 ? { ...p, projection: p.weight } : p)),
+            ...actual.map((p, i) => ({
+              ts: p.ts,
+              weight: p.weight,
+              smoothed: null,
+              projection: i === actual.length - 1 ? p.weight : null,
+            })),
             {
               ts: farthest.projection.projectedDate!.getTime(),
               weight: null,

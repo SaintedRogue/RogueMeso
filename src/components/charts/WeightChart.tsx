@@ -84,7 +84,9 @@ export function WeightChart({
           dot={{ r: 3, fill: "var(--color-info)" }}
           connectNulls
         />
-        <Line type="monotone" dataKey="smoothed" name="Trend" stroke="var(--color-accent)" strokeWidth={2} dot={false} connectNulls />
+        {data.some((d) => d.smoothed != null) && (
+          <Line type="monotone" dataKey="smoothed" name="Trend" stroke="var(--color-accent)" strokeWidth={2} dot={false} connectNulls />
+        )}
         {data.some((d) => d.projection != null) && (
           <Line
             type="linear"
