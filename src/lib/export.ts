@@ -1,8 +1,8 @@
-// Personal data export — dumps one user's training, body-tuning and recovery data into a
-// single self-contained Markdown document: a readable summary (in the user's preferred unit)
-// followed by a fenced ```json block with the lossless, canonical-kg payload, so it can be
-// dropped straight into an AI agent for analysis. Pure shaping/rendering above, the Prisma
-// wrapper below — mirroring the split in lib/features/bodyTuning.ts.
+// Personal data export — dumps one user's training, body-tuning and recovery data for analysis
+// by an AI agent. Two formats, downloaded as separate files: a lossless canonical-kg JSON
+// payload, and a readable Markdown summary (in the user's preferred unit). The user picks which
+// domains to include and an optional "from" date. All selection/filtering/shaping is pure (and
+// unit-tested); getExportData is a dumb fetch-all — mirroring the split in features/bodyTuning.ts.
 import { prisma } from "@/lib/prisma";
 import { toKg, fromKg, fmtWeight } from "@/lib/format";
 
@@ -41,6 +41,7 @@ export type RawDay = {
   bodyweight: number | null;
   bodyweightUnit: string | null;
   notes: string | null;
+  finishedAt: Date | null;
   exercises: RawDayExercise[];
 };
 
@@ -91,6 +92,13 @@ export type RawExport = {
   readinessEntries: RawReadinessEntry[];
 };
 
+// ----- Selection options -----
+
+export type DomainSelection = { training: boolean; body: boolean; recovery: boolean };
+export const ALL_DOMAINS: DomainSelection = { training: true, body: true, recovery: true };
+
+export type ExportOptions = { domains: DomainSelection; from: Date | null };
+
 // ----- Lossless export payload (canonical kilograms throughout) -----
 
 export type ExportSet = {
@@ -120,6 +128,7 @@ export type ExportDay = {
   label: string | null;
   status: string;
   bodyweightKg: number | null;
+  finishedAt: string | null;
   notes: string | null;
   exercises: ExportExercise[];
 };
@@ -167,11 +176,13 @@ export type ExportProfile = {
 export type ExportPayload = {
   app: "RogueMeso";
   exportedAt: string;
+  filteredFrom: string | null; // earliest date included, or null for all-time
   units: { weight: "kg"; note: string };
   profile: ExportProfile;
-  mesocycles: ExportMeso[];
-  weighIns: ExportWeighIn[];
-  readiness: ExportReadiness[];
+  // Each section is present only when its domain was selected.
+  mesocycles?: ExportMeso[];
+  weighIns?: ExportWeighIn[];
+  readiness?: ExportReadiness[];
 };
 
 // ----- Pure helpers -----
@@ -233,7 +244,11 @@ function setToExport(s: RawSet, fallbackUnit: string): ExportSet {
   };
 }
 
-function mesoToExport(m: RawMeso): ExportMeso {
+function mesoToExport(m: RawMeso, from: Date | null): ExportMeso | null {
+  // A `from` date keeps only sessions logged (finished) on/after it. Unfinished days have no
+  // date, so they fall out of a filtered export — which is meant as "logged history since X".
+  const days = m.days.filter((d) => from == null || (d.finishedAt != null && d.finishedAt >= from));
+  if (from != null && days.length === 0) return null; // nothing of this block falls in range
   return {
     name: m.name,
     status: m.status,
@@ -243,12 +258,13 @@ function mesoToExport(m: RawMeso): ExportMeso {
     goalWeightKg: m.goalWeightKg,
     startedAt: m.startedAt ? m.startedAt.toISOString() : null,
     finishedAt: m.finishedAt ? m.finishedAt.toISOString() : null,
-    days: m.days.map((d) => ({
+    days: days.map((d) => ({
       week: d.week + 1,
       day: d.position + 1,
       label: d.label,
       status: d.status,
       bodyweightKg: kgFrom(d.bodyweight, d.bodyweightUnit, m.unit),
+      finishedAt: d.finishedAt ? d.finishedAt.toISOString() : null,
       notes: d.notes,
       exercises: d.exercises.map((ex) => ({
         name: ex.exercise.name,
@@ -261,13 +277,16 @@ function mesoToExport(m: RawMeso): ExportMeso {
   };
 }
 
-/** Shape the raw query result into the lossless, canonical-kg export payload. */
-export function buildExportPayload(raw: RawExport, now: Date): ExportPayload {
+/** Shape the raw query result into the lossless, canonical-kg payload, honoring the selected
+ *  domains and optional `from` date. Sections for unselected domains are omitted entirely. */
+export function buildExportPayload(raw: RawExport, now: Date, options: ExportOptions): ExportPayload {
+  const { domains, from } = options;
   const u = raw.user;
-  return {
+  const payload: ExportPayload = {
     app: "RogueMeso",
     exportedAt: now.toISOString(),
-    units: { weight: "kg", note: "All weights are kilograms. Summary above is in the user's preferred unit." },
+    filteredFrom: from ? ymd(from) : null,
+    units: { weight: "kg", note: "All weights are kilograms." },
     profile: {
       name: u.name,
       email: u.email,
@@ -278,23 +297,38 @@ export function buildExportPayload(raw: RawExport, now: Date): ExportPayload {
       goalWeightKg: u.goalWeightKg,
       memberSince: ymd(u.createdAt),
     },
-    mesocycles: raw.mesocycles.map(mesoToExport),
-    weighIns: raw.weightEntries.map((w) => ({
-      date: ymd(w.date),
-      weightKg: w.weightKg,
-      bodyFatPct: w.bodyFatPct,
-      timeOfDay: w.localMinutes == null ? null : w.localMinutes < 720 ? "AM" : "PM",
-      note: w.note,
-    })),
-    readiness: raw.readinessEntries.map((r) => ({
-      date: ymd(r.date),
-      sleepHours: r.sleepHours,
-      soreness: r.soreness,
-      energy: r.energy,
-      score: r.score,
-      note: r.note,
-    })),
   };
+
+  if (domains.training) {
+    payload.mesocycles = raw.mesocycles
+      .map((m) => mesoToExport(m, from))
+      .filter((m): m is ExportMeso => m !== null);
+  }
+  if (domains.body) {
+    payload.weighIns = raw.weightEntries
+      .filter((w) => from == null || w.date >= from)
+      .map((w) => ({
+        date: ymd(w.date),
+        weightKg: w.weightKg,
+        bodyFatPct: w.bodyFatPct,
+        timeOfDay: w.localMinutes == null ? null : w.localMinutes < 720 ? "AM" : "PM",
+        note: w.note,
+      }));
+  }
+  if (domains.recovery) {
+    payload.readiness = raw.readinessEntries
+      .filter((r) => from == null || r.date >= from)
+      .map((r) => ({
+        date: ymd(r.date),
+        sleepHours: r.sleepHours,
+        soreness: r.soreness,
+        energy: r.energy,
+        score: r.score,
+        note: r.note,
+      }));
+  }
+
+  return payload;
 }
 
 // ----- Markdown rendering (readable summary, in the user's preferred unit) -----
@@ -331,14 +365,16 @@ function fmtKg(kg: number | null, unit: string): string {
   return fmtWeight(round2(fromKg(kg, unit)), unit);
 }
 
-function renderSummaryMarkdown(p: ExportPayload, displayUnit: string): string {
+/** Render the readable Markdown summary. Only sections present in the payload are emitted. */
+export function renderMarkdown(p: ExportPayload, displayUnit: string): string {
   const lines: string[] = [];
   lines.push(`# RogueMeso data export`);
   lines.push("");
-  lines.push(`_Exported ${p.exportedAt.slice(0, 10)} · summary in ${displayUnit}, raw data in kg._`);
+  const range = p.filteredFrom ? ` · from ${p.filteredFrom}` : "";
+  lines.push(`_Exported ${p.exportedAt.slice(0, 10)} · weights in ${displayUnit}${range}._`);
   lines.push("");
 
-  // Profile
+  // Profile (always present)
   lines.push(`## Profile`);
   const who = p.profile.name ? `${p.profile.name} (${p.profile.email})` : p.profile.email;
   lines.push(`- ${who}`);
@@ -353,64 +389,68 @@ function renderSummaryMarkdown(p: ExportPayload, displayUnit: string): string {
   lines.push("");
 
   // Training
-  lines.push(`## Training (${p.mesocycles.length} mesocycle${p.mesocycles.length === 1 ? "" : "s"})`);
-  if (p.mesocycles.length === 0) lines.push("_No mesocycles logged._");
-  for (const m of p.mesocycles) {
-    const done = m.days.filter((d) => d.status === "complete").length;
-    const goal = m.goalWeightKg != null ? ` · goal ${fmtKg(m.goalWeightKg, displayUnit)}` : "";
-    const nutol = m.nutritionGoal ? ` · ${m.nutritionGoal}` : "";
-    lines.push("");
-    lines.push(`### ${m.name} — ${m.status} · ${m.weeks} weeks × ${m.daysPerWeek}/wk${goal}${nutol}`);
-    lines.push(`Sessions completed: ${done}/${m.days.length}`);
-    const best = bestSetsByExercise(m);
-    if (best.size) {
+  if (p.mesocycles) {
+    lines.push(`## Training (${p.mesocycles.length} mesocycle${p.mesocycles.length === 1 ? "" : "s"})`);
+    if (p.mesocycles.length === 0) lines.push("_No mesocycles in range._");
+    for (const m of p.mesocycles) {
+      const done = m.days.filter((d) => d.status === "complete").length;
+      const goal = m.goalWeightKg != null ? ` · goal ${fmtKg(m.goalWeightKg, displayUnit)}` : "";
+      const nut = m.nutritionGoal ? ` · ${m.nutritionGoal}` : "";
       lines.push("");
-      lines.push(`| Exercise | Muscle | Best set |`);
-      lines.push(`|---|---|---|`);
-      for (const [name, b] of best) {
-        const rir = b.rir != null ? ` @${b.rir} RIR` : "";
-        const reps = b.reps != null ? ` × ${b.reps}` : "";
-        const load = b.loadKg != null ? fmtKg(b.loadKg, displayUnit) : "bodyweight";
-        lines.push(`| ${name} | ${b.muscle} | ${load}${reps}${rir} |`);
+      lines.push(`### ${m.name} — ${m.status} · ${m.weeks} weeks × ${m.daysPerWeek}/wk${goal}${nut}`);
+      lines.push(`Sessions completed: ${done}/${m.days.length}`);
+      const best = bestSetsByExercise(m);
+      if (best.size) {
+        lines.push("");
+        lines.push(`| Exercise | Muscle | Best set |`);
+        lines.push(`|---|---|---|`);
+        for (const [name, b] of best) {
+          const rir = b.rir != null ? ` @${b.rir} RIR` : "";
+          const reps = b.reps != null ? ` × ${b.reps}` : "";
+          const load = b.loadKg != null ? fmtKg(b.loadKg, displayUnit) : "bodyweight";
+          lines.push(`| ${name} | ${b.muscle} | ${load}${reps}${rir} |`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  // Weigh-ins
+  if (p.weighIns) {
+    lines.push(`## Weigh-ins (${p.weighIns.length})`);
+    if (p.weighIns.length === 0) {
+      lines.push("_No weigh-ins in range._");
+    } else {
+      lines.push(`| Date | Weight | Body fat | Time |`);
+      lines.push(`|---|---|---|---|`);
+      for (const w of p.weighIns) {
+        const bf = w.bodyFatPct != null ? `${round2(w.bodyFatPct * 100)}%` : "—";
+        lines.push(`| ${w.date} | ${fmtKg(w.weightKg, displayUnit)} | ${bf} | ${w.timeOfDay ?? "—"} |`);
+      }
+    }
+    lines.push("");
+  }
+
+  // Recovery readiness
+  if (p.readiness) {
+    lines.push(`## Recovery readiness (${p.readiness.length})`);
+    if (p.readiness.length === 0) {
+      lines.push("_No readiness check-ins in range._");
+    } else {
+      lines.push(`| Date | Sleep | Soreness | Energy | Score |`);
+      lines.push(`|---|---|---|---|---|`);
+      for (const r of p.readiness) {
+        lines.push(`| ${r.date} | ${r.sleepHours}h | ${r.soreness}/5 | ${r.energy}/5 | ${r.score} |`);
       }
     }
   }
-  lines.push("");
 
-  // Weigh-ins
-  lines.push(`## Weigh-ins (${p.weighIns.length})`);
-  if (p.weighIns.length === 0) {
-    lines.push("_No weigh-ins logged._");
-  } else {
-    lines.push(`| Date | Weight | Body fat | Time |`);
-    lines.push(`|---|---|---|---|`);
-    for (const w of p.weighIns) {
-      const bf = w.bodyFatPct != null ? `${round2(w.bodyFatPct * 100)}%` : "—";
-      lines.push(`| ${w.date} | ${fmtKg(w.weightKg, displayUnit)} | ${bf} | ${w.timeOfDay ?? "—"} |`);
-    }
-  }
-  lines.push("");
-
-  // Readiness
-  lines.push(`## Recovery readiness (${p.readiness.length})`);
-  if (p.readiness.length === 0) {
-    lines.push("_No readiness check-ins logged._");
-  } else {
-    lines.push(`| Date | Sleep | Soreness | Energy | Score |`);
-    lines.push(`|---|---|---|---|---|`);
-    for (const r of p.readiness) {
-      lines.push(`| ${r.date} | ${r.sleepHours}h | ${r.soreness}/5 | ${r.energy}/5 | ${r.score} |`);
-    }
-  }
-
-  return lines.join("\n");
+  return lines.join("\n").trimEnd() + "\n";
 }
 
-/** The full downloadable document: readable summary + a fenced JSON block of the lossless payload. */
-export function renderExportDocument(payload: ExportPayload, displayUnit: string): string {
-  const summary = renderSummaryMarkdown(payload, displayUnit);
-  const json = JSON.stringify(payload, null, 2);
-  return `${summary}\n\n## Raw data\n\n\`\`\`json\n${json}\n\`\`\`\n`;
+/** Serialize the lossless payload as pretty JSON. */
+export function renderJson(payload: ExportPayload): string {
+  return JSON.stringify(payload, null, 2) + "\n";
 }
 
 // ----- Async Prisma wrapper (user-scoped reads; sensitive fields never selected) -----
@@ -454,6 +494,7 @@ export async function getExportData(userId: number): Promise<RawExport> {
             bodyweight: true,
             bodyweightUnit: true,
             notes: true,
+            finishedAt: true,
             exercises: {
               orderBy: { position: "asc" },
               select: {

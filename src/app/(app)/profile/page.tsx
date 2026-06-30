@@ -227,25 +227,52 @@ export default async function ProfilePage({
           </CardLink>
         )}
 
-        <div className="card flex items-center justify-between gap-4 p-6">
+        <form action="/api/export" method="get" className="card flex flex-col gap-4 p-6">
           <div className="flex items-start gap-3">
             <Download aria-hidden size={18} className="mt-0.5 shrink-0 text-accent" />
             <div>
               <div className="text-sm font-medium">Export data</div>
               <div className="text-xs text-muted">
-                Download your training, body &amp; recovery data as a Markdown file — a readable summary plus
-                lossless JSON, ready to hand to an AI assistant for analysis.
+                Download your data for analysis by an AI assistant. Pick what to include, then choose a format:
+                <span className="text-text"> JSON</span> is lossless for computation, <span className="text-text">Markdown</span> is a readable summary.
               </div>
             </div>
           </div>
-          <a
-            href="/api/export"
-            download
-            className="btn-primary shrink-0 whitespace-nowrap px-4 py-2 text-sm"
-          >
-            Export
-          </a>
-        </div>
+
+          <fieldset className="flex flex-wrap gap-x-5 gap-y-2">
+            <legend className="mb-1 text-xs font-medium text-muted">Include</legend>
+            {[
+              { value: "training", label: "Training" },
+              { value: "body", label: "Body tuning" },
+              { value: "recovery", label: "Recovery" },
+            ].map((d) => (
+              <label key={d.value} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="domain" value={d.value} defaultChecked className="size-4 accent-[var(--color-accent)]" />
+                {d.label}
+              </label>
+            ))}
+          </fieldset>
+
+          <div>
+            <label htmlFor="exportFrom" className="mb-1 block text-xs font-medium text-muted">From (optional)</label>
+            <input id="exportFrom" name="from" type="date" className="input sm:w-48" />
+            <p className="mt-1 text-xs text-muted">Leave blank for all time. Limits weigh-ins, readiness, and logged sessions to on/after this date.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" name="format" value="json" className="btn-primary px-4 py-2 text-sm">
+              Download JSON
+            </button>
+            <button
+              type="submit"
+              name="format"
+              value="md"
+              className="min-h-11 rounded-lg border border-line px-4 py-2 text-sm text-muted hover:text-text sm:min-h-0"
+            >
+              Download Markdown
+            </button>
+          </div>
+        </form>
 
         <form action={changeMyPassword} className="card flex flex-col gap-4 p-6">
           <label className="block text-sm font-medium text-muted">Change password</label>
