@@ -17,12 +17,17 @@ export async function logWeight(_prev: ActionResult, formData: FormData): Promis
   const bfRaw = Number(formData.get("bodyFatPct"));
   const bodyFatPct = Number.isFinite(bfRaw) && bfRaw > 0 && bfRaw < 70 ? bfRaw / 100 : null;
 
+  // Minutes since the user's LOCAL midnight, captured client-side. Lets us bucket AM/PM weigh-ins
+  // without knowing their timezone. Re-logging a day refreshes it to the latest weigh-in time.
+  const lmRaw = Number(formData.get("localMinutes"));
+  const localMinutes = Number.isInteger(lmRaw) && lmRaw >= 0 && lmRaw < 1440 ? lmRaw : null;
+
   const weightKg = toKg(weightRaw, me.unit);
 
   await prisma.weightEntry.upsert({
     where: { userId_date: { userId: me.id, date } },
-    create: { userId: me.id, date, weightKg, bodyFatPct },
-    update: { weightKg, bodyFatPct },
+    create: { userId: me.id, date, weightKg, bodyFatPct, localMinutes },
+    update: { weightKg, bodyFatPct, localMinutes },
   });
   revalidatePath("/body-tuning");
   return ok("Weight logged");

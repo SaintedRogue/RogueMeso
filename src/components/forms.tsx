@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionResult } from "@/lib/actionResult";
 import { toast } from "@/components/Toaster";
@@ -36,6 +36,26 @@ export function SubmitButton({
       {children}
     </button>
   );
+}
+
+/**
+ * Hidden field that submits the client's LOCAL time-of-day (minutes since local midnight) so the
+ * server can record when a weigh-in actually happened without needing the user's timezone. Set on
+ * mount and refreshed on the form's submit event, so it reflects the true moment of submission.
+ */
+export function LocalTimeField({ name = "localMinutes" }: { name?: string }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const set = () => {
+      const now = new Date();
+      if (ref.current) ref.current.value = String(now.getHours() * 60 + now.getMinutes());
+    };
+    set();
+    const form = ref.current?.form;
+    form?.addEventListener("submit", set);
+    return () => form?.removeEventListener("submit", set);
+  }, []);
+  return <input ref={ref} type="hidden" name={name} defaultValue="" />;
 }
 
 type ToastFormProps = {

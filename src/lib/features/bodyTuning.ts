@@ -201,6 +201,7 @@ export type BodyTuningResult = {
   observedRateKg: number;
   weeksOfData: number;
   latestWeightKg: number | null;
+  amPm: AmPm;
 };
 
 /** Assemble the engine Profile from the user row + latest weigh-in. Null if biometrics missing. */
@@ -282,14 +283,31 @@ export function plausibleEntries<T extends { date: Date; weightKg: number }>(row
   return clean;
 }
 
-/** Smoothed bodyweight trend + observed weekly rate + weeks of data. */
+export type AmPmBucket = { count: number; avgKg: number | null };
+export type AmPm = { am: AmPmBucket; pm: AmPmBucket };
+
+/**
+ * Average weigh-in weight split by time of day: AM = before local noon (localMinutes < 720),
+ * PM = noon onward. Entries without a captured time are ignored. Surfaces morning-vs-evening
+ * variation (and nudges toward weighing in at a consistent time).
+ */
+export function amPmBreakdown(entries: { localMinutes: number | null; weightKg: number }[]): AmPm {
+  const bucket = (pred: (m: number) => boolean): AmPmBucket => {
+    const ws = entries.filter((e) => e.localMinutes != null && pred(e.localMinutes)).map((e) => e.weightKg);
+    return { count: ws.length, avgKg: ws.length ? ws.reduce((a, b) => a + b, 0) / ws.length : null };
+  };
+  return { am: bucket((m) => m < 720), pm: bucket((m) => m >= 720) };
+}
+
+/** Smoothed bodyweight trend + observed weekly rate + weeks of data + AM/PM split. */
 export async function getWeightTrend(userId: number, now: Date) {
   const rows = await prisma.weightEntry.findMany({
     where: { userId, date: { gte: new Date(now.getTime() - 180 * DAY_MS) } },
     orderBy: { date: "asc" },
-    select: { date: true, weightKg: true },
+    select: { date: true, weightKg: true, localMinutes: true },
   });
   const clean = plausibleEntries(rows);
+  const amPm = amPmBreakdown(clean);
   const smoothed = ewma(clean.map((r) => r.weightKg));
   const spanDays =
     clean.length >= 2 ? Math.max(1, (clean[clean.length - 1].date.getTime() - clean[0].date.getTime()) / DAY_MS) : 0;
@@ -300,6 +318,7 @@ export async function getWeightTrend(userId: number, now: Date) {
     observedRateKg,
     weeksOfData,
     latestWeightKg: clean.length ? clean[clean.length - 1].weightKg : null,
+    amPm,
   };
 }
 
@@ -330,6 +349,7 @@ export async function computeBodyTuning(userId: number, now: Date): Promise<Body
       observedRateKg: trend.observedRateKg,
       weeksOfData: trend.weeksOfData,
       latestWeightKg: trend.latestWeightKg,
+      amPm: trend.amPm,
     };
   }
 
@@ -357,5 +377,6 @@ export async function computeBodyTuning(userId: number, now: Date): Promise<Body
     observedRateKg: trend.observedRateKg,
     weeksOfData: trend.weeksOfData,
     latestWeightKg: trend.latestWeightKg,
+    amPm: trend.amPm,
   };
 }

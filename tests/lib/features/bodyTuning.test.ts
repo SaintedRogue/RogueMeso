@@ -8,6 +8,7 @@ import {
   goalAdjustedTarget,
   macroTargets,
   plausibleEntries,
+  amPmBreakdown,
   type Profile,
 } from "@/lib/features/bodyTuning";
 
@@ -179,5 +180,39 @@ describe("plausibleEntries", () => {
   it("returns the input unchanged for zero or one entry", () => {
     expect(plausibleEntries([])).toEqual([]);
     expect(plausibleEntries([d("2026-06-10", 115)]).map((r) => r.weightKg)).toEqual([115]);
+  });
+});
+
+describe("amPmBreakdown", () => {
+  const e = (localMinutes: number | null, weightKg: number) => ({ localMinutes, weightKg });
+
+  it("buckets by noon (before noon AM, noon and after PM) and averages each bucket", () => {
+    const out = amPmBreakdown([
+      e(7 * 60, 100), // 07:00 AM
+      e(8 * 60, 102), // 08:00 AM
+      e(20 * 60, 99), // 20:00 PM
+    ]);
+    expect(out.am.count).toBe(2);
+    expect(out.am.avgKg).toBeCloseTo(101, 5);
+    expect(out.pm.count).toBe(1);
+    expect(out.pm.avgKg).toBeCloseTo(99, 5);
+  });
+
+  it("treats exactly noon (720) as PM and 719 as AM", () => {
+    const out = amPmBreakdown([e(719, 80), e(720, 90)]);
+    expect(out.am.count).toBe(1);
+    expect(out.pm.count).toBe(1);
+  });
+
+  it("ignores entries with no captured time", () => {
+    const out = amPmBreakdown([e(null, 80), e(null, 90), e(8 * 60, 100)]);
+    expect(out.am.count).toBe(1);
+    expect(out.pm.count).toBe(0);
+    expect(out.pm.avgKg).toBeNull();
+  });
+
+  it("reports empty buckets as count 0 with a null average", () => {
+    const out = amPmBreakdown([]);
+    expect(out).toEqual({ am: { count: 0, avgKg: null }, pm: { count: 0, avgKg: null } });
   });
 });

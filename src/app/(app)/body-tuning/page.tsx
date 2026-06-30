@@ -5,7 +5,7 @@ import { computeBodyTuning } from "@/lib/features/bodyTuning";
 import { logWeight, setMesoGoal } from "@/lib/bodyTuningActions";
 import { fmtWeight, fromKg } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/ui";
-import { ToastForm } from "@/components/forms";
+import { ToastForm, LocalTimeField } from "@/components/forms";
 import { WeightChart } from "@/components/charts/WeightChart";
 
 const CONFIDENCE_COPY: Record<string, string> = {
@@ -105,9 +105,69 @@ export default async function BodyTuningPage() {
           ) : (
             <p className="text-sm text-muted">Log a few days of weight to see your trend and personalize targets.</p>
           )}
+          <AmPmTable amPm={bt.amPm} unit={me.unit} />
         </div>
       </div>
     </>
+  );
+}
+
+/** Average weigh-in weight split AM (before local noon) vs PM. Populates as the user logs with
+ *  the time-capturing form; legacy entries (no captured time) simply aren't counted. */
+function AmPmTable({
+  amPm,
+  unit,
+}: {
+  amPm: { am: { count: number; avgKg: number | null }; pm: { count: number; avgKg: number | null } };
+  unit: string;
+}) {
+  const disp = (kg: number | null) => (kg == null ? null : Math.round(fromKg(kg, unit) * 10) / 10);
+  const am = disp(amPm.am.avgKg);
+  const pm = disp(amPm.pm.avgKg);
+
+  if (amPm.am.count + amPm.pm.count === 0) {
+    return (
+      <p className="mt-4 text-xs text-muted">
+        Log a weigh-in to start your AM vs PM breakdown — weighing in around the same time each day gives the cleanest trend.
+      </p>
+    );
+  }
+
+  const diff = am != null && pm != null ? Math.round((am - pm) * 10) / 10 : null;
+  return (
+    <div className="mt-5">
+      <div className="mb-2 text-sm font-medium text-muted">AM vs PM average</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-muted">
+            <th className="py-1 font-normal">Time of day</th>
+            <th className="py-1 font-normal">Weigh-ins</th>
+            <th className="py-1 text-right font-normal">Avg weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          <AmPmRow label="Morning (AM)" count={amPm.am.count} avg={am} unit={unit} />
+          <AmPmRow label="Evening (PM)" count={amPm.pm.count} avg={pm} unit={unit} />
+        </tbody>
+      </table>
+      {diff != null && (
+        <p className="mt-2 text-xs text-muted">
+          {diff === 0
+            ? "No AM/PM difference so far."
+            : `Mornings run ${fmtWeight(Math.abs(diff), unit)} ${diff < 0 ? "lighter" : "heavier"} than evenings on average.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AmPmRow({ label, count, avg, unit }: { label: string; count: number; avg: number | null; unit: string }) {
+  return (
+    <tr className="border-t border-line">
+      <td className="py-1.5">{label}</td>
+      <td className="py-1.5 text-muted">{count}</td>
+      <td className="py-1.5 text-right">{avg != null ? fmtWeight(avg, unit) : "—"}</td>
+    </tr>
   );
 }
 
@@ -128,6 +188,7 @@ function WeighInForm({ unit }: { unit: string }) {
       className="card flex flex-col gap-3 p-6 sm:flex-row sm:items-end"
       submitClassName="btn-primary px-4 py-2 text-sm"
     >
+      <LocalTimeField />
       <div className="flex-1">
         <label htmlFor="weight" className="mb-1 block text-sm font-medium text-muted">Today&apos;s weight ({unit})</label>
         <input id="weight" name="weight" type="number" step="0.1" min="0" required className="input" placeholder={unit === "kg" ? "80.0" : "176.0"} />

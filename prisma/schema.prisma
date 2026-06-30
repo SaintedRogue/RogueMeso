@@ -315,6 +315,9 @@ model WeightEntry {
   date       DateTime @db.Date
   weightKg   Float
   bodyFatPct Float?                       // 0..1 fraction
+  // Minutes since LOCAL midnight at weigh-in (0..1439), captured client-side. Null for legacy
+  // rows / unknown. Lets us bucket weigh-ins into AM (<720) vs PM and surface time-of-day drift.
+  localMinutes Int?
   note       String?
   createdAt  DateTime @default(now())
 
