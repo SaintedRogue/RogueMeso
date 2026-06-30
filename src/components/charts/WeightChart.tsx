@@ -63,7 +63,7 @@ export function WeightChart({
           contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-line)", borderRadius: 8, fontSize: 12 }}
           labelStyle={{ color: "var(--color-text)" }}
           labelFormatter={(ts) => fmtDate(Number(ts))}
-          formatter={(v: number, name: string) => [`${v} ${unit}`, name]}
+          formatter={(value, name) => [`${value} ${unit}`, name]}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         {goals.map((g) => (
