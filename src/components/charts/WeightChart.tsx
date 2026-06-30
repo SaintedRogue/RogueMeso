@@ -85,16 +85,18 @@ export function WeightChart({
           connectNulls
         />
         <Line type="monotone" dataKey="smoothed" name="Trend" stroke="var(--color-accent)" strokeWidth={2} dot={false} connectNulls />
-        <Line
-          type="linear"
-          dataKey="projection"
-          name="Projection"
-          stroke="var(--color-accent)"
-          strokeWidth={2}
-          strokeDasharray="5 5"
-          dot={false}
-          connectNulls
-        />
+        {data.some((d) => d.projection != null) && (
+          <Line
+            type="linear"
+            dataKey="projection"
+            name="Projection"
+            stroke="var(--color-accent)"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={false}
+            connectNulls
+          />
+        )}
       </ComposedChart>
     </ResponsiveContainer>
   );

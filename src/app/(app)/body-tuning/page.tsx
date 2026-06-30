@@ -41,29 +41,41 @@ export default async function BodyTuningPage() {
   const unit = me.unit;
   const toDisp = (kg: number) => Math.round(fromKg(kg, unit) * 10) / 10;
 
-  // Actual weigh-ins on a real time axis; the last one seeds the dashed projection line.
-  const actual: WeightChartPoint[] = bt.trend.map((t, i) => ({
+  // Main "Weight trend" chart shows ACTUAL data only — a far-out goal date must never compress it.
+  const actual: WeightChartPoint[] = bt.trend.map((t) => ({
     ts: t.date.getTime(),
     weight: toDisp(t.weightKg),
     smoothed: toDisp(t.smoothedKg),
-    projection: i === bt.trend.length - 1 ? toDisp(t.weightKg) : null,
+    projection: null,
   }));
 
-  // Extend the projection to the farthest on-track goal date (its line crosses any nearer goal).
+  // Forecast for the dedicated projection chart: a dashed line from the latest weigh-in to the
+  // farthest on-track goal (its slope crosses any nearer goal marker on the way).
   const onTrack = [bt.goals.cycle, bt.goals.longTerm].filter(
     (g): g is NonNullable<typeof g> => g != null && g.projection.status === "on-track" && g.projection.projectedDate != null,
   );
   const farthest = onTrack.sort(
     (a, b) => b.projection.projectedDate!.getTime() - a.projection.projectedDate!.getTime(),
   )[0];
-  const chartData: WeightChartPoint[] = farthest
-    ? [...actual, { ts: farthest.projection.projectedDate!.getTime(), weight: null, smoothed: null, projection: toDisp(farthest.goalKg) }]
-    : actual;
-
   const goalLines = [
     bt.goals.cycle ? { label: "Block goal", weight: toDisp(bt.goals.cycle.goalKg) } : null,
     bt.goals.longTerm ? { label: "Long-term", weight: toDisp(bt.goals.longTerm.goalKg) } : null,
   ].filter((g): g is { label: string; weight: number } => g != null);
+  const projChart =
+    farthest && actual.length >= 2
+      ? {
+          data: [
+            ...actual.map((p, i) => (i === actual.length - 1 ? { ...p, projection: p.weight } : p)),
+            {
+              ts: farthest.projection.projectedDate!.getTime(),
+              weight: null,
+              smoothed: null,
+              projection: toDisp(farthest.goalKg),
+            },
+          ] as WeightChartPoint[],
+          goals: goalLines,
+        }
+      : null;
 
   return (
     <>
@@ -137,7 +149,7 @@ export default async function BodyTuningPage() {
             )}
           </div>
           {actual.length >= 2 ? (
-            <WeightChart data={chartData} goals={goalLines} unit={unit} />
+            <WeightChart data={actual} unit={unit} />
           ) : (
             <p className="text-sm text-muted">Log a few days of weight to see your trend and personalize targets.</p>
           )}
@@ -145,7 +157,7 @@ export default async function BodyTuningPage() {
         </div>
 
         {/* Goal weight & projection */}
-        <GoalProjectionCard goals={bt.goals} observedRateKg={bt.observedRateKg} unit={unit} />
+        <GoalProjectionCard goals={bt.goals} observedRateKg={bt.observedRateKg} unit={unit} projChart={projChart} />
       </div>
     </>
   );
@@ -217,10 +229,12 @@ function GoalProjectionCard({
   goals,
   observedRateKg,
   unit,
+  projChart,
 }: {
   goals: BodyTuningResult["goals"];
   observedRateKg: number;
   unit: string;
+  projChart: { data: WeightChartPoint[]; goals: { label: string; weight: number }[] } | null;
 }) {
   return (
     <div className="card p-6">
@@ -250,6 +264,15 @@ function GoalProjectionCard({
           />
         </div>
       </ToastForm>
+
+      {/* Dedicated forecast chart — its own time scale out to the goal date, so it never
+          compresses the main trend chart above. */}
+      {projChart && (
+        <div className="mt-4">
+          <div className="mb-2 text-xs font-medium text-muted">Projected path to goal</div>
+          <WeightChart data={projChart.data} goals={projChart.goals} unit={unit} />
+        </div>
+      )}
 
       {goals.cycle || goals.longTerm ? (
         <div className="mt-4 space-y-3">
