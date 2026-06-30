@@ -2,13 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   effectiveLoadKg,
   buildExportPayload,
-  renderExportDocument,
+  renderMarkdown,
+  ALL_DOMAINS,
   type RawExport,
 } from "@/lib/export";
 
-// A minimal one-meso fixture: imperial user, one logged set in lb, plus a weigh-in
-// and a readiness entry. Enough to exercise denormalization, kg-normalization, and
-// the empty-vs-populated branches without a database.
+// Two weigh-ins / readiness check-ins straddling a date boundary, and one finished training
+// day — enough to exercise denormalization, kg-normalization, domain selection and the
+// date filter without a database.
 const baseRaw: RawExport = {
   user: {
     name: "Ada",
@@ -41,6 +42,7 @@ const baseRaw: RawExport = {
           bodyweight: 165,
           bodyweightUnit: "lb",
           notes: "felt strong",
+          finishedAt: new Date("2026-06-01T18:00:00Z"),
           exercises: [
             {
               position: 0,
@@ -72,20 +74,21 @@ const baseRaw: RawExport = {
     },
   ],
   weightEntries: [
-    {
-      date: new Date("2026-06-01T00:00:00Z"),
-      weightKg: 74.8,
-      bodyFatPct: 0.22,
-      localMinutes: 420,
-      note: "morning",
-    },
+    { date: new Date("2026-05-01T00:00:00Z"), weightKg: 75.2, bodyFatPct: null, localMinutes: 420, note: null },
+    { date: new Date("2026-06-01T00:00:00Z"), weightKg: 74.8, bodyFatPct: 0.22, localMinutes: 420, note: "morning" },
   ],
   readinessEntries: [
+    { date: new Date("2026-05-01T00:00:00Z"), sleepHours: 6, soreness: 3, energy: 3, score: 60, note: null },
     { date: new Date("2026-06-01T00:00:00Z"), sleepHours: 7.5, soreness: 2, energy: 4, score: 78, note: null },
   ],
 };
 
 const NOW = new Date("2026-06-30T15:00:00Z");
+const opts = (over: Partial<{ domains: typeof ALL_DOMAINS; from: Date | null }> = {}) => ({
+  domains: ALL_DOMAINS,
+  from: null,
+  ...over,
+});
 
 describe("effectiveLoadKg", () => {
   it("uses the bar weight for a standard weighted set", () => {
@@ -108,62 +111,89 @@ describe("effectiveLoadKg", () => {
   });
 });
 
-describe("buildExportPayload", () => {
+describe("buildExportPayload — shaping", () => {
   it("denormalizes exercise + muscle names and normalizes weights to kg", () => {
-    const out = buildExportPayload(baseRaw, NOW);
-    const set = out.mesocycles[0].days[0].exercises[0].sets[0];
-    expect(out.mesocycles[0].days[0].exercises[0].name).toBe("Bench Press");
-    expect(out.mesocycles[0].days[0].exercises[0].muscle).toBe("Chest");
-    // 100 lb → 45.359 kg
-    expect(set.weightKg).toBeCloseTo(45.36, 2);
+    const out = buildExportPayload(baseRaw, NOW, opts());
+    const set = out.mesocycles![0].days[0].exercises[0].sets[0];
+    expect(out.mesocycles![0].days[0].exercises[0].name).toBe("Bench Press");
+    expect(out.mesocycles![0].days[0].exercises[0].muscle).toBe("Chest");
+    expect(set.weightKg).toBeCloseTo(45.36, 2); // 100 lb → 45.36 kg
     expect(set.reps).toBe(8);
     expect(set.rir).toBe(2);
   });
 
   it("presents week/day as 1-based and normalizes session bodyweight to kg", () => {
-    const day = buildExportPayload(baseRaw, NOW).mesocycles[0].days[0];
+    const day = buildExportPayload(baseRaw, NOW, opts()).mesocycles![0].days[0];
     expect(day.week).toBe(1);
     expect(day.day).toBe(1);
-    // 165 lb → 74.84 kg
-    expect(day.bodyweightKg).toBeCloseTo(74.84, 2);
+    expect(day.bodyweightKg).toBeCloseTo(74.84, 2); // 165 lb → 74.84 kg
   });
 
   it("carries profile + weigh-ins + readiness, and declares kg + export time", () => {
-    const out = buildExportPayload(baseRaw, NOW);
+    const out = buildExportPayload(baseRaw, NOW, opts());
     expect(out.units.weight).toBe("kg");
     expect(out.exportedAt).toBe(NOW.toISOString());
     expect(out.profile.sex).toBe("F");
     expect(out.profile.birthDate).toBe("1990-05-01");
-    expect(out.weighIns[0]).toMatchObject({ date: "2026-06-01", weightKg: 74.8 });
-    expect(out.readiness[0]).toMatchObject({ date: "2026-06-01", sleepHours: 7.5, score: 78 });
+    expect(out.weighIns![1]).toMatchObject({ date: "2026-06-01", weightKg: 74.8 });
+    expect(out.readiness![1]).toMatchObject({ date: "2026-06-01", sleepHours: 7.5, score: 78 });
   });
 
   it("never leaks sensitive fields onto the profile", () => {
-    const profile = buildExportPayload(baseRaw, NOW).profile as Record<string, unknown>;
+    const profile = buildExportPayload(baseRaw, NOW, opts()).profile as Record<string, unknown>;
     expect(profile.passwordHash).toBeUndefined();
     expect(profile.sessionVersion).toBeUndefined();
-    expect(profile.email).toBe("ada@example.com"); // email is intentionally kept (identifies the export)
+    expect(profile.email).toBe("ada@example.com"); // email intentionally kept (identifies the export)
+  });
+});
+
+describe("buildExportPayload — domain selection", () => {
+  it("omits the training section entirely when training is deselected", () => {
+    const out = buildExportPayload(baseRaw, NOW, opts({ domains: { training: false, body: true, recovery: true } }));
+    expect(out.mesocycles).toBeUndefined();
+    expect(out.weighIns).toBeDefined();
+    expect(out.readiness).toBeDefined();
   });
 
-  it("handles an account with no training/body/recovery data", () => {
-    const empty: RawExport = { ...baseRaw, mesocycles: [], weightEntries: [], readinessEntries: [] };
-    const out = buildExportPayload(empty, NOW);
+  it("omits body and recovery when only training is selected", () => {
+    const out = buildExportPayload(baseRaw, NOW, opts({ domains: { training: true, body: false, recovery: false } }));
+    expect(out.mesocycles).toBeDefined();
+    expect(out.weighIns).toBeUndefined();
+    expect(out.readiness).toBeUndefined();
+  });
+});
+
+describe("buildExportPayload — date filter", () => {
+  it("keeps only records on/after `from`", () => {
+    const out = buildExportPayload(baseRaw, NOW, opts({ from: new Date("2026-05-15T00:00:00Z") }));
+    expect(out.filteredFrom).toBe("2026-05-15");
+    expect(out.weighIns!.map((w) => w.date)).toEqual(["2026-06-01"]);
+    expect(out.readiness!.map((r) => r.date)).toEqual(["2026-06-01"]);
+    // The June session survives (finished after `from`).
+    expect(out.mesocycles![0].days).toHaveLength(1);
+  });
+
+  it("drops mesocycles whose every session predates `from`", () => {
+    const out = buildExportPayload(baseRaw, NOW, opts({ from: new Date("2026-07-01T00:00:00Z") }));
     expect(out.mesocycles).toEqual([]);
     expect(out.weighIns).toEqual([]);
     expect(out.readiness).toEqual([]);
   });
 });
 
-describe("renderExportDocument", () => {
-  it("contains a readable summary and a fenced JSON block that round-trips to the payload", () => {
-    const payload = buildExportPayload(baseRaw, NOW);
-    const doc = renderExportDocument(payload, "lb");
-    // Readable summary references the meso by name.
-    expect(doc).toContain("Push/Pull");
-    // A fenced ```json block holds the lossless payload.
-    const match = doc.match(/```json\n([\s\S]*?)\n```/);
-    expect(match).not.toBeNull();
-    const parsed = JSON.parse(match![1]);
-    expect(parsed).toEqual(payload);
+describe("renderMarkdown", () => {
+  it("is a clean summary with no embedded JSON block", () => {
+    const md = renderMarkdown(buildExportPayload(baseRaw, NOW, opts()), "lb");
+    expect(md).toContain("Push/Pull");
+    expect(md).toContain("Weigh-ins");
+    expect(md).not.toContain("```json");
+  });
+
+  it("only renders sections that are present in the payload", () => {
+    const payload = buildExportPayload(baseRaw, NOW, opts({ domains: { training: true, body: false, recovery: false } }));
+    const md = renderMarkdown(payload, "lb");
+    expect(md).toContain("Training");
+    expect(md).not.toContain("Weigh-ins");
+    expect(md).not.toContain("readiness");
   });
 });
