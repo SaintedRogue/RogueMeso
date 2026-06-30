@@ -1,4 +1,4 @@
-import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound, HeartPulse } from "lucide-react";
+import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound, HeartPulse, Download } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
@@ -226,6 +226,26 @@ export default async function ProfilePage({
             </div>
           </CardLink>
         )}
+
+        <div className="card flex items-center justify-between gap-4 p-6">
+          <div className="flex items-start gap-3">
+            <Download aria-hidden size={18} className="mt-0.5 shrink-0 text-accent" />
+            <div>
+              <div className="text-sm font-medium">Export data</div>
+              <div className="text-xs text-muted">
+                Download your training, body &amp; recovery data as a Markdown file — a readable summary plus
+                lossless JSON, ready to hand to an AI assistant for analysis.
+              </div>
+            </div>
+          </div>
+          <a
+            href="/api/export"
+            download
+            className="btn-primary shrink-0 whitespace-nowrap px-4 py-2 text-sm"
+          >
+            Export
+          </a>
+        </div>
 
         <form action={changeMyPassword} className="card flex flex-col gap-4 p-6">
           <label className="block text-sm font-medium text-muted">Change password</label>
