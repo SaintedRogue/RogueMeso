@@ -7,6 +7,7 @@ import {
   goalRateKgPerWeek,
   goalAdjustedTarget,
   macroTargets,
+  plausibleEntries,
   type Profile,
 } from "@/lib/features/bodyTuning";
 
@@ -150,5 +151,33 @@ describe("confidenceLabel", () => {
 describe("ageFromBirthDate", () => {
   it("does not count an unreached birthday", () => {
     expect(ageFromBirthDate(new Date("1996-07-01"), new Date("2026-06-10"))).toBe(29);
+  });
+});
+
+describe("plausibleEntries", () => {
+  const d = (iso: string, weightKg: number) => ({ date: new Date(`${iso}T00:00:00Z`), weightKg });
+
+  it("keeps real loss across multi-day gaps (allowance scales with elapsed days)", () => {
+    // Regression: a ~7lb loss over a 16-day gap must NOT be discarded. Previously the flat
+    // 2.5kg ceiling dropped every entry after the first, collapsing the trend to one point.
+    const rows = [
+      d("2026-06-10", 117.93),
+      d("2026-06-26", 114.76),
+      d("2026-06-28", 115.21),
+      d("2026-06-29", 114.94),
+      d("2026-06-30", 113.85),
+    ];
+    expect(plausibleEntries(rows).map((r) => r.weightKg)).toEqual([117.93, 114.76, 115.21, 114.94, 113.85]);
+  });
+
+  it("rejects a single implausible same-day-scale jump (data-entry typo)", () => {
+    const rows = [d("2026-06-10", 115), d("2026-06-11", 200), d("2026-06-12", 116)];
+    // 200 is +85kg in one day (way past 2.5kg/day); 116 is then compared to the last KEPT (115).
+    expect(plausibleEntries(rows).map((r) => r.weightKg)).toEqual([115, 116]);
+  });
+
+  it("returns the input unchanged for zero or one entry", () => {
+    expect(plausibleEntries([])).toEqual([]);
+    expect(plausibleEntries([d("2026-06-10", 115)]).map((r) => r.weightKg)).toEqual([115]);
   });
 });

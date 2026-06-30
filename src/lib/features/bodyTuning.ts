@@ -260,6 +260,28 @@ export async function getActiveGoal(
   return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride };
 }
 
+/**
+ * Drop implausible weight readings (data-entry typos) before smoothing. Each entry is compared
+ * against the last KEPT entry, with the allowed change scaled by the days elapsed since it
+ * (MAX_PLAUSIBLE_KG_DELTA is a per-day budget). This preserves genuine change across multi-day
+ * gaps — e.g. a real ~3kg loss logged two weeks apart — while still rejecting a gross same-day
+ * spike like a mistyped 200kg. Comparing against the last *kept* entry (not the previous logged
+ * one) means a single typo can't also reject the good reading that follows it.
+ */
+export function plausibleEntries<T extends { date: Date; weightKg: number }>(rows: T[]): T[] {
+  const C = BODY_TUNING_CONSTANTS;
+  const clean: T[] = [];
+  for (const r of rows) {
+    const prev = clean[clean.length - 1];
+    if (prev) {
+      const days = Math.max(1, Math.round((r.date.getTime() - prev.date.getTime()) / DAY_MS));
+      if (Math.abs(r.weightKg - prev.weightKg) > C.MAX_PLAUSIBLE_KG_DELTA * days) continue;
+    }
+    clean.push(r);
+  }
+  return clean;
+}
+
 /** Smoothed bodyweight trend + observed weekly rate + weeks of data. */
 export async function getWeightTrend(userId: number, now: Date) {
   const rows = await prisma.weightEntry.findMany({
@@ -267,16 +289,7 @@ export async function getWeightTrend(userId: number, now: Date) {
     orderBy: { date: "asc" },
     select: { date: true, weightKg: true },
   });
-  const C = BODY_TUNING_CONSTANTS;
-  // Drop implausible day-over-day jumps before smoothing. Known limitation: comparing
-  // against the previous KEPT row means a genuine large swing (e.g. a >2.5kg refeed
-  // bounce) is discarded, which can slightly understate the trend for volatile users.
-  const clean: { date: Date; weightKg: number }[] = [];
-  for (const r of rows) {
-    const prev = clean[clean.length - 1];
-    if (prev && Math.abs(r.weightKg - prev.weightKg) > C.MAX_PLAUSIBLE_KG_DELTA) continue;
-    clean.push(r);
-  }
+  const clean = plausibleEntries(rows);
   const smoothed = ewma(clean.map((r) => r.weightKg));
   const spanDays =
     clean.length >= 2 ? Math.max(1, (clean[clean.length - 1].date.getTime() - clean[0].date.getTime()) / DAY_MS) : 0;
