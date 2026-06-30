@@ -36,7 +36,9 @@ export default async function DayPage({
       >
         <div className="flex items-center gap-2">
           <StatusPill status={d.status} />
-          {d.status === "complete" && <DayMenu mesoKey={key} week={wk} position={pos} />}
+          {d.exercises.length > 0 && (
+            <DayMenu mesoKey={key} week={wk} position={pos} done={d.status === "complete"} />
+          )}
         </div>
       </PageHeader>
 
