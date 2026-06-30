@@ -9,6 +9,7 @@ import {
   macroTargets,
   plausibleEntries,
   amPmBreakdown,
+  projectGoal,
   type Profile,
 } from "@/lib/features/bodyTuning";
 
@@ -214,5 +215,42 @@ describe("amPmBreakdown", () => {
   it("reports empty buckets as count 0 with a null average", () => {
     const out = amPmBreakdown([]);
     expect(out).toEqual({ am: { count: 0, avgKg: null }, pm: { count: 0, avgKg: null } });
+  });
+});
+
+describe("projectGoal", () => {
+  const now = new Date("2026-06-30T00:00:00Z");
+  const base = { startKg: 117, latestKg: 113, goalKg: 102, observedRateKg: -0.5, hasEnoughData: true, now };
+
+  it("projects an ETA when trending toward the goal", () => {
+    const p = projectGoal(base);
+    expect(p.status).toBe("on-track");
+    expect(p.deltaKg).toBeCloseTo(-11, 5); // goal - latest
+    expect(p.weeksToGoal).toBeCloseTo(22, 5); // -11 / -0.5
+    // progress from start(117) toward goal(102): (113-117)/(102-117)
+    expect(p.progressPct).toBeCloseTo(0.2667, 3);
+    expect(p.projectedDate?.getTime()).toBeCloseTo(now.getTime() + 22 * 7 * 86400000, -3);
+  });
+
+  it("reports reached once the goal is met in the intended direction", () => {
+    const p = projectGoal({ ...base, latestKg: 101 }); // cutting; 101 <= 102 goal
+    expect(p.status).toBe("reached");
+    expect(p.progressPct).toBe(1);
+  });
+
+  it("is off-track when the trend runs the wrong way", () => {
+    const p = projectGoal({ ...base, latestKg: 118, observedRateKg: 0.3 }); // gaining while goal is to cut
+    expect(p.status).toBe("off-track");
+    expect(p.weeksToGoal).toBeNull();
+    expect(p.projectedDate).toBeNull();
+  });
+
+  it("is off-track when the trend is flat (zero rate)", () => {
+    expect(projectGoal({ ...base, observedRateKg: 0 }).status).toBe("off-track");
+  });
+
+  it("needs enough data and a latest weight", () => {
+    expect(projectGoal({ ...base, hasEnoughData: false }).status).toBe("insufficient");
+    expect(projectGoal({ ...base, latestKg: null }).status).toBe("insufficient");
   });
 });

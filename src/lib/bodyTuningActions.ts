@@ -78,7 +78,28 @@ export async function setBiometrics(_prev: ActionResult, formData: FormData): Pr
   return ok("Profile saved");
 }
 
-/** Set the active mesocycle's nutrition goal (ownership-checked). */
+/** Parse an optional goal-weight field (entered in the user's unit) to canonical kg, or null when
+ *  blank (clears the goal). Returns the sentinel `"invalid"` for a present-but-bad value. */
+function parseGoalWeightKg(value: FormDataEntryValue | null, unit: string): number | null | "invalid" {
+  const raw = String(value ?? "").trim();
+  if (raw === "") return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return "invalid";
+  return toKg(n, unit);
+}
+
+/** Set the user's long-term goal weight (personal, spans mesocycles). Blank clears it. */
+export async function setGoalWeight(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const me = await requireUser();
+  const goalWeightKg = parseGoalWeightKg(formData.get("goalWeight"), me.unit);
+  if (goalWeightKg === "invalid") return fail("Enter a valid goal weight");
+
+  await prisma.user.update({ where: { id: me.id }, data: { goalWeightKg } });
+  revalidatePath("/body-tuning");
+  return ok(goalWeightKg == null ? "Long-term goal cleared" : "Long-term goal saved");
+}
+
+/** Set the active mesocycle's nutrition goal + (optional) cycle goal weight (ownership-checked). */
 export async function setMesoGoal(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const me = await requireUser();
   const mesoId = Number(formData.get("mesoId"));
@@ -87,10 +108,13 @@ export async function setMesoGoal(_prev: ActionResult, formData: FormData): Prom
   const goalRaw = String(formData.get("nutritionGoal"));
   const nutritionGoal = goalRaw === "cut" || goalRaw === "bulk" || goalRaw === "maintain" ? goalRaw : null;
 
+  const goalWeightKg = parseGoalWeightKg(formData.get("goalWeight"), me.unit);
+  if (goalWeightKg === "invalid") return fail("Enter a valid goal weight");
+
   const meso = await prisma.mesocycle.findUnique({ where: { id: mesoId }, select: { userId: true } });
   if (!meso || meso.userId !== me.id) return fail("Not found"); // ownership guard
 
-  await prisma.mesocycle.update({ where: { id: mesoId }, data: { nutritionGoal } });
+  await prisma.mesocycle.update({ where: { id: mesoId }, data: { nutritionGoal, goalWeightKg } });
   revalidatePath("/body-tuning");
   return ok("Goal saved");
 }

@@ -66,6 +66,7 @@ model User {
   birthDate     DateTime?
   bodySex       String?   // "M" | "F" — the person's sex (distinct from Template.sex)
   activityLevel String?   // "sedentary" | "light" | "moderate"
+  goalWeightKg  Float?    // long-term target bodyweight (canonical kg); drives the trend projection
   // Community: opt-in to the instance social space (default OFF). When false the
   // user neither posts to the feed nor appears on leaderboards — every community
   // query filters on this flag, so opt-out is instant and reversible (no data loss).
@@ -227,6 +228,7 @@ model Mesocycle {
   notes                String?
   nutritionGoal        String?   // "cut" | "bulk" | "maintain" — null treated as maintain
   targetRatePctPerWeek Float?    // optional signed override (fraction of BW/week)
+  goalWeightKg         Float?    // target bodyweight for THIS block (canonical kg); cycle projection
   startedAt        DateTime?
   finishedAt       DateTime?
   // The single "active"/current block per user. Exactly one row per user is non-null (the

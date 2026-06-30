@@ -202,6 +202,11 @@ export type BodyTuningResult = {
   weeksOfData: number;
   latestWeightKg: number | null;
   amPm: AmPm;
+  /** Projection to the cycle (this-block) and long-term goal weights; null when a goal isn't set. */
+  goals: {
+    cycle: { goalKg: number; projection: GoalProjection } | null;
+    longTerm: { goalKg: number; projection: GoalProjection } | null;
+  };
 };
 
 /** Assemble the engine Profile from the user row + latest weigh-in. Null if biometrics missing. */
@@ -244,21 +249,25 @@ export async function getWeeklySetCount(userId: number, now: Date): Promise<numb
 }
 
 /** Active mesocycle's nutrition goal (null -> maintain). */
-export async function getActiveGoal(
-  userId: number,
-): Promise<{ goal: Goal; mesoId: number | null; mesoName: string | null; rateOverride: number | null }> {
+export async function getActiveGoal(userId: number): Promise<{
+  goal: Goal;
+  mesoId: number | null;
+  mesoName: string | null;
+  rateOverride: number | null;
+  cycleGoalKg: number | null;
+}> {
   // Mirror insights.getInsightsMeso: the user's most recent non-archived block.
   const m = await prisma.mesocycle.findFirst({
     where: { userId, status: { not: "archived" } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, nutritionGoal: true, targetRatePctPerWeek: true },
+    select: { id: true, name: true, nutritionGoal: true, targetRatePctPerWeek: true, goalWeightKg: true },
   });
   const raw = m?.nutritionGoal;
   const goal: Goal = raw === "cut" || raw === "bulk" ? raw : "maintain";
   // Ignore an out-of-range override (e.g. a stray 5.0 meaning 500%/week); fall back to the goal default.
   const rawOverride = m?.targetRatePctPerWeek ?? null;
   const rateOverride = rawOverride != null && Math.abs(rawOverride) <= 0.05 ? rawOverride : null;
-  return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride };
+  return { goal, mesoId: m?.id ?? null, mesoName: m?.name ?? null, rateOverride, cycleGoalKg: m?.goalWeightKg ?? null };
 }
 
 /**
@@ -299,6 +308,63 @@ export function amPmBreakdown(entries: { localMinutes: number | null; weightKg: 
   return { am: bucket((m) => m < 720), pm: bucket((m) => m >= 720) };
 }
 
+export type GoalProjection = {
+  status: "reached" | "on-track" | "off-track" | "insufficient";
+  /** goal − latest (signed kg); the page shows |delta| as "X to go". */
+  deltaKg: number;
+  weeksToGoal: number | null;
+  projectedDate: Date | null;
+  /** 0..1 from the window's starting weight toward the goal; null without a baseline. */
+  progressPct: number | null;
+};
+
+/**
+ * Project when a goal weight is reached from the OBSERVED trend rate (what the data shows, not the
+ * target). Direction is inferred from start→goal so an overshoot reads as "reached" rather than
+ * "needs to reverse", and a trend running the wrong way (or flat) reads as "off-track" with no ETA.
+ */
+export function projectGoal(params: {
+  latestKg: number | null;
+  startKg: number | null;
+  goalKg: number;
+  observedRateKg: number;
+  hasEnoughData: boolean;
+  now: Date;
+}): GoalProjection {
+  const { latestKg, startKg, goalKg, observedRateKg, hasEnoughData, now } = params;
+  if (latestKg == null || !hasEnoughData) {
+    return {
+      status: "insufficient",
+      deltaKg: latestKg == null ? 0 : goalKg - latestKg,
+      weeksToGoal: null,
+      projectedDate: null,
+      progressPct: null,
+    };
+  }
+
+  const deltaKg = goalKg - latestKg;
+  const intended = startKg != null ? Math.sign(goalKg - startKg) : Math.sign(deltaKg);
+  const progressPct =
+    startKg != null && goalKg !== startKg
+      ? Math.max(0, Math.min(1, (latestKg - startKg) / (goalKg - startKg)))
+      : null;
+
+  const reached =
+    intended < 0 ? latestKg <= goalKg : intended > 0 ? latestKg >= goalKg : Math.abs(deltaKg) < 0.05;
+  if (reached) {
+    return { status: "reached", deltaKg, weeksToGoal: null, projectedDate: null, progressPct: progressPct ?? 1 };
+  }
+
+  const movingTowardGoal = observedRateKg !== 0 && Math.sign(observedRateKg) === Math.sign(deltaKg);
+  if (!movingTowardGoal) {
+    return { status: "off-track", deltaKg, weeksToGoal: null, projectedDate: null, progressPct };
+  }
+
+  const weeksToGoal = deltaKg / observedRateKg;
+  const projectedDate = new Date(now.getTime() + weeksToGoal * 7 * DAY_MS);
+  return { status: "on-track", deltaKg, weeksToGoal, projectedDate, progressPct };
+}
+
 /** Smoothed bodyweight trend + observed weekly rate + weeks of data + AM/PM split. */
 export async function getWeightTrend(userId: number, now: Date) {
   const rows = await prisma.weightEntry.findMany({
@@ -324,12 +390,33 @@ export async function getWeightTrend(userId: number, now: Date) {
 
 /** Full Body Tuning computation for a user: targets, macros, trend, confidence. */
 export async function computeBodyTuning(userId: number, now: Date): Promise<BodyTuningResult> {
-  const [profile, weeklySets, active, trend] = await Promise.all([
+  const [profile, weeklySets, active, trend, user] = await Promise.all([
     getProfile(userId, now),
     getWeeklySetCount(userId, now),
     getActiveGoal(userId),
     getWeightTrend(userId, now),
+    prisma.user.findUnique({ where: { id: userId }, select: { goalWeightKg: true } }),
   ]);
+
+  // Projections run off the OBSERVED trend. Baseline for "% there" is the oldest weight in the
+  // window; an ETA needs ≥2 surviving points (so observedRateKg is meaningful).
+  const startKg = trend.trend[0]?.weightKg ?? null;
+  const hasEnoughData = trend.trend.length >= 2;
+  const toGoal = (goalKg: number | null) =>
+    goalKg == null
+      ? null
+      : {
+          goalKg,
+          projection: projectGoal({
+            latestKg: trend.latestWeightKg,
+            startKg,
+            goalKg,
+            observedRateKg: trend.observedRateKg,
+            hasEnoughData,
+            now,
+          }),
+        };
+  const goals = { cycle: toGoal(active.cycleGoalKg), longTerm: toGoal(user?.goalWeightKg ?? null) };
 
   if (!profile) {
     return {
@@ -350,6 +437,7 @@ export async function computeBodyTuning(userId: number, now: Date): Promise<Body
       weeksOfData: trend.weeksOfData,
       latestWeightKg: trend.latestWeightKg,
       amPm: trend.amPm,
+      goals,
     };
   }
 
@@ -378,5 +466,6 @@ export async function computeBodyTuning(userId: number, now: Date): Promise<Body
     weeksOfData: trend.weeksOfData,
     latestWeightKg: trend.latestWeightKg,
     amPm: trend.amPm,
+    goals,
   };
 }

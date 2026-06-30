@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Gauge } from "lucide-react";
+import { ArrowRight, Gauge, Target, CheckCircle2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import { computeBodyTuning } from "@/lib/features/bodyTuning";
-import { logWeight, setMesoGoal } from "@/lib/bodyTuningActions";
+import { computeBodyTuning, type BodyTuningResult, type GoalProjection } from "@/lib/features/bodyTuning";
+import { logWeight, setMesoGoal, setGoalWeight } from "@/lib/bodyTuningActions";
 import { fmtWeight, fromKg } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ToastForm, LocalTimeField } from "@/components/forms";
-import { WeightChart } from "@/components/charts/WeightChart";
+import { WeightChart, type WeightChartPoint } from "@/components/charts/WeightChart";
 
 const CONFIDENCE_COPY: Record<string, string> = {
   formula: "Formula estimate",
@@ -38,11 +38,32 @@ export default async function BodyTuningPage() {
   }
 
   const m = bt.macros;
-  const chartData = bt.trend.map((t) => ({
-    date: t.date.toLocaleDateString("en-US", { timeZone: "UTC" }),
-    weight: Math.round(fromKg(t.weightKg, me.unit) * 10) / 10,
-    smoothed: Math.round(fromKg(t.smoothedKg, me.unit) * 10) / 10,
+  const unit = me.unit;
+  const toDisp = (kg: number) => Math.round(fromKg(kg, unit) * 10) / 10;
+
+  // Actual weigh-ins on a real time axis; the last one seeds the dashed projection line.
+  const actual: WeightChartPoint[] = bt.trend.map((t, i) => ({
+    ts: t.date.getTime(),
+    weight: toDisp(t.weightKg),
+    smoothed: toDisp(t.smoothedKg),
+    projection: i === bt.trend.length - 1 ? toDisp(t.weightKg) : null,
   }));
+
+  // Extend the projection to the farthest on-track goal date (its line crosses any nearer goal).
+  const onTrack = [bt.goals.cycle, bt.goals.longTerm].filter(
+    (g): g is NonNullable<typeof g> => g != null && g.projection.status === "on-track" && g.projection.projectedDate != null,
+  );
+  const farthest = onTrack.sort(
+    (a, b) => b.projection.projectedDate!.getTime() - a.projection.projectedDate!.getTime(),
+  )[0];
+  const chartData: WeightChartPoint[] = farthest
+    ? [...actual, { ts: farthest.projection.projectedDate!.getTime(), weight: null, smoothed: null, projection: toDisp(farthest.goalKg) }]
+    : actual;
+
+  const goalLines = [
+    bt.goals.cycle ? { label: "Block goal", weight: toDisp(bt.goals.cycle.goalKg) } : null,
+    bt.goals.longTerm ? { label: "Long-term", weight: toDisp(bt.goals.longTerm.goalKg) } : null,
+  ].filter((g): g is { label: string; weight: number } => g != null);
 
   return (
     <>
@@ -87,6 +108,21 @@ export default async function BodyTuningPage() {
                 <option value="bulk">Bulk</option>
               </select>
             </div>
+            <div className="w-32">
+              <label htmlFor="goalWeight" className="mb-1 block text-sm font-medium text-muted">
+                Block goal ({unit})
+              </label>
+              <input
+                id="goalWeight"
+                name="goalWeight"
+                type="number"
+                step="0.1"
+                min="0"
+                defaultValue={bt.goals.cycle ? toDisp(bt.goals.cycle.goalKg) : ""}
+                className="input"
+                placeholder="optional"
+              />
+            </div>
           </ToastForm>
         )}
 
@@ -100,13 +136,16 @@ export default async function BodyTuningPage() {
               <span className="text-text">· {fmtWeight(Math.round(fromKg(bt.latestWeightKg, me.unit) * 10) / 10, me.unit)}</span>
             )}
           </div>
-          {chartData.length >= 2 ? (
-            <WeightChart data={chartData} />
+          {actual.length >= 2 ? (
+            <WeightChart data={chartData} goals={goalLines} unit={unit} />
           ) : (
             <p className="text-sm text-muted">Log a few days of weight to see your trend and personalize targets.</p>
           )}
           <AmPmTable amPm={bt.amPm} unit={me.unit} />
         </div>
+
+        {/* Goal weight & projection */}
+        <GoalProjectionCard goals={bt.goals} observedRateKg={bt.observedRateKg} unit={unit} />
       </div>
     </>
   );
@@ -169,6 +208,131 @@ function AmPmRow({ label, count, avg, unit }: { label: string; count: number; av
       <td className="py-1.5 text-right">{avg != null ? fmtWeight(avg, unit) : "—"}</td>
     </tr>
   );
+}
+
+const disp = (kg: number, unit: string) => Math.round(fromKg(kg, unit) * 10) / 10;
+
+/** Goal-weight setter (long-term) + trend-based projection readouts for both goal horizons. */
+function GoalProjectionCard({
+  goals,
+  observedRateKg,
+  unit,
+}: {
+  goals: BodyTuningResult["goals"];
+  observedRateKg: number;
+  unit: string;
+}) {
+  return (
+    <div className="card p-6">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted">
+        <Target aria-hidden size={16} /> Weight goal &amp; projection
+      </div>
+
+      <ToastForm
+        action={setGoalWeight}
+        submitLabel="Save"
+        className="flex items-end gap-3"
+        submitClassName="btn-primary px-4 py-2 text-sm"
+      >
+        <div className="flex-1">
+          <label htmlFor="goalWeightLong" className="mb-1 block text-sm font-medium text-muted">
+            Long-term goal ({unit})
+          </label>
+          <input
+            id="goalWeightLong"
+            name="goalWeight"
+            type="number"
+            step="0.1"
+            min="0"
+            defaultValue={goals.longTerm ? disp(goals.longTerm.goalKg, unit) : ""}
+            className="input"
+            placeholder="e.g. 225"
+          />
+        </div>
+      </ToastForm>
+
+      {goals.cycle || goals.longTerm ? (
+        <div className="mt-4 space-y-3">
+          {goals.cycle && (
+            <GoalRow label="Block goal" goal={goals.cycle} observedRateKg={observedRateKg} unit={unit} />
+          )}
+          {goals.longTerm && (
+            <GoalRow label="Long-term goal" goal={goals.longTerm} observedRateKg={observedRateKg} unit={unit} />
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-muted">
+          Set a goal weight (and a block goal above) to see when you&apos;ll reach it at your current trend.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function GoalRow({
+  label,
+  goal,
+  observedRateKg,
+  unit,
+}: {
+  label: string;
+  goal: { goalKg: number; projection: GoalProjection };
+  observedRateKg: number;
+  unit: string;
+}) {
+  const { projection } = goal;
+  const toGo = Math.abs(disp(projection.deltaKg, unit));
+  const pctWidth = projection.progressPct != null ? Math.round(Math.max(0, Math.min(1, projection.progressPct)) * 100) : null;
+  const barColor =
+    projection.status === "reached"
+      ? "var(--color-good)"
+      : projection.status === "on-track"
+        ? "var(--color-accent)"
+        : "var(--color-muted)";
+
+  return (
+    <div className="rounded-lg bg-panel-2 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-text">
+          {label} · {fmtWeight(disp(goal.goalKg, unit), unit)}
+        </span>
+        {projection.status !== "reached" && (
+          <span className="text-xs text-muted">{fmtWeight(toGo, unit)} to go</span>
+        )}
+      </div>
+
+      {projection.status === "reached" ? (
+        <div className="mt-1 flex items-center gap-1.5 text-sm text-good">
+          <CheckCircle2 aria-hidden size={15} /> Goal reached
+        </div>
+      ) : projection.status === "insufficient" ? (
+        <p className="mt-1 text-xs text-muted">Log a few more weigh-ins to project a date.</p>
+      ) : projection.status === "off-track" ? (
+        <p className="mt-1 text-xs text-muted">Not trending toward this goal yet — adjust your plan or keep logging.</p>
+      ) : (
+        <p className="mt-1 text-sm text-text">
+          On trend ({fmtRate(observedRateKg, unit)}): ~{Math.max(1, Math.round(projection.weeksToGoal!))}{" "}
+          {Math.max(1, Math.round(projection.weeksToGoal!)) === 1 ? "week" : "weeks"} ·{" "}
+          {projection.projectedDate!.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        </p>
+      )}
+
+      {pctWidth != null && (
+        <div className="mt-2">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-panel">
+            <div className="h-full rounded-full" style={{ width: `${pctWidth}%`, background: barColor }} />
+          </div>
+          <div className="mt-1 text-right text-xs text-muted">{pctWidth}% there</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Signed weekly rate in the user's unit, e.g. "-1.1 lb/wk". */
+function fmtRate(kgPerWeek: number, unit: string): string {
+  const r = Math.round(fromKg(kgPerWeek, unit) * 10) / 10;
+  return `${r > 0 ? "+" : ""}${r} ${unit}/wk`;
 }
 
 function Macro({ label, grams }: { label: string; grams: number }) {
