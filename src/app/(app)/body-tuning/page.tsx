@@ -7,6 +7,7 @@ import { fmtWeight, fromKg } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { ToastForm, LocalTimeField } from "@/components/forms";
 import { WeightChart, type WeightChartPoint } from "@/components/charts/WeightChart";
+import { DateWeightEstimator } from "@/components/DateWeightEstimator";
 
 const CONFIDENCE_COPY: Record<string, string> = {
   formula: "Formula estimate",
@@ -81,6 +82,16 @@ export default async function BodyTuningPage() {
             },
           ] as WeightChartPoint[],
           goals: goalLines,
+        }
+      : null;
+
+  // "What will I weigh on date X" estimator: same observed-rate extrapolation, anchored at the
+  // latest weigh-in. Available once there's a trend to extrapolate from.
+  const estimator =
+    bt.latestWeightKg != null && bt.trend.length >= 2
+      ? {
+          latestWeight: toDisp(bt.latestWeightKg),
+          ratePerWeek: Math.round(fromKg(bt.observedRateKg, unit) * 10) / 10,
         }
       : null;
 
@@ -164,7 +175,7 @@ export default async function BodyTuningPage() {
         </div>
 
         {/* Goal weight & projection */}
-        <GoalProjectionCard goals={bt.goals} observedRateKg={bt.observedRateKg} unit={unit} projChart={projChart} />
+        <GoalProjectionCard goals={bt.goals} observedRateKg={bt.observedRateKg} unit={unit} projChart={projChart} estimator={estimator} />
       </div>
     </>
   );
@@ -237,11 +248,13 @@ function GoalProjectionCard({
   observedRateKg,
   unit,
   projChart,
+  estimator,
 }: {
   goals: BodyTuningResult["goals"];
   observedRateKg: number;
   unit: string;
   projChart: { data: WeightChartPoint[]; goals: { label: string; weight: number }[] } | null;
+  estimator: { latestWeight: number; ratePerWeek: number } | null;
 }) {
   return (
     <div className="card p-6">
@@ -294,6 +307,10 @@ function GoalProjectionCard({
         <p className="mt-3 text-xs text-muted">
           Set a goal weight (and a block goal above) to see when you&apos;ll reach it at your current trend.
         </p>
+      )}
+
+      {estimator && (
+        <DateWeightEstimator latestWeight={estimator.latestWeight} ratePerWeek={estimator.ratePerWeek} unit={unit} />
       )}
     </div>
   );
