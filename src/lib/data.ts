@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { parseJsonArray } from "@/lib/json";
 import { rirForWeek } from "@/lib/progression";
 import {
   buildSetSuggestions,
@@ -94,6 +95,89 @@ export function getDay(mesoKey: string, week: number, position: number, userId: 
     where: { meso: { key: mesoKey, userId }, week, position },
     include: { ...dayInclude, meso: true },
   });
+}
+
+// ----- Physical Therapy Lens: per-session check-ins -----
+
+/** Raw SessionCheckIn columns (JSON arrays as strings), or null when the session has no check-in. */
+export type SessionCheckInRow = {
+  prePainScore: number | null;
+  prePainLocations: string | null;
+  preNote: string | null;
+  preSubmittedAt: Date | null;
+  postPainScore: number | null;
+  postPainLocations: string | null;
+  postPainTiming: string | null;
+  postRangeOfMotion: string | null;
+  postQualityTags: string | null;
+  postNote: string | null;
+  postSubmittedAt: Date | null;
+} | null;
+
+/** Compact summary of the previous session's post check-in, shown for context in the pre form. */
+export type LastSessionSummary = {
+  label: string | null;
+  week: number;
+  painScore: number | null;
+  regions: string[];
+} | null;
+
+const checkInSelect = {
+  prePainScore: true,
+  prePainLocations: true,
+  preNote: true,
+  preSubmittedAt: true,
+  postPainScore: true,
+  postPainLocations: true,
+  postPainTiming: true,
+  postRangeOfMotion: true,
+  postQualityTags: true,
+  postNote: true,
+  postSubmittedAt: true,
+} as const;
+
+/** The pre + post check-in for one session, or null if none has been started. */
+export function getSessionCheckIn(dayId: number): Promise<SessionCheckInRow> {
+  return prisma.sessionCheckIn.findUnique({ where: { dayId }, select: checkInSelect });
+}
+
+/**
+ * The most recent *other* session (owned by the same user) that has a submitted post check-in —
+ * i.e. "last session" — summarized for the pre-form "how has it evolved?" context. Derives the
+ * owner from the current day so callers don't have to thread userId through.
+ */
+export async function getLastSessionSymptoms(currentDayId: number): Promise<LastSessionSummary> {
+  const cur = await prisma.mesoDay.findUnique({
+    where: { id: currentDayId },
+    select: { meso: { select: { userId: true } } },
+  });
+  const userId = cur?.meso.userId;
+  if (userId == null) return null;
+  const row = await prisma.sessionCheckIn.findFirst({
+    where: { postSubmittedAt: { not: null }, dayId: { not: currentDayId }, day: { meso: { userId } } },
+    orderBy: { postSubmittedAt: "desc" },
+    select: { postPainScore: true, postPainLocations: true, day: { select: { label: true, week: true } } },
+  });
+  if (!row) return null;
+  return {
+    label: row.day.label,
+    week: row.day.week,
+    painScore: row.postPainScore,
+    regions: parseJsonArray(row.postPainLocations),
+  };
+}
+
+/**
+ * Bundle a session's check-in + last-session context for the workout screen. Returns nulls when
+ * the lens is off, so callers can pass the result straight to DayView without branching.
+ */
+export async function getSessionContext(
+  dayId: number,
+  lensEnabled: boolean,
+): Promise<{ checkIn: SessionCheckInRow; lastSession: LastSessionSummary }> {
+  if (!lensEnabled) return { checkIn: null, lastSession: null };
+  const [checkIn, lastSession] = await Promise.all([getSessionCheckIn(dayId), getLastSessionSymptoms(dayId)]);
+  return { checkIn, lastSession };
 }
 
 /**

@@ -121,7 +121,7 @@ export default async function PhysicalTherapyInsightsPage() {
   const recovery = recoveryVsLoad(weekly);
 
   const symmetryWithData = symmetry.filter((s) => s.result.index != null);
-  const painPoints = pain.map((p) => ({ t: p.date.getTime(), score: p.score, region: p.region, exercise: p.exercise }));
+  const painPoints = pain.map((p) => ({ t: p.date.getTime(), score: p.score, region: p.region, phase: p.phase }));
   const inUnit = (kg: number) => fmtWeight(Math.round(fromKg(kg, me.unit)), me.unit);
 
   return (
@@ -285,7 +285,7 @@ export default async function PhysicalTherapyInsightsPage() {
             <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
               <ScatterChart aria-hidden size={18} className="text-accent" /> Symptom timeline
             </h2>
-            <p className="mb-3 text-xs text-muted">Pain reports over time, filterable by region and exercise.</p>
+            <p className="mb-3 text-xs text-muted">Pain reports over time, filterable by region and by pre-workout / post-session.</p>
             {painPoints.length > 0 ? (
               <div className="card space-y-3 p-4">
                 <PtSymptomChart points={painPoints} />
@@ -305,7 +305,7 @@ export default async function PhysicalTherapyInsightsPage() {
               <EmptyState
                 icon={ScatterChart}
                 title="No symptoms logged"
-                hint="Add pain, a body region and timing in the Movement & symptoms panel while logging."
+                hint="Log a pain score in the Recovery Check-In (before) or Session Check-In (after) on a workout day."
               />
             )}
           </section>

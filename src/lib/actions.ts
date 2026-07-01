@@ -35,14 +35,14 @@ async function assertSetOwner(setId: number, userId: number) {
   if (!set || set.dayExercise.day.meso.userId !== userId) throw new Error("Forbidden");
 }
 
-/** Verify a dayExercise belongs to the user, returning the day route coords for revalidation. */
-async function assertDayExerciseOwner(dayExerciseId: number, userId: number) {
-  const ex = await prisma.dayExercise.findUnique({
-    where: { id: dayExerciseId },
-    select: { day: { select: { week: true, position: true, meso: { select: { key: true, userId: true } } } } },
+/** Verify a day (session) belongs to the user, returning the day route coords for revalidation. */
+async function assertDayOwner(dayId: number, userId: number) {
+  const day = await prisma.mesoDay.findUnique({
+    where: { id: dayId },
+    select: { week: true, position: true, meso: { select: { key: true, userId: true } } },
   });
-  if (!ex || ex.day.meso.userId !== userId) throw new Error("Forbidden");
-  return { key: ex.day.meso.key, week: ex.day.week, position: ex.day.position };
+  if (!day || day.meso.userId !== userId) throw new Error("Forbidden");
+  return { key: day.meso.key, week: day.week, position: day.position };
 }
 
 /**
@@ -100,40 +100,67 @@ export async function logSet(setId: number, weight: number | null, reps: number 
   }
 }
 
-/** Movement-quality & symptom capture for one exercise-in-session (Physical Therapy Lens). */
-export type PtExerciseMeta = {
+// ----- Physical Therapy Lens: per-session check-ins (pre "Recovery Check-In" + post survey) -----
+// Both halves live on one SessionCheckIn row per day and are upserted independently. Every field
+// is optional and sanitized against the taxonomy (unknown values dropped, pain clamped 0–10, note
+// bounded) so a bad client payload can never write junk. Non-blocking: neither gates set logging.
+
+/** Pre-session "Recovery Check-In": a light pain/symptom snapshot on arrival. */
+export type PreCheckInMeta = {
+  painScore: number | null;
+  painLocations: string[];
+  note: string | null;
+};
+
+/** Post-session "Session Check-In": the full movement-quality & symptom survey. */
+export type PostCheckInMeta = {
   painScore: number | null;
   painLocations: string[];
   painTiming: string | null;
   rangeOfMotion: string | null;
   qualityTags: string[];
-  ptNote: string | null;
+  note: string | null;
 };
 
-/**
- * Persist the Physical Therapy Lens capture for a dayExercise. Everything is optional and
- * sanitized against the taxonomy (unknown values dropped, pain clamped 0–10, note bounded) so a
- * bad client payload can never write junk. Non-blocking: the set log itself is a separate action.
- */
-export async function savePhysicalTherapyExerciseMeta(dayExerciseId: number, meta: PtExerciseMeta) {
+const clampScore = (v: number | null) => (v == null ? null : Math.max(0, Math.min(10, Math.round(v))));
+const oneOf = (allowed: readonly string[], v: string | null | undefined) => (v != null && allowed.includes(v) ? v : null);
+const cleanTags = (list: string[] | undefined, allowed: readonly string[]) => {
+  const kept = (list ?? []).filter((t) => allowed.includes(t));
+  return kept.length ? JSON.stringify(kept) : null;
+};
+const cleanNote = (n: string | null | undefined) => {
+  const t = n?.trim();
+  return t ? t.slice(0, 1000) : null;
+};
+
+/** Persist (upsert) the pre-workout Recovery Check-In for a session. */
+export async function saveSessionPreCheckIn(dayId: number, meta: PreCheckInMeta) {
   const me = await requireUser();
-  const info = await assertDayExerciseOwner(dayExerciseId, me.id);
-  const inSet = (allowed: readonly string[], v: string | null | undefined) =>
-    v != null && allowed.includes(v) ? v : null;
-  const painLocations = (meta.painLocations ?? []).filter((r) => (PAIN_REGIONS as readonly string[]).includes(r));
-  const qualityTags = (meta.qualityTags ?? []).filter((t) => (QUALITY_TAGS as readonly string[]).includes(t));
-  const note = meta.ptNote?.trim();
-  await prisma.dayExercise.update({
-    where: { id: dayExerciseId },
-    data: {
-      painScore: meta.painScore == null ? null : Math.max(0, Math.min(10, Math.round(meta.painScore))),
-      painLocations: painLocations.length ? JSON.stringify(painLocations) : null,
-      painTiming: inSet(PAIN_TIMINGS, meta.painTiming),
-      rangeOfMotion: inSet(ROM_OPTIONS, meta.rangeOfMotion),
-      qualityTags: qualityTags.length ? JSON.stringify(qualityTags) : null,
-      ptNote: note ? note.slice(0, 1000) : null,
-    },
-  });
+  const info = await assertDayOwner(dayId, me.id);
+  const data = {
+    prePainScore: clampScore(meta.painScore),
+    prePainLocations: cleanTags(meta.painLocations, PAIN_REGIONS),
+    preNote: cleanNote(meta.note),
+    preSubmittedAt: new Date(),
+  };
+  await prisma.sessionCheckIn.upsert({ where: { dayId }, create: { dayId, ...data }, update: data });
+  revalidateForDay(info);
+}
+
+/** Persist (upsert) the post-session Session Check-In (the full survey) for a session. */
+export async function saveSessionPostCheckIn(dayId: number, meta: PostCheckInMeta) {
+  const me = await requireUser();
+  const info = await assertDayOwner(dayId, me.id);
+  const data = {
+    postPainScore: clampScore(meta.painScore),
+    postPainLocations: cleanTags(meta.painLocations, PAIN_REGIONS),
+    postPainTiming: oneOf(PAIN_TIMINGS, meta.painTiming),
+    postRangeOfMotion: oneOf(ROM_OPTIONS, meta.rangeOfMotion),
+    postQualityTags: cleanTags(meta.qualityTags, QUALITY_TAGS),
+    postNote: cleanNote(meta.note),
+    postSubmittedAt: new Date(),
+  };
+  await prisma.sessionCheckIn.upsert({ where: { dayId }, create: { dayId, ...data }, update: data });
   revalidateForDay(info);
 }
 
