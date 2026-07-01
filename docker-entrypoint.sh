@@ -74,5 +74,18 @@ if [ -f prisma/recovery.sql ]; then
   fi
 fi
 
+# 7. Backfill the Physical Therapy Lens exercise taxonomy (movement pattern + primary joints).
+#    Idempotent (each UPDATE is guarded by WHERE "movementPattern" IS NULL), so it's safe on
+#    every start, fills EXISTING databases, and never clobbers a hand-corrected classification.
+#    Non-fatal — must not block startup.
+if [ -f prisma/exercise-taxonomy.sql ]; then
+  echo "[entrypoint] applying exercise taxonomy..."
+  if psql "$PSQL_URL" -q -f prisma/exercise-taxonomy.sql; then
+    echo "[entrypoint] exercise taxonomy applied."
+  else
+    echo "[entrypoint] exercise taxonomy failed (non-fatal) — continuing." >&2
+  fi
+fi
+
 echo "[entrypoint] starting Next.js server on ${HOSTNAME}:${PORT}"
 exec node server.js

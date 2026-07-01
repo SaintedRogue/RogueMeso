@@ -25,12 +25,15 @@ export function ExerciseSets({
   unit,
   dayExerciseId,
   suggestions = {},
+  physicalTherapyLens = false,
 }: {
   sets: ViewSet[];
   targetRir: number | null;
   unit: string;
   dayExerciseId: number;
   suggestions?: Record<number, SetSuggestion>;
+  /** Physical Therapy Lens: reveal a per-set Left/Both/Right control (persisted on log). */
+  physicalTherapyLens?: boolean;
 }) {
   // Seed each field: a logged value wins, else the last-week suggestion, else empty.
   const [weights, setWeights] = useState<Record<number, string>>(() =>
@@ -48,6 +51,11 @@ export function ExerciseSets({
   // Sets whose seeded values are still an unconfirmed suggestion (shaded, not locked in).
   const [suggestedIds, setSuggestedIds] = useState<Set<number>>(
     () => new Set(sets.filter((s) => suggestions[s.id]).map((s) => s.id)),
+  );
+  // Physical Therapy Lens: which side each set loaded (null in the DB == bilateral). Not carried
+  // down — a unilateral lift alternates sides, so each set keeps its own choice.
+  const [sides, setSides] = useState<Record<number, string>>(() =>
+    Object.fromEntries(sets.map((s) => [s.id, s.side ?? "bilateral"])),
   );
 
   // Touching a field locks it in: it's the user's value now, not a suggestion.
@@ -101,6 +109,9 @@ export function ExerciseSets({
           onAdd={(scope) => addSet(dayExerciseId, scope)}
           canRemove={sets.length > 1}
           onRemove={(scope) => removeSet(s.id, scope)}
+          physicalTherapyLens={physicalTherapyLens}
+          side={sides[s.id] ?? "bilateral"}
+          onSideChange={(v) => setSides((prev) => ({ ...prev, [s.id]: v }))}
         />
       ))}
     </div>

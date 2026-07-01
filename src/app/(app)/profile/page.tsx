@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { PageHeader, CardLink } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ParticipationToggle } from "@/components/community/ParticipationToggle";
+import { PhysicalTherapyLensToggle } from "@/components/PhysicalTherapyLensToggle";
 import { ToastForm } from "@/components/forms";
 import { PasswordInput } from "@/components/PasswordInput";
 import { setBiometrics } from "@/lib/bodyTuningActions";
@@ -144,6 +145,16 @@ export default async function ProfilePage({
             </div>
           </div>
           <ParticipationToggle optedIn={me.communityOptIn} />
+        </div>
+
+        <div className="card flex items-center justify-between gap-4 p-6">
+          <div>
+            <div className="text-sm font-medium">Physical Therapy Lens (beta)</div>
+            <div className="text-xs text-muted">
+              Adds load-management and movement-quality tracking. Informational only — not medical advice.
+            </div>
+          </div>
+          <PhysicalTherapyLensToggle enabled={me.physicalTherapyLens} />
         </div>
 
         {/* Templates, Body Tuning & Community live in the desktop sidebar; on mobile they're
