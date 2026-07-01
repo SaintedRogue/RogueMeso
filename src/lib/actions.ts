@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { PAIN_REGIONS, PAIN_TIMINGS, ROM_OPTIONS, QUALITY_TAGS } from "@/lib/features/physicalTherapyTaxonomy";
 import { maybePostWorkoutActivity, maybePostPrActivity } from "@/lib/features/community";
 import { rolledUpDayStatus, DONE_STATUSES as DONE } from "@/lib/dayStatus";
 import { revalidateMesoDays } from "@/lib/dayRollup";
@@ -32,6 +33,16 @@ async function assertSetOwner(setId: number, userId: number) {
     select: { dayExercise: { select: { day: { select: { meso: { select: { userId: true } } } } } } },
   });
   if (!set || set.dayExercise.day.meso.userId !== userId) throw new Error("Forbidden");
+}
+
+/** Verify a dayExercise belongs to the user, returning the day route coords for revalidation. */
+async function assertDayExerciseOwner(dayExerciseId: number, userId: number) {
+  const ex = await prisma.dayExercise.findUnique({
+    where: { id: dayExerciseId },
+    select: { day: { select: { week: true, position: true, meso: { select: { key: true, userId: true } } } } },
+  });
+  if (!ex || ex.day.meso.userId !== userId) throw new Error("Forbidden");
+  return { key: ex.day.meso.key, week: ex.day.week, position: ex.day.position };
 }
 
 /**
@@ -65,14 +76,18 @@ async function recomputeRollups(dayExerciseId: number) {
   return { key: day.meso.key, week: day.week, position: day.position, dayId: day.id };
 }
 
-export async function logSet(setId: number, weight: number | null, reps: number | null) {
+export async function logSet(setId: number, weight: number | null, reps: number | null, side?: string) {
   const me = await requireUser();
   await assertSetOwner(setId, me.id);
+  // `side` (Physical Therapy Lens) is only sent when the lens is on; a normal log omits it and
+  // leaves the column untouched. Only the three known values are accepted; null == bilateral.
+  const normalizedSide = side === "left" || side === "right" || side === "bilateral" ? side : undefined;
   const set = await prisma.exerciseSet.update({
     where: { id: setId },
     data: {
       weight,
       reps,
+      ...(normalizedSide !== undefined ? { side: normalizedSide } : {}),
       status: weight != null && reps != null ? "complete" : "pendingWeight",
       finishedAt: weight != null && reps != null ? new Date() : null,
     },
@@ -83,6 +98,43 @@ export async function logSet(setId: number, weight: number | null, reps: number 
     await postCommunityActivity(info.dayId, me.id, setId);
     revalidateForDay(info);
   }
+}
+
+/** Movement-quality & symptom capture for one exercise-in-session (Physical Therapy Lens). */
+export type PtExerciseMeta = {
+  painScore: number | null;
+  painLocations: string[];
+  painTiming: string | null;
+  rangeOfMotion: string | null;
+  qualityTags: string[];
+  ptNote: string | null;
+};
+
+/**
+ * Persist the Physical Therapy Lens capture for a dayExercise. Everything is optional and
+ * sanitized against the taxonomy (unknown values dropped, pain clamped 0–10, note bounded) so a
+ * bad client payload can never write junk. Non-blocking: the set log itself is a separate action.
+ */
+export async function savePhysicalTherapyExerciseMeta(dayExerciseId: number, meta: PtExerciseMeta) {
+  const me = await requireUser();
+  const info = await assertDayExerciseOwner(dayExerciseId, me.id);
+  const inSet = (allowed: readonly string[], v: string | null | undefined) =>
+    v != null && allowed.includes(v) ? v : null;
+  const painLocations = (meta.painLocations ?? []).filter((r) => (PAIN_REGIONS as readonly string[]).includes(r));
+  const qualityTags = (meta.qualityTags ?? []).filter((t) => (QUALITY_TAGS as readonly string[]).includes(t));
+  const note = meta.ptNote?.trim();
+  await prisma.dayExercise.update({
+    where: { id: dayExerciseId },
+    data: {
+      painScore: meta.painScore == null ? null : Math.max(0, Math.min(10, Math.round(meta.painScore))),
+      painLocations: painLocations.length ? JSON.stringify(painLocations) : null,
+      painTiming: inSet(PAIN_TIMINGS, meta.painTiming),
+      rangeOfMotion: inSet(ROM_OPTIONS, meta.rangeOfMotion),
+      qualityTags: qualityTags.length ? JSON.stringify(qualityTags) : null,
+      ptNote: note ? note.slice(0, 1000) : null,
+    },
+  });
+  revalidateForDay(info);
 }
 
 export async function skipSet(setId: number) {

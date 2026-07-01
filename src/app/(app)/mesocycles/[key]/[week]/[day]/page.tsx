@@ -58,6 +58,7 @@ export default async function DayPage({
         meso={{ key, name: meso.name, weeksCount: meso.weeksCount, unit: meso.unit }}
         muscleGroups={muscleGroups}
         suggestions={suggestions}
+        physicalTherapyLens={me.physicalTherapyLens}
       />
     </>
   );

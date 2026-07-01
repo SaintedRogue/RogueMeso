@@ -36,7 +36,17 @@ type Props = {
   canRemove: boolean;
   /** Delete this set; "meso" also trims the same exercise's later occurrences. */
   onRemove: (scope: Scope) => void | Promise<void>;
+  /** Physical Therapy Lens: show the Left/Both/Right control and persist the choice on log. */
+  physicalTherapyLens?: boolean;
+  side?: string;
+  onSideChange?: (value: string) => void;
 };
+
+const SIDE_OPTIONS: { value: string; label: string }[] = [
+  { value: "left", label: "L" },
+  { value: "bilateral", label: "Both" },
+  { value: "right", label: "R" },
+];
 
 export function SetLogger({
   set,
@@ -51,6 +61,9 @@ export function SetLogger({
   onAdd,
   canRemove,
   onRemove,
+  physicalTherapyLens = false,
+  side = "bilateral",
+  onSideChange,
 }: Props) {
   const [flash, setFlash] = useState(false);
   const [pending, start] = useTransition();
@@ -76,7 +89,7 @@ export function SetLogger({
     setTimeout(() => setFlash(false), 900);
     start(async () => {
       try {
-        await logSet(set.id, w, r);
+        await logSet(set.id, w, r, physicalTherapyLens ? side : undefined);
         // Confirm what was recorded so the entry is unambiguous (the row also turns green),
         // and carry the effort onto the next set — both only after the log actually lands.
         toast(`${done ? "Updated" : "Logged"} ${fmtWeight(w, unit)} × ${r} reps`);
@@ -105,6 +118,7 @@ export function SetLogger({
   }
 
   return (
+    <>
     <div
       className={`grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-2 px-3 py-2 text-sm sm:grid-cols-[2rem_1fr_1fr_3.2rem_auto] ${
         done ? "bg-good/5" : ""
@@ -158,5 +172,28 @@ export function SetLogger({
         {menu}
       </div>
     </div>
+      {physicalTherapyLens && (
+        <div className="flex items-center gap-1.5 px-3 pb-2 text-xs text-muted">
+          <span className="w-8 shrink-0" aria-hidden />
+          <span className="mr-1">Side</span>
+          {SIDE_OPTIONS.map((o) => {
+            const on = side === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onSideChange?.(o.value)}
+                className={`rounded-full border px-2 py-0.5 font-medium transition-colors ${
+                  on ? "border-accent bg-accent/10 text-text" : "border-line text-muted hover:text-text"
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }

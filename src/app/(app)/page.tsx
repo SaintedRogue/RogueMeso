@@ -85,6 +85,7 @@ export default async function Home() {
         meso={{ key: active.key, name: active.name, weeksCount: active.weeksCount, unit: active.unit }}
         muscleGroups={muscleGroups}
         suggestions={suggestions}
+        physicalTherapyLens={me.physicalTherapyLens}
       />
     </>
   );

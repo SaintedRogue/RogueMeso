@@ -9,8 +9,8 @@ import {
 } from "@/lib/features/insights";
 import { MEV_SETS, MRV_SETS } from "@/lib/progression";
 import { mgColor, fmtWeight } from "@/lib/format";
-import { Trophy, BarChart3, LineChart } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui";
+import { Trophy, BarChart3, LineChart, Activity, ChevronRight } from "lucide-react";
+import { PageHeader, EmptyState, CardLink } from "@/components/ui";
 import { VolumeChart, type WeekDatum } from "@/components/charts/VolumeChart";
 import { HistoryChart } from "@/components/charts/HistoryChart";
 
@@ -60,6 +60,25 @@ export default async function InsightsPage({
   return (
     <>
       <PageHeader title="Insights" subtitle="Volume, progress, and records from your logged sets" />
+
+      {/* Physical Therapy Lens entry — only when opted in (Profile toggle). Keeps the default
+          Insights page unchanged for everyone else. */}
+      {me.physicalTherapyLens && (
+        <div className="mb-8">
+          <CardLink href="/insights/physical-therapy">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Activity aria-hidden size={18} className="shrink-0 text-accent" />
+                <div>
+                  <div className="text-sm font-medium">Physical Therapy Lens</div>
+                  <div className="text-xs text-muted">Load management, symmetry, symptoms &amp; recovery-vs-load.</div>
+                </div>
+              </div>
+              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+            </div>
+          </CardLink>
+        </div>
+      )}
 
       {/* 1 · WEEKLY VOLUME */}
       <section className="mb-8">

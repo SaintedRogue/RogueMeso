@@ -19,6 +19,7 @@ export type RawSet = {
   rir: number | null;
   bodyweight: number | null;
   unit: string | null;
+  side: string | null;
   setType: string;
   status: string;
   finishedAt: Date | null;
@@ -27,6 +28,12 @@ export type RawSet = {
 export type RawDayExercise = {
   position: number;
   jointPain: number | null;
+  painScore: number | null;
+  painLocations: string | null;
+  painTiming: string | null;
+  rangeOfMotion: string | null;
+  qualityTags: string | null;
+  ptNote: string | null;
   status: string;
   exercise: { name: string; exerciseType: string };
   muscleGroup: { name: string };
@@ -109,16 +116,24 @@ export type ExportSet = {
   targetWeightKg: number | null;
   targetReps: number | null;
   bodyweightKg: number | null; // lifter mass logged for this set, when captured
+  side: string | null; // Physical Therapy Lens: "left" | "right" | "bilateral" | null
   setType: string;
   status: string;
   completedAt: string | null;
 };
 
+// Physical Therapy Lens movement-quality & symptom capture (present only when the lens was used).
 export type ExportExercise = {
   name: string;
   muscle: string;
   type: string;
   jointPain: number | null;
+  painScore: number | null;
+  painLocations: string[];
+  painTiming: string | null;
+  rangeOfMotion: string | null;
+  qualityTags: string[];
+  ptNote: string | null;
   sets: ExportSet[];
 };
 
@@ -229,6 +244,17 @@ export function effectiveLoadKg(
 
 const BODYWEIGHT_TYPES = new Set(["bodyweightOnly", "bodyweightLoadable"]);
 
+/** Parse a JSON string[] column (painLocations / qualityTags), tolerating null / bad data. */
+function jsonArray(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? (v as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function setToExport(s: RawSet, fallbackUnit: string): ExportSet {
   return {
     set: s.position + 1,
@@ -238,6 +264,7 @@ function setToExport(s: RawSet, fallbackUnit: string): ExportSet {
     targetWeightKg: kgFrom(s.weightTarget, s.unit, fallbackUnit),
     targetReps: s.repsTarget,
     bodyweightKg: kgFrom(s.bodyweight, s.unit, fallbackUnit),
+    side: s.side,
     setType: s.setType,
     status: s.status,
     completedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -271,6 +298,12 @@ function mesoToExport(m: RawMeso, from: Date | null): ExportMeso | null {
         muscle: ex.muscleGroup.name,
         type: ex.exercise.exerciseType,
         jointPain: ex.jointPain,
+        painScore: ex.painScore,
+        painLocations: jsonArray(ex.painLocations),
+        painTiming: ex.painTiming,
+        rangeOfMotion: ex.rangeOfMotion,
+        qualityTags: jsonArray(ex.qualityTags),
+        ptNote: ex.ptNote,
         sets: ex.sets.map((s) => setToExport(s, m.unit)),
       })),
     })),
@@ -411,6 +444,23 @@ export function renderMarkdown(p: ExportPayload, displayUnit: string): string {
           lines.push(`| ${name} | ${b.muscle} | ${load}${reps}${rir} |`);
         }
       }
+      // Physical Therapy Lens symptoms (only when any were captured in this block).
+      const symptoms: string[] = [];
+      for (const d of m.days)
+        for (const ex of d.exercises) {
+          if (ex.painScore == null && ex.painLocations.length === 0 && !ex.ptNote) continue;
+          const where = ex.painLocations.length ? ` (${ex.painLocations.join(", ")})` : "";
+          const timing = ex.painTiming ? ` ${ex.painTiming}` : "";
+          const pain = ex.painScore != null ? `pain ${ex.painScore}/10${where}${timing}` : null;
+          const note = ex.ptNote ? `"${ex.ptNote}"` : null;
+          const detail = [pain, note].filter(Boolean).join(" — ");
+          if (detail) symptoms.push(`- ${ex.name}: ${detail}`);
+        }
+      if (symptoms.length) {
+        lines.push("");
+        lines.push(`**Symptoms & movement notes:**`);
+        lines.push(...symptoms);
+      }
     }
     lines.push("");
   }
@@ -500,6 +550,12 @@ export async function getExportData(userId: number): Promise<RawExport> {
               select: {
                 position: true,
                 jointPain: true,
+                painScore: true,
+                painLocations: true,
+                painTiming: true,
+                rangeOfMotion: true,
+                qualityTags: true,
+                ptNote: true,
                 status: true,
                 exercise: { select: { name: true, exerciseType: true } },
                 muscleGroup: { select: { name: true } },
@@ -516,6 +572,7 @@ export async function getExportData(userId: number): Promise<RawExport> {
                     rir: true,
                     bodyweight: true,
                     unit: true,
+                    side: true,
                     setType: true,
                     status: true,
                     finishedAt: true,

@@ -47,6 +47,12 @@ const baseRaw: RawExport = {
             {
               position: 0,
               jointPain: null,
+              painScore: null,
+              painLocations: null,
+              painTiming: null,
+              rangeOfMotion: null,
+              qualityTags: null,
+              ptNote: null,
               status: "complete",
               exercise: { name: "Bench Press", exerciseType: "barbell" },
               muscleGroup: { name: "Chest" },
@@ -62,6 +68,7 @@ const baseRaw: RawExport = {
                   rir: 2,
                   bodyweight: null,
                   unit: "lb",
+                  side: null,
                   setType: "regular",
                   status: "complete",
                   finishedAt: new Date("2026-06-01T18:00:00Z"),
@@ -195,5 +202,63 @@ describe("renderMarkdown", () => {
     expect(md).toContain("Training");
     expect(md).not.toContain("Weigh-ins");
     expect(md).not.toContain("readiness");
+  });
+});
+
+describe("buildExportPayload — Physical Therapy Lens fields", () => {
+  // A raw variant whose one exercise carries symptom/quality capture and a per-set side.
+  const withPt: RawExport = {
+    ...baseRaw,
+    mesocycles: [
+      {
+        ...baseRaw.mesocycles[0],
+        days: [
+          {
+            ...baseRaw.mesocycles[0].days[0],
+            exercises: [
+              {
+                ...baseRaw.mesocycles[0].days[0].exercises[0],
+                painScore: 4,
+                painLocations: '["shoulder"]',
+                painTiming: "after",
+                rangeOfMotion: "partial",
+                qualityTags: '["grinder","cut-rom"]',
+                ptNote: "elbow cranky on close grip",
+                sets: [{ ...baseRaw.mesocycles[0].days[0].exercises[0].sets[0], side: "left" }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("carries side onto the exported set and symptom fields onto the exercise (training domain)", () => {
+    const ex = buildExportPayload(withPt, NOW, opts()).mesocycles![0].days[0].exercises[0];
+    expect(ex.sets[0].side).toBe("left");
+    expect(ex.painScore).toBe(4);
+    expect(ex.painLocations).toEqual(["shoulder"]);
+    expect(ex.painTiming).toBe("after");
+    expect(ex.rangeOfMotion).toBe("partial");
+    expect(ex.qualityTags).toEqual(["grinder", "cut-rom"]);
+    expect(ex.ptNote).toBe("elbow cranky on close grip");
+  });
+
+  it("tolerates missing/legacy capture (nulls → empty arrays, null side)", () => {
+    const ex = buildExportPayload(baseRaw, NOW, opts()).mesocycles![0].days[0].exercises[0];
+    expect(ex.painScore).toBeNull();
+    expect(ex.painLocations).toEqual([]);
+    expect(ex.qualityTags).toEqual([]);
+    expect(ex.sets[0].side).toBeNull();
+  });
+
+  it("gates symptom data behind the training domain (omitted when training is deselected)", () => {
+    const out = buildExportPayload(withPt, NOW, opts({ domains: { training: false, body: true, recovery: true } }));
+    expect(out.mesocycles).toBeUndefined();
+  });
+
+  it("surfaces symptoms in the Markdown summary only when captured", () => {
+    expect(renderMarkdown(buildExportPayload(withPt, NOW, opts()), "lb")).toContain("Symptoms & movement notes");
+    expect(renderMarkdown(buildExportPayload(baseRaw, NOW, opts()), "lb")).not.toContain("Symptoms & movement notes");
   });
 });
