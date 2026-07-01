@@ -67,6 +67,11 @@ model User {
   bodySex       String?   // "M" | "F" — the person's sex (distinct from Template.sex)
   activityLevel String?   // "sedentary" | "light" | "moderate"
   goalWeightKg  Float?    // long-term target bodyweight (canonical kg); drives the trend projection
+  // Physical Therapy Lens: opt-in (default OFF) to load-management & movement-quality tracking.
+  // When false the set-logger and Insights are byte-for-byte the default experience — the capture
+  // panel, the /insights/physical-therapy sub-route and its entry card are all gated on this flag.
+  // Informational only, never medical advice; never mutates the training engine.
+  physicalTherapyLens Boolean @default(false)
   // Community: opt-in to the instance social space (default OFF). When false the
   // user neither posts to the feed nor appears on leaderboards — every community
   // query filters on this flag, so opt-out is instant and reversible (no data loss).
@@ -133,6 +138,12 @@ model Exercise {
   exerciseType  ExerciseType
   youtubeId     String?
   notes         String?
+  // Physical Therapy Lens taxonomy (editable metadata, nullable = "Unclassified"). Seeded
+  // idempotently from name+muscle by prisma/exercise-taxonomy.sql. `movementPattern` is one of
+  // the PATTERN keys and `primaryJoints` is a JSON string[] of JOINT keys — see
+  // src/lib/features/physicalTherapyTaxonomy.ts. Plain columns so a classification can be fixed.
+  movementPattern String?
+  primaryJoints   String?
   isCustom      Boolean      @default(false)
   userId        Int?         // null = shared catalog; set = creator's private exercise
   user          User?        @relation(fields: [userId], references: [id])
@@ -282,6 +293,16 @@ model DayExercise {
   muscleGroup   MuscleGroup @relation(fields: [muscleGroupId], references: [id])
   position      Int
   jointPain     Int?
+  // Physical Therapy Lens capture (all nullable, only written when the lens is ON). Movement
+  // quality & symptoms live at the exercise-in-session grain (one report per exercise per day);
+  // per-side load lives on ExerciseSet.side. `jointPain` (1–5, above) predates the lens and is
+  // left untouched for back-compat. `painLocations`/`qualityTags` are JSON string[].
+  painScore      Int?      // 0–10 subjective pain during/around this exercise
+  painLocations  String?   // JSON string[] of body-region keys (see taxonomy REGIONS)
+  painTiming     String?   // "during" | "after" | "next-day"
+  rangeOfMotion  String?   // "full" | "partial" | "short"
+  qualityTags    String?   // JSON string[] of quality-tag keys
+  ptNote         String?   // free-text form cue / note
   status        String      @default("pending")
 
   sets ExerciseSet[]
@@ -304,6 +325,9 @@ model ExerciseSet {
   rir             Int?
   bodyweight      Float?     // user bodyweight logged for bodyweight-loadable sets
   unit            String?
+  // Physical Therapy Lens: which side this set loaded. "left" | "right" | "bilateral"; null is
+  // treated as bilateral. Only surfaced/written when the lens is ON; drives the symmetry view.
+  side            String?
   status          String      @default("pendingWeight")
   finishedAt      DateTime?
 

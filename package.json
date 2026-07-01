@@ -13,6 +13,7 @@
     "db:admin": "tsx prisma/seed/createAdmin.ts",
     "db:build-kettlebell": "tsx prisma/seed/buildKettlebell.ts",
     "db:build-descriptions": "tsx prisma/seed/buildDescriptions.ts",
+    "db:build-taxonomy": "tsx prisma/seed/buildTaxonomy.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
