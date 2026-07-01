@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { toKg } from "@/lib/format";
+import { parseJsonArray } from "@/lib/json";
 import {
   pushPullOf,
   isHorizontal,
@@ -38,8 +39,8 @@ export type PtSet = {
   reps: number;
 };
 
-/** One symptom (pain) report, at the exercise-in-session grain. */
-export type PtPain = { date: Date; region: string; score: number; exercise: string };
+/** One symptom (pain) report from a session check-in, fanned out per body region. */
+export type PtPain = { date: Date; region: string; score: number; phase: "pre" | "post" };
 
 /** One week's readiness + training load, for the recovery-vs-load overlay. */
 export type WeeklyLoad = { week: string; volume: number; readiness: number | null };
@@ -307,11 +308,18 @@ export function symptomFlags(
   }
 
   const flags: SymptomFlag[] = [];
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10); // UTC calendar day
   for (const [region, entries] of byRegion) {
-    const sessions = new Set(entries.map((e) => e.date.getTime())).size;
-    const scoreChange = entries.length >= 2 ? entries[entries.length - 1].score - entries[0].score : 0;
+    // A session is a calendar day, not a submission: getPtPain emits up to two entries per day
+    // (pre + post), so collapse them to the day's peak score. Without this, one workout's
+    // warm-up→post rise would fire "rising", and a single day would count twice toward "recurring".
+    const peakByDay = new Map<string, number>();
+    for (const e of entries) peakByDay.set(dayKey(e.date), Math.max(peakByDay.get(dayKey(e.date)) ?? -Infinity, e.score));
+    const days = [...peakByDay.keys()].sort();
+    const sessions = days.length;
+    const scoreChange = days.length >= 2 ? peakByDay.get(days[days.length - 1])! - peakByDay.get(days[0])! : 0;
     if (sessions >= minSessions) flags.push({ region, kind: "recurring", sessions, scoreChange });
-    if (entries.length >= 2 && scoreChange >= 2) flags.push({ region, kind: "rising", sessions, scoreChange });
+    if (days.length >= 2 && scoreChange >= 2) flags.push({ region, kind: "rising", sessions, scoreChange });
   }
   return flags.sort((a, b) => a.region.localeCompare(b.region) || a.kind.localeCompare(b.kind));
 }
@@ -357,15 +365,7 @@ export function jointLoad(sets: PtSet[]): { joint: string; label: string; volume
 
 // ===== Async Prisma wrappers (unit → kg conversion + "complete" filter live here, once) =====
 
-function parseJoints(json: string | null): Joint[] {
-  if (!json) return [];
-  try {
-    const arr = JSON.parse(json);
-    return Array.isArray(arr) ? (arr as Joint[]) : [];
-  } catch {
-    return [];
-  }
-}
+const parseJoints = (json: string | null): Joint[] => parseJsonArray<Joint>(json);
 
 /** All of a user's completed, loaded sets across a meso (or all blocks) as canonical-kg PtSets. */
 export async function getPtSets(userId: number, mesoId?: number): Promise<PtSet[]> {
@@ -404,25 +404,28 @@ export async function getPtSets(userId: number, mesoId?: number): Promise<PtSet[
 
 /** All of a user's pain reports (exercise-in-session grain), fanned out one row per body region. */
 export async function getPtPain(userId: number, mesoId?: number): Promise<PtPain[]> {
-  const rows = await prisma.dayExercise.findMany({
-    where: {
-      painScore: { not: null },
-      day: { meso: { userId, ...(mesoId ? { id: mesoId } : {}) } },
-    },
+  const rows = await prisma.sessionCheckIn.findMany({
+    where: { day: { meso: { userId, ...(mesoId ? { id: mesoId } : {}) } } },
     select: {
-      painScore: true,
-      painLocations: true,
-      exercise: { select: { name: true } },
-      day: { select: { finishedAt: true, meso: { select: { startedAt: true } } } },
+      prePainScore: true,
+      prePainLocations: true,
+      preSubmittedAt: true,
+      postPainScore: true,
+      postPainLocations: true,
+      postSubmittedAt: true,
     },
   });
   const out: PtPain[] = [];
-  for (const r of rows) {
-    const date = r.day.finishedAt ?? r.day.meso.startedAt;
-    if (!date) continue; // undated session → can't place it on a timeline
-    const regions = parseJoints(r.painLocations as string | null); // same JSON string[] parse
+  // Each half (pre/post) becomes its own dated pain report, fanned out one row per body region.
+  const emit = (phase: "pre" | "post", score: number | null, locations: string | null, date: Date | null) => {
+    if (score == null || date == null) return; // no pain reported, or not yet submitted
+    const regions = parseJoints(locations); // same JSON string[] parse
     const list = regions.length ? regions : ["other"];
-    for (const region of list) out.push({ date, region, score: r.painScore!, exercise: r.exercise.name });
+    for (const region of list) out.push({ date, region, score, phase });
+  };
+  for (const r of rows) {
+    emit("pre", r.prePainScore, r.prePainLocations, r.preSubmittedAt);
+    emit("post", r.postPainScore, r.postPainLocations, r.postSubmittedAt);
   }
   return out;
 }

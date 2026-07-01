@@ -285,9 +285,9 @@ describe("symptomFlags", () => {
   it("flags a region recurring across ≥ minSessions distinct sessions", () => {
     const flags = symptomFlags(
       [
-        { date: daysBefore(asOf, 1), region: "knee", score: 3, exercise: "Squat" },
-        { date: daysBefore(asOf, 8), region: "knee", score: 3, exercise: "Squat" },
-        { date: daysBefore(asOf, 15), region: "knee", score: 3, exercise: "Lunge" },
+        { date: daysBefore(asOf, 1), region: "knee", score: 3, phase: "post" },
+        { date: daysBefore(asOf, 8), region: "knee", score: 3, phase: "post" },
+        { date: daysBefore(asOf, 15), region: "knee", score: 3, phase: "pre" },
       ],
       asOf,
       { minSessions: 3 },
@@ -297,8 +297,8 @@ describe("symptomFlags", () => {
   it("flags a rising pain-score trend for a region", () => {
     const flags = symptomFlags(
       [
-        { date: daysBefore(asOf, 10), region: "shoulder", score: 3, exercise: "Bench" },
-        { date: daysBefore(asOf, 2), region: "shoulder", score: 6, exercise: "Bench" },
+        { date: daysBefore(asOf, 10), region: "shoulder", score: 3, phase: "post" },
+        { date: daysBefore(asOf, 2), region: "shoulder", score: 6, phase: "post" },
       ],
       asOf,
     );
@@ -308,9 +308,9 @@ describe("symptomFlags", () => {
   it("excludes entries outside the rolling window", () => {
     const flags = symptomFlags(
       [
-        { date: daysBefore(asOf, 100), region: "knee", score: 5, exercise: "Squat" },
-        { date: daysBefore(asOf, 90), region: "knee", score: 5, exercise: "Squat" },
-        { date: daysBefore(asOf, 80), region: "knee", score: 5, exercise: "Squat" },
+        { date: daysBefore(asOf, 100), region: "knee", score: 5, phase: "post" },
+        { date: daysBefore(asOf, 90), region: "knee", score: 5, phase: "post" },
+        { date: daysBefore(asOf, 80), region: "knee", score: 5, phase: "post" },
       ],
       asOf,
       { minSessions: 3, windowDays: 28 },
@@ -318,8 +318,32 @@ describe("symptomFlags", () => {
     expect(flags).toEqual([]);
   });
   it("does not flag a single data point", () => {
-    const flags = symptomFlags([{ date: daysBefore(asOf, 1), region: "hip", score: 8, exercise: "Deadlift" }], asOf);
+    const flags = symptomFlags([{ date: daysBefore(asOf, 1), region: "hip", score: 8, phase: "post" }], asOf);
     expect(flags).toEqual([]);
+  });
+  it("counts a day's pre + post halves as one session, not two (recurring)", () => {
+    // Two real workout days, each with a pre and a post entry, must not reach the 3-session threshold.
+    const flags = symptomFlags(
+      [
+        { date: d("2026-06-28T09:00:00Z"), region: "knee", score: 4, phase: "pre" },
+        { date: d("2026-06-28T20:00:00Z"), region: "knee", score: 5, phase: "post" },
+        { date: d("2026-06-29T09:00:00Z"), region: "knee", score: 4, phase: "pre" },
+        { date: d("2026-06-29T20:00:00Z"), region: "knee", score: 5, phase: "post" },
+      ],
+      asOf,
+      { minSessions: 3 },
+    );
+    expect(flags.some((f) => f.kind === "recurring")).toBe(false);
+  });
+  it("does not flag rising from a single session's pre→post increase", () => {
+    const flags = symptomFlags(
+      [
+        { date: d("2026-06-29T09:00:00Z"), region: "shoulder", score: 3, phase: "pre" },
+        { date: d("2026-06-29T11:00:00Z"), region: "shoulder", score: 6, phase: "post" },
+      ],
+      asOf,
+    );
+    expect(flags.some((f) => f.kind === "rising")).toBe(false);
   });
 });
 

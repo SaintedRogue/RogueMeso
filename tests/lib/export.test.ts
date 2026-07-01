@@ -43,16 +43,11 @@ const baseRaw: RawExport = {
           bodyweightUnit: "lb",
           notes: "felt strong",
           finishedAt: new Date("2026-06-01T18:00:00Z"),
+          checkIn: null,
           exercises: [
             {
               position: 0,
               jointPain: null,
-              painScore: null,
-              painLocations: null,
-              painTiming: null,
-              rangeOfMotion: null,
-              qualityTags: null,
-              ptNote: null,
               status: "complete",
               exercise: { name: "Bench Press", exerciseType: "barbell" },
               muscleGroup: { name: "Chest" },
@@ -205,8 +200,8 @@ describe("renderMarkdown", () => {
   });
 });
 
-describe("buildExportPayload — Physical Therapy Lens fields", () => {
-  // A raw variant whose one exercise carries symptom/quality capture and a per-set side.
+describe("buildExportPayload — Physical Therapy Lens check-ins", () => {
+  // A raw variant whose one session carries a pre + post check-in and a per-set side.
   const withPt: RawExport = {
     ...baseRaw,
     mesocycles: [
@@ -215,15 +210,22 @@ describe("buildExportPayload — Physical Therapy Lens fields", () => {
         days: [
           {
             ...baseRaw.mesocycles[0].days[0],
+            checkIn: {
+              prePainScore: 2,
+              prePainLocations: '["shoulder"]',
+              preNote: "still tight from Monday",
+              preSubmittedAt: new Date("2026-06-01T17:00:00Z"),
+              postPainScore: 4,
+              postPainLocations: '["shoulder"]',
+              postPainTiming: "after",
+              postRangeOfMotion: "partial",
+              postQualityTags: '["grinder","cut-rom"]',
+              postNote: "elbow cranky on close grip",
+              postSubmittedAt: new Date("2026-06-01T18:30:00Z"),
+            },
             exercises: [
               {
                 ...baseRaw.mesocycles[0].days[0].exercises[0],
-                painScore: 4,
-                painLocations: '["shoulder"]',
-                painTiming: "after",
-                rangeOfMotion: "partial",
-                qualityTags: '["grinder","cut-rom"]',
-                ptNote: "elbow cranky on close grip",
                 sets: [{ ...baseRaw.mesocycles[0].days[0].exercises[0].sets[0], side: "left" }],
               },
             ],
@@ -233,32 +235,52 @@ describe("buildExportPayload — Physical Therapy Lens fields", () => {
     ],
   };
 
-  it("carries side onto the exported set and symptom fields onto the exercise (training domain)", () => {
-    const ex = buildExportPayload(withPt, NOW, opts()).mesocycles![0].days[0].exercises[0];
-    expect(ex.sets[0].side).toBe("left");
-    expect(ex.painScore).toBe(4);
-    expect(ex.painLocations).toEqual(["shoulder"]);
-    expect(ex.painTiming).toBe("after");
-    expect(ex.rangeOfMotion).toBe("partial");
-    expect(ex.qualityTags).toEqual(["grinder", "cut-rom"]);
-    expect(ex.ptNote).toBe("elbow cranky on close grip");
+  it("carries side onto the exported set and the pre/post check-in onto the day (training domain)", () => {
+    const day = buildExportPayload(withPt, NOW, opts()).mesocycles![0].days[0];
+    expect(day.exercises[0].sets[0].side).toBe("left");
+    expect(day.checkIn!.pre).toEqual({
+      painScore: 2,
+      painLocations: ["shoulder"],
+      note: "still tight from Monday",
+      submittedAt: "2026-06-01T17:00:00.000Z",
+    });
+    expect(day.checkIn!.post).toMatchObject({
+      painScore: 4,
+      painLocations: ["shoulder"],
+      painTiming: "after",
+      rangeOfMotion: "partial",
+      qualityTags: ["grinder", "cut-rom"],
+      note: "elbow cranky on close grip",
+    });
   });
 
-  it("tolerates missing/legacy capture (nulls → empty arrays, null side)", () => {
-    const ex = buildExportPayload(baseRaw, NOW, opts()).mesocycles![0].days[0].exercises[0];
-    expect(ex.painScore).toBeNull();
-    expect(ex.painLocations).toEqual([]);
-    expect(ex.qualityTags).toEqual([]);
-    expect(ex.sets[0].side).toBeNull();
+  it("omits an unsubmitted half and the whole check-in when there is none", () => {
+    // Post never submitted → post is null; day with no check-in row → checkIn is null.
+    const preOnly: RawExport = {
+      ...withPt,
+      mesocycles: [
+        {
+          ...withPt.mesocycles[0],
+          days: [
+            {
+              ...withPt.mesocycles[0].days[0],
+              checkIn: { ...withPt.mesocycles[0].days[0].checkIn!, postSubmittedAt: null },
+            },
+          ],
+        },
+      ],
+    };
+    expect(buildExportPayload(preOnly, NOW, opts()).mesocycles![0].days[0].checkIn!.post).toBeNull();
+    expect(buildExportPayload(baseRaw, NOW, opts()).mesocycles![0].days[0].checkIn).toBeNull();
   });
 
-  it("gates symptom data behind the training domain (omitted when training is deselected)", () => {
+  it("gates check-in data behind the training domain (omitted when training is deselected)", () => {
     const out = buildExportPayload(withPt, NOW, opts({ domains: { training: false, body: true, recovery: true } }));
     expect(out.mesocycles).toBeUndefined();
   });
 
-  it("surfaces symptoms in the Markdown summary only when captured", () => {
-    expect(renderMarkdown(buildExportPayload(withPt, NOW, opts()), "lb")).toContain("Symptoms & movement notes");
-    expect(renderMarkdown(buildExportPayload(baseRaw, NOW, opts()), "lb")).not.toContain("Symptoms & movement notes");
+  it("surfaces check-ins in the Markdown summary only when captured", () => {
+    expect(renderMarkdown(buildExportPayload(withPt, NOW, opts()), "lb")).toContain("Recovery & session check-ins");
+    expect(renderMarkdown(buildExportPayload(baseRaw, NOW, opts()), "lb")).not.toContain("Recovery & session check-ins");
   });
 });

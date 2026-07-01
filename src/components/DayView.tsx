@@ -1,11 +1,13 @@
 import { mgColor, rirForWeek } from "@/lib/format";
 import { DONE_STATUSES } from "@/lib/dayStatus";
 import type { SetSuggestion } from "@/lib/suggestions";
+import type { PreCheckInMeta, PostCheckInMeta } from "@/lib/actions";
+import type { SessionCheckInRow, LastSessionSummary } from "@/lib/data";
+import { parseJsonArray } from "@/lib/json";
 import { ExerciseSets } from "@/components/ExerciseSets";
 import { ExerciseInfo } from "@/components/ExerciseInfo";
 import { CompleteSession } from "@/components/CompleteSession";
-import { PhysicalTherapyCapture } from "@/components/PhysicalTherapyCapture";
-import type { PtExerciseMeta } from "@/lib/actions";
+import { RecoveryCheckIn } from "@/components/RecoveryCheckIn";
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -27,37 +29,9 @@ export type ViewExercise = {
   exercise: { id: number; name: string; exerciseType: string; notes: string | null; youtubeId: string | null } | null;
   muscleGroup: { id: number; name: string };
   sets: ViewSet[];
-  // Physical Therapy Lens capture (raw DB shape; JSON arrays as strings). Present but ignored
-  // when the lens is OFF.
-  painScore: number | null;
-  painLocations: string | null;
-  painTiming: string | null;
-  rangeOfMotion: string | null;
-  qualityTags: string | null;
-  ptNote: string | null;
 };
-
-/** Parse the raw DayExercise columns into the capture component's initial value. */
-function toCaptureInitial(ex: ViewExercise): PtExerciseMeta {
-  const arr = (json: string | null): string[] => {
-    if (!json) return [];
-    try {
-      const v = JSON.parse(json);
-      return Array.isArray(v) ? (v as string[]) : [];
-    } catch {
-      return [];
-    }
-  };
-  return {
-    painScore: ex.painScore,
-    painLocations: arr(ex.painLocations),
-    painTiming: ex.painTiming,
-    rangeOfMotion: ex.rangeOfMotion,
-    qualityTags: arr(ex.qualityTags),
-    ptNote: ex.ptNote,
-  };
-}
 export type ViewDay = {
+  id: number;
   week: number;
   position: number;
   label: string | null;
@@ -71,21 +45,48 @@ export function DayView({
   muscleGroups,
   suggestions = {},
   physicalTherapyLens = false,
+  checkIn = null,
+  lastSession = null,
 }: {
   day: ViewDay;
   meso: { key: string; name: string; weeksCount: number; unit: string };
   muscleGroups: { id: number; name: string }[];
   /** Shaded "same day last week" targets, keyed by current set id. */
   suggestions?: Record<number, SetSuggestion>;
-  /** When true, reveal the per-exercise capture panel + per-set side control. */
+  /** When true, reveal the per-session check-ins + per-set side control. */
   physicalTherapyLens?: boolean;
+  /** Raw pre/post check-in row for this session (Physical Therapy Lens). */
+  checkIn?: SessionCheckInRow;
+  /** Previous session's post symptoms, for the pre-form context. */
+  lastSession?: LastSessionSummary;
 }) {
   const openSets = day.exercises.reduce(
     (n, ex) => n + ex.sets.filter((s) => !DONE_STATUSES.has(s.status)).length,
     0,
   );
+  const done = day.status === "complete";
+
+  const preInitial: PreCheckInMeta = {
+    painScore: checkIn?.prePainScore ?? null,
+    painLocations: parseJsonArray(checkIn?.prePainLocations),
+    note: checkIn?.preNote ?? null,
+  };
+  const postInitial: PostCheckInMeta = {
+    painScore: checkIn?.postPainScore ?? null,
+    painLocations: parseJsonArray(checkIn?.postPainLocations),
+    painTiming: checkIn?.postPainTiming ?? null,
+    rangeOfMotion: checkIn?.postRangeOfMotion ?? null,
+    qualityTags: parseJsonArray(checkIn?.postQualityTags),
+    note: checkIn?.postNote ?? null,
+  };
+
   return (
     <div className="space-y-4">
+      {/* Pre-workout Recovery Check-In — top of the session, until it's finished. */}
+      {physicalTherapyLens && !done && day.exercises.length > 0 && (
+        <RecoveryCheckIn dayId={day.id} initial={preInitial} lastSession={lastSession} />
+      )}
+
       {day.exercises.length === 0 && (
         <div className="card p-6 text-center text-muted">No exercises for this day.</div>
       )}
@@ -116,9 +117,6 @@ export function DayView({
               suggestions={suggestions}
               physicalTherapyLens={physicalTherapyLens}
             />
-            {physicalTherapyLens && (
-              <PhysicalTherapyCapture dayExerciseId={ex.id} initial={toCaptureInitial(ex)} />
-            )}
           </div>
         );
       })}
@@ -128,7 +126,10 @@ export function DayView({
           week={day.week}
           position={day.position}
           openSets={openSets}
-          done={day.status === "complete"}
+          done={done}
+          dayId={day.id}
+          physicalTherapyLens={physicalTherapyLens}
+          postInitial={postInitial}
         />
       )}
     </div>

@@ -4,19 +4,26 @@ import { useMemo, useState } from "react";
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { PAIN_REGION_LABELS, type PainRegion } from "@/lib/features/physicalTherapyTaxonomy";
 
-// Pain reports plotted over time (x = date, y = 0–10 score), filterable by body region and
-// exercise. Each point keeps its region + exercise for the tooltip. Client-side filtering only.
-export type SymptomPoint = { t: number; score: number; region: string; exercise: string };
+// Pain reports plotted over time (x = date, y = 0–10 score), filterable by body region and by
+// check-in phase (pre-workout vs post-session). Each point keeps its region + phase for the
+// tooltip. Client-side filtering only.
+export type SymptomPoint = { t: number; score: number; region: string; phase: "pre" | "post" };
 
 const regionLabel = (r: string) => PAIN_REGION_LABELS[r as PainRegion] ?? r;
+const PHASES = [
+  { value: "all", label: "All" },
+  { value: "pre", label: "Pre" },
+  { value: "post", label: "Post" },
+] as const;
 
 export function PtSymptomChart({ points }: { points: SymptomPoint[] }) {
   const regions = useMemo(() => [...new Set(points.map((p) => p.region))].sort(), [points]);
-  const exercises = useMemo(() => [...new Set(points.map((p) => p.exercise))].sort(), [points]);
   const [region, setRegion] = useState<string>("all");
-  const [exercise, setExercise] = useState<string>("all");
+  const [phase, setPhase] = useState<string>("all");
 
-  const filtered = points.filter((p) => (region === "all" || p.region === region) && (exercise === "all" || p.exercise === exercise));
+  const filtered = points.filter(
+    (p) => (region === "all" || p.region === region) && (phase === "all" || p.phase === phase),
+  );
 
   return (
     <div>
@@ -44,16 +51,21 @@ export function PtSymptomChart({ points }: { points: SymptomPoint[] }) {
             {regionLabel(r)}
           </button>
         ))}
-        {exercises.length > 1 && (
-          <select value={exercise} onChange={(e) => setExercise(e.target.value)} className="input ml-auto py-1 text-xs">
-            <option value="all">All exercises</option>
-            {exercises.map((ex) => (
-              <option key={ex} value={ex}>
-                {ex}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          {PHASES.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              aria-pressed={phase === p.value}
+              onClick={() => setPhase(p.value)}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                phase === p.value ? "border-accent bg-accent/10 text-text" : "border-line text-muted hover:text-text"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
       <ResponsiveContainer width="100%" height={260}>
         <ScatterChart margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
@@ -84,7 +96,7 @@ export function PtSymptomChart({ points }: { points: SymptomPoint[] }) {
             cursor={{ stroke: "var(--color-line-2)" }}
             formatter={(_value, _name, item) => {
               const p = (item as { payload?: SymptomPoint })?.payload;
-              return p ? [`${p.score}/10 · ${regionLabel(p.region)}`, p.exercise] : ["", ""];
+              return p ? [`${p.score}/10 · ${regionLabel(p.region)}`, p.phase === "pre" ? "Pre-workout" : "Post-session"] : ["", ""];
             }}
             labelFormatter={(label) => new Date(Number(label)).toLocaleDateString("en-US")}
           />

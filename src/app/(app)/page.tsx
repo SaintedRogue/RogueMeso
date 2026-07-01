@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, HeartPulse } from "lucide-react";
-import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups } from "@/lib/data";
+import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups, getSessionContext } from "@/lib/data";
 import { getLatestReadiness, readinessLabel } from "@/lib/features/recovery";
 import { DONE_STATUSES } from "@/lib/dayStatus";
 import { requireUser } from "@/lib/auth";
@@ -46,6 +46,9 @@ export default async function Home() {
     day.exercises,
   );
 
+  // Physical Therapy Lens: this session's pre/post check-in + last session's symptoms for context.
+  const { checkIn, lastSession } = await getSessionContext(day.id, me.physicalTherapyLens);
+
   return (
     <>
       <PageHeader
@@ -86,6 +89,8 @@ export default async function Home() {
         muscleGroups={muscleGroups}
         suggestions={suggestions}
         physicalTherapyLens={me.physicalTherapyLens}
+        checkIn={checkIn}
+        lastSession={lastSession}
       />
     </>
   );

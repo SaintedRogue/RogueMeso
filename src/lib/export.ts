@@ -5,6 +5,7 @@
 // unit-tested); getExportData is a dumb fetch-all — mirroring the split in features/bodyTuning.ts.
 import { prisma } from "@/lib/prisma";
 import { toKg, fromKg, fmtWeight } from "@/lib/format";
+import { parseJsonArray } from "@/lib/json";
 
 // ----- Raw input shape (structural mirror of the getExportData query result) -----
 
@@ -28,17 +29,26 @@ export type RawSet = {
 export type RawDayExercise = {
   position: number;
   jointPain: number | null;
-  painScore: number | null;
-  painLocations: string | null;
-  painTiming: string | null;
-  rangeOfMotion: string | null;
-  qualityTags: string | null;
-  ptNote: string | null;
   status: string;
   exercise: { name: string; exerciseType: string };
   muscleGroup: { name: string };
   sets: RawSet[];
 };
+
+// Physical Therapy Lens per-session check-in (raw columns; JSON arrays as strings).
+export type RawCheckIn = {
+  prePainScore: number | null;
+  prePainLocations: string | null;
+  preNote: string | null;
+  preSubmittedAt: Date | null;
+  postPainScore: number | null;
+  postPainLocations: string | null;
+  postPainTiming: string | null;
+  postRangeOfMotion: string | null;
+  postQualityTags: string | null;
+  postNote: string | null;
+  postSubmittedAt: Date | null;
+} | null;
 
 export type RawDay = {
   week: number;
@@ -50,6 +60,7 @@ export type RawDay = {
   notes: string | null;
   finishedAt: Date | null;
   exercises: RawDayExercise[];
+  checkIn: RawCheckIn;
 };
 
 export type RawMeso = {
@@ -122,19 +133,27 @@ export type ExportSet = {
   completedAt: string | null;
 };
 
-// Physical Therapy Lens movement-quality & symptom capture (present only when the lens was used).
 export type ExportExercise = {
   name: string;
   muscle: string;
   type: string;
   jointPain: number | null;
-  painScore: number | null;
-  painLocations: string[];
-  painTiming: string | null;
-  rangeOfMotion: string | null;
-  qualityTags: string[];
-  ptNote: string | null;
   sets: ExportSet[];
+};
+
+// Physical Therapy Lens per-session check-in (present only when the lens was used). Each half is
+// null until submitted.
+export type ExportCheckIn = {
+  pre: { painScore: number | null; painLocations: string[]; note: string | null; submittedAt: string | null } | null;
+  post: {
+    painScore: number | null;
+    painLocations: string[];
+    painTiming: string | null;
+    rangeOfMotion: string | null;
+    qualityTags: string[];
+    note: string | null;
+    submittedAt: string | null;
+  } | null;
 };
 
 export type ExportDay = {
@@ -146,6 +165,7 @@ export type ExportDay = {
   finishedAt: string | null;
   notes: string | null;
   exercises: ExportExercise[];
+  checkIn: ExportCheckIn | null;
 };
 
 export type ExportMeso = {
@@ -245,15 +265,7 @@ export function effectiveLoadKg(
 const BODYWEIGHT_TYPES = new Set(["bodyweightOnly", "bodyweightLoadable"]);
 
 /** Parse a JSON string[] column (painLocations / qualityTags), tolerating null / bad data. */
-function jsonArray(json: string | null): string[] {
-  if (!json) return [];
-  try {
-    const v = JSON.parse(json);
-    return Array.isArray(v) ? (v as string[]) : [];
-  } catch {
-    return [];
-  }
-}
+const jsonArray = (json: string | null): string[] => parseJsonArray(json);
 
 function setToExport(s: RawSet, fallbackUnit: string): ExportSet {
   return {
@@ -269,6 +281,31 @@ function setToExport(s: RawSet, fallbackUnit: string): ExportSet {
     status: s.status,
     completedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
   };
+}
+
+/** Shape a raw session check-in into the export payload; null when neither half was submitted. */
+function checkInToExport(c: RawCheckIn): ExportCheckIn | null {
+  if (!c) return null;
+  const pre = c.preSubmittedAt
+    ? {
+        painScore: c.prePainScore,
+        painLocations: jsonArray(c.prePainLocations),
+        note: c.preNote,
+        submittedAt: c.preSubmittedAt.toISOString(),
+      }
+    : null;
+  const post = c.postSubmittedAt
+    ? {
+        painScore: c.postPainScore,
+        painLocations: jsonArray(c.postPainLocations),
+        painTiming: c.postPainTiming,
+        rangeOfMotion: c.postRangeOfMotion,
+        qualityTags: jsonArray(c.postQualityTags),
+        note: c.postNote,
+        submittedAt: c.postSubmittedAt.toISOString(),
+      }
+    : null;
+  return pre || post ? { pre, post } : null;
 }
 
 function mesoToExport(m: RawMeso, from: Date | null): ExportMeso | null {
@@ -298,14 +335,9 @@ function mesoToExport(m: RawMeso, from: Date | null): ExportMeso | null {
         muscle: ex.muscleGroup.name,
         type: ex.exercise.exerciseType,
         jointPain: ex.jointPain,
-        painScore: ex.painScore,
-        painLocations: jsonArray(ex.painLocations),
-        painTiming: ex.painTiming,
-        rangeOfMotion: ex.rangeOfMotion,
-        qualityTags: jsonArray(ex.qualityTags),
-        ptNote: ex.ptNote,
         sets: ex.sets.map((s) => setToExport(s, m.unit)),
       })),
+      checkIn: checkInToExport(d.checkIn),
     })),
   };
 }
@@ -444,22 +476,35 @@ export function renderMarkdown(p: ExportPayload, displayUnit: string): string {
           lines.push(`| ${name} | ${b.muscle} | ${load}${reps}${rir} |`);
         }
       }
-      // Physical Therapy Lens symptoms (only when any were captured in this block).
-      const symptoms: string[] = [];
-      for (const d of m.days)
-        for (const ex of d.exercises) {
-          if (ex.painScore == null && ex.painLocations.length === 0 && !ex.ptNote) continue;
-          const where = ex.painLocations.length ? ` (${ex.painLocations.join(", ")})` : "";
-          const timing = ex.painTiming ? ` ${ex.painTiming}` : "";
-          const pain = ex.painScore != null ? `pain ${ex.painScore}/10${where}${timing}` : null;
-          const note = ex.ptNote ? `"${ex.ptNote}"` : null;
-          const detail = [pain, note].filter(Boolean).join(" — ");
-          if (detail) symptoms.push(`- ${ex.name}: ${detail}`);
+      // Physical Therapy Lens per-session check-ins (only when any were captured in this block).
+      const painLine = (score: number | null, locations: string[], timing?: string | null) => {
+        if (score == null) return null;
+        const where = locations.length ? ` (${locations.join(", ")})` : "";
+        const when = timing ? ` ${timing}` : "";
+        return `pain ${score}/10${where}${when}`;
+      };
+      const checkIns: string[] = [];
+      for (const d of m.days) {
+        if (!d.checkIn) continue;
+        const label = `W${d.week}D${d.day}${d.label ? ` ${d.label}` : ""}`;
+        const { pre, post } = d.checkIn;
+        if (pre) {
+          const detail = [painLine(pre.painScore, pre.painLocations), pre.note ? `"${pre.note}"` : null]
+            .filter(Boolean)
+            .join(" — ");
+          if (detail) checkIns.push(`- ${label} · pre: ${detail}`);
         }
-      if (symptoms.length) {
+        if (post) {
+          const detail = [painLine(post.painScore, post.painLocations, post.painTiming), post.note ? `"${post.note}"` : null]
+            .filter(Boolean)
+            .join(" — ");
+          if (detail) checkIns.push(`- ${label} · post: ${detail}`);
+        }
+      }
+      if (checkIns.length) {
         lines.push("");
-        lines.push(`**Symptoms & movement notes:**`);
-        lines.push(...symptoms);
+        lines.push(`**Recovery & session check-ins:**`);
+        lines.push(...checkIns);
       }
     }
     lines.push("");
@@ -545,17 +590,26 @@ export async function getExportData(userId: number): Promise<RawExport> {
             bodyweightUnit: true,
             notes: true,
             finishedAt: true,
+            checkIn: {
+              select: {
+                prePainScore: true,
+                prePainLocations: true,
+                preNote: true,
+                preSubmittedAt: true,
+                postPainScore: true,
+                postPainLocations: true,
+                postPainTiming: true,
+                postRangeOfMotion: true,
+                postQualityTags: true,
+                postNote: true,
+                postSubmittedAt: true,
+              },
+            },
             exercises: {
               orderBy: { position: "asc" },
               select: {
                 position: true,
                 jointPain: true,
-                painScore: true,
-                painLocations: true,
-                painTiming: true,
-                rangeOfMotion: true,
-                qualityTags: true,
-                ptNote: true,
                 status: true,
                 exercise: { select: { name: true, exerciseType: true } },
                 muscleGroup: { select: { name: true } },
