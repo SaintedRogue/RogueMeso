@@ -118,9 +118,11 @@ export function SetLogger({
   }
 
   return (
-    <>
+    <div>
     <div
-      className={`grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-2 px-3 py-2 text-sm sm:grid-cols-[2rem_1fr_1fr_3.2rem_auto] ${
+      className={`grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-2 px-3 pt-2 text-sm sm:grid-cols-[2rem_1fr_1fr_3.2rem_auto] ${
+        physicalTherapyLens ? "pb-1" : "pb-2"
+      } ${
         done ? "bg-good/5" : ""
       } ${flash ? "flash-good" : ""}`}
     >
@@ -196,6 +198,6 @@ export function SetLogger({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
