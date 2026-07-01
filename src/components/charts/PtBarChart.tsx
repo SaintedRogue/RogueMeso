@@ -24,7 +24,7 @@ export function PtBarChart({ data, color = "var(--color-accent)", colors }: { da
           contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-line)", borderRadius: 8, fontSize: 12 }}
           labelStyle={{ color: "var(--color-text)" }}
           cursor={{ fill: "var(--color-line-2)", opacity: 0.15 }}
-          formatter={(v: number) => [Math.round(v).toLocaleString(), "Volume load"]}
+          formatter={(value) => [Math.round(Number(value)).toLocaleString(), "Volume load"]}
         />
         <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]}>
           {colors && data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}

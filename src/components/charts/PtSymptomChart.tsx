@@ -82,11 +82,11 @@ export function PtSymptomChart({ points }: { points: SymptomPoint[] }) {
             contentStyle={{ background: "var(--color-panel)", border: "1px solid var(--color-line)", borderRadius: 8, fontSize: 12 }}
             labelStyle={{ color: "var(--color-text)" }}
             cursor={{ stroke: "var(--color-line-2)" }}
-            formatter={(_v, _n, item: { payload?: SymptomPoint }) => {
-              const p = item?.payload;
+            formatter={(_value, _name, item) => {
+              const p = (item as { payload?: SymptomPoint })?.payload;
               return p ? [`${p.score}/10 · ${regionLabel(p.region)}`, p.exercise] : ["", ""];
             }}
-            labelFormatter={(t: number) => new Date(t).toLocaleDateString("en-US")}
+            labelFormatter={(label) => new Date(Number(label)).toLocaleDateString("en-US")}
           />
           <Scatter data={filtered} fill="var(--color-bad)" />
         </ScatterChart>
