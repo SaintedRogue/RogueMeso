@@ -173,25 +173,27 @@ export function SetLogger({
       </div>
     </div>
       {physicalTherapyLens && (
-        <div className="flex items-center gap-1.5 px-3 pb-2 text-xs text-muted">
-          <span className="w-8 shrink-0" aria-hidden />
-          <span className="mr-1">Side</span>
-          {SIDE_OPTIONS.map((o) => {
-            const on = side === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onSideChange?.(o.value)}
-                className={`rounded-full border px-2 py-0.5 font-medium transition-colors ${
-                  on ? "border-accent bg-accent/10 text-text" : "border-line text-muted hover:text-text"
-                }`}
-              >
-                {o.label}
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-2 px-3 pb-2 text-xs text-muted sm:grid-cols-[2rem_1fr_1fr_3.2rem_auto]">
+          <span aria-hidden />
+          <div className="col-span-2 flex flex-wrap items-center gap-2">
+            <span className="text-muted">Side</span>
+            {SIDE_OPTIONS.map((o) => {
+              const on = side === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onSideChange?.(o.value)}
+                  className={`rounded-full border px-2 py-0.5 font-medium transition-colors ${
+                    on ? "border-accent bg-accent/10 text-text" : "border-line text-muted hover:text-text"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </>
