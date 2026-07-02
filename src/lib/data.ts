@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/json";
 import { rirForWeek } from "@/lib/progression";
+import { maxHrFor } from "@/lib/heartRate";
+import { downsampleHr, hrSessionStats, setRecoveryDrop, type HrSessionStats } from "@/lib/features/hrInsights";
 import {
   buildSetSuggestions,
   buildBodyweightSeeds,
@@ -282,4 +284,54 @@ export async function getTemplate(key: string, userId: number) {
   });
   if (!tpl) return null;
   return isTemplateAccessible(tpl, userId) ? tpl : null;
+}
+
+// ----- Wearables: session heart-rate view -----
+
+export type SessionHrView = {
+  points: { ts: number; bpm: number }[]; // downsampled for the chart
+  markers: { ts: number; label: string }[]; // one per logged set (finishedAt)
+  stats: HrSessionStats;
+  recoveryDrop: number | null; // avg bpm drop within 90s of a set, null if unmeasurable
+  maxHr: number;
+};
+
+/**
+ * Everything the session heart-rate card needs, or null when the day has no meaningful
+ * capture (< 60 samples ≈ a minute — less renders as noise, not insight). Samples come
+ * from live Web Bluetooth capture (HeartRateProvider → logHrBatch); markers are the
+ * day's logged sets so the chart can show HR against the actual work.
+ */
+export async function getSessionHrView(
+  dayId: number,
+  user: { id: number; birthDate: Date | null },
+): Promise<SessionHrView | null> {
+  const samples = await prisma.hrSample.findMany({
+    where: { dayId, userId: user.id },
+    orderBy: { at: "asc" },
+    select: { at: true, bpm: true },
+  });
+  if (samples.length < 60) return null;
+  const raw = samples.map((s) => ({ ts: s.at.getTime(), bpm: s.bpm }));
+  const maxHr = maxHrFor(user.birthDate, new Date());
+  const stats = hrSessionStats(raw, maxHr);
+  if (!stats) return null;
+
+  const sets = await prisma.exerciseSet.findMany({
+    where: { dayExercise: { dayId }, finishedAt: { not: null } },
+    orderBy: { finishedAt: "asc" },
+    select: { position: true, finishedAt: true, dayExercise: { select: { exercise: { select: { name: true } } } } },
+  });
+  const markers = sets.map((s) => ({
+    ts: s.finishedAt!.getTime(),
+    label: `${s.dayExercise.exercise?.name ?? "Set"} · set ${s.position + 1}`,
+  }));
+
+  return {
+    points: downsampleHr(raw),
+    markers,
+    stats,
+    recoveryDrop: setRecoveryDrop(raw, markers.map((m) => m.ts)),
+    maxHr,
+  };
 }

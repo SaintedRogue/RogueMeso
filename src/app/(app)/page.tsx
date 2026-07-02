@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, HeartPulse } from "lucide-react";
 import { cookies } from "next/headers";
-import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups, getSessionContext } from "@/lib/data";
+import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups, getSessionContext, getSessionHrView } from "@/lib/data";
 import { getLatestReadiness, readinessLabel } from "@/lib/features/recovery";
 import { pickHomeDay } from "@/lib/homeDay";
 import { requireUser } from "@/lib/auth";
@@ -60,6 +60,9 @@ export default async function Home() {
   // Physical Therapy Lens: this session's pre/post check-in + last session's symptoms for context.
   const { checkIn, lastSession } = await getSessionContext(day.id, me.physicalTherapyLens);
 
+  // Session heart rate captured live over BLE, when there's enough to chart.
+  const hr = await getSessionHrView(day.id, me);
+
   return (
     <>
       <PageHeader
@@ -103,6 +106,7 @@ export default async function Home() {
         checkIn={checkIn}
         lastSession={lastSession}
         nextWorkout={nextWorkout}
+        hr={hr}
       />
     </>
   );

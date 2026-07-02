@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { getDay, getDaySuggestions, getMuscleGroups, getSessionContext } from "@/lib/data";
+import { getDay, getDaySuggestions, getMuscleGroups, getSessionContext, getSessionHrView } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { DayMenu } from "@/components/DayMenu";
@@ -24,6 +24,8 @@ export default async function DayPage({
   // Carry the same day from last week forward as a shaded target until the user logs.
   const suggestions = await getDaySuggestions(key, wk, pos, meso.weeksCount, me.id, d.exercises);
   const { checkIn, lastSession } = await getSessionContext(d.id, me.physicalTherapyLens);
+  // Session heart rate captured live over BLE, when there's enough to chart.
+  const hr = await getSessionHrView(d.id, me);
   const prev = pos > 0 ? `/mesocycles/${key}/${wk}/${pos - 1}` : null;
   const next = pos + 1 < meso.daysPerWeek ? `/mesocycles/${key}/${wk}/${pos + 1}` : null;
   const prevWeek = wk > 0 ? `/mesocycles/${key}/${wk - 1}/${pos}` : null;
@@ -62,6 +64,7 @@ export default async function DayPage({
         physicalTherapyLens={me.physicalTherapyLens}
         checkIn={checkIn}
         lastSession={lastSession}
+        hr={hr}
       />
     </>
   );
