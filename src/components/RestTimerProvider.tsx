@@ -1,16 +1,47 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
 import { restDurationFor, restoreTimer, type RestTimerState } from "@/lib/restTimer";
 import { RestTimerPill } from "@/components/RestTimerPill";
 
 // Between-sets rest timer (docs/superpowers/specs/2026-07-01-rest-timer-design.md).
-// The provider owns the running timer + mute preference and mirrors both to localStorage,
-// so the countdown survives navigation and refresh. All ticking/alerting lives in the
-// pill; this file is state + the browser-API plumbing (storage, vibrate, chime).
+// localStorage IS the store — the provider reads it through useSyncExternalStore (which
+// also makes SSR/hydration a non-issue: the server snapshot is simply "no timer") and
+// writes go through the emitting setters below. The countdown therefore survives
+// navigation and refresh, and even stays in sync across tabs via the storage event.
 
 const STORAGE_KEY = "restTimer";
 const MUTE_KEY = "restTimerMuted";
+
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+function subscribeStorage(cb: () => void) {
+  listeners.add(cb);
+  window.addEventListener("storage", cb); // other tabs
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+// getSnapshot must return a stable reference, so re-parse only when the raw string changes.
+let cachedRaw: string | null = null;
+let cachedTimer: RestTimerState | null = null;
+function getTimerSnapshot(): RestTimerState | null {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedTimer = restoreTimer(raw, Date.now());
+  }
+  return cachedTimer;
+}
+const getMutedSnapshot = () => localStorage.getItem(MUTE_KEY) === "1";
+
+function writeTimer(next: RestTimerState | null) {
+  if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  else localStorage.removeItem(STORAGE_KEY);
+  emit();
+}
 
 type RestTimerContext = {
   timer: RestTimerState | null;
@@ -25,8 +56,8 @@ type RestTimerContext = {
 };
 
 const noop = () => {};
-// Safe defaults so a stray useRestTimer() outside the provider (tests, storybook-style
-// isolation) renders inert instead of crashing.
+// Safe defaults so a stray useRestTimer() outside the provider (tests, isolation)
+// renders inert instead of crashing.
 const Ctx = createContext<RestTimerContext>({
   timer: null,
   muted: false,
@@ -39,15 +70,13 @@ const Ctx = createContext<RestTimerContext>({
 export const useRestTimer = () => useContext(Ctx);
 
 export function RestTimerProvider({ children }: { children: React.ReactNode }) {
-  const [timer, setTimerState] = useState<RestTimerState | null>(null);
-  const [muted, setMuted] = useState(false);
+  const timer = useSyncExternalStore(subscribeStorage, getTimerSnapshot, () => null);
+  const muted = useSyncExternalStore(subscribeStorage, getMutedSnapshot, () => false);
   // Browsers only allow audio started from a user gesture; grab a context on the first
   // tap anywhere (there's always one before a set gets logged) and reuse it for chimes.
   const audioRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    setTimerState(restoreTimer(localStorage.getItem(STORAGE_KEY), Date.now()));
-    setMuted(localStorage.getItem(MUTE_KEY) === "1");
     const prime = () => {
       try {
         audioRef.current ??= new AudioContext();
@@ -60,29 +89,17 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("pointerdown", prime);
   }, []);
 
-  const setTimer = useCallback((next: RestTimerState | null) => {
-    setTimerState(next);
-    if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    else localStorage.removeItem(STORAGE_KEY);
+  const start = useCallback((exerciseType: string | null, exerciseName: string) => {
+    writeTimer({ endsAt: Date.now() + restDurationFor(exerciseType) * 1000, exerciseName });
   }, []);
 
-  const start = useCallback(
-    (exerciseType: string | null, exerciseName: string) => {
-      setTimer({ endsAt: Date.now() + restDurationFor(exerciseType) * 1000, exerciseName });
-    },
-    [setTimer],
-  );
-
   const toggleMute = useCallback(() => {
-    setMuted((m) => {
-      const next = !m;
-      localStorage.setItem(MUTE_KEY, next ? "1" : "0");
-      return next;
-    });
+    localStorage.setItem(MUTE_KEY, getMutedSnapshot() ? "0" : "1");
+    emit();
   }, []);
 
   const alertDone = useCallback(() => {
-    if (muted) return;
+    if (getMutedSnapshot()) return;
     try {
       navigator.vibrate?.([200, 100, 200]);
     } catch {
@@ -104,10 +121,10 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
       osc.start(ctx.currentTime + at);
       osc.stop(ctx.currentTime + at + 0.16);
     }
-  }, [muted]);
+  }, []);
 
   return (
-    <Ctx.Provider value={{ timer, muted, start, setTimer, toggleMute, alertDone }}>
+    <Ctx.Provider value={{ timer, muted, start, setTimer: writeTimer, toggleMute, alertDone }}>
       {children}
       <RestTimerPill />
     </Ctx.Provider>
