@@ -88,6 +88,7 @@ model User {
   templates     Template[] // user-created templates
   weightEntries WeightEntry[]
   readinessEntries ReadinessEntry[] // daily recovery check-ins (Recovery hub)
+  hrSamples     HrSample[] // wearable heart-rate readings captured during sessions
   activities    Activity[] // community feed posts authored by this user
   reactions     Reaction[] // kudos this user gave
 
@@ -276,12 +277,35 @@ model MesoDay {
   bodyweight     Float?
   bodyweightUnit String?
   notes          String?
+  // Session start: stamped by the first logged set (logSet, only when still null) so the
+  // heart-rate capture window has a left edge. Cleared never — reopening a day keeps it.
+  startedAt      DateTime?
   finishedAt     DateTime?
 
   exercises DayExercise[]
   checkIn   SessionCheckIn?
+  hrSamples HrSample[]
 
   @@index([mesoId, week, position])
+}
+
+// ----- Wearables: live heart-rate capture -----
+// One row per reading (~1 Hz) captured in the browser over Web Bluetooth (standard GATT
+// Heart Rate service) during a session, batch-inserted every ~30s by logHrBatch. Scoped
+// to the MesoDay so the intra-workout chart can join readings against ExerciseSet.finishedAt.
+// ~5,400 rows per 90-minute session; cascade-deleted with the day.
+
+model HrSample {
+  id     Int      @id @default(autoincrement())
+  userId Int
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayId  Int
+  day    MesoDay  @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  at     DateTime // reading time (client clock, validated server-side)
+  bpm    Int
+
+  @@index([dayId, at])
+  @@index([userId, at])
 }
 
 // Physical Therapy Lens: one movement-quality & symptom check-in per session (MesoDay).

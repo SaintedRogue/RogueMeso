@@ -8,7 +8,9 @@ import { UpdatesPanel } from "@/components/UpdatesPanel";
 import { ForcedPasswordChange } from "@/components/ForcedPasswordChange";
 import { TimezoneCookie } from "@/components/TimezoneCookie";
 import { RestTimerProvider } from "@/components/RestTimerProvider";
+import { HeartRateProvider } from "@/components/HeartRateProvider";
 import { requireUser } from "@/lib/auth";
+import { maxHrFor } from "@/lib/heartRate";
 import { getUpdates } from "@/lib/updates";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (user.mustChangePassword) return <ForcedPasswordChange name={user.name ?? user.email} />;
   const updates = await getUpdates();
   return (
+    <HeartRateProvider maxHr={maxHrFor(user.birthDate, new Date())}>
     <RestTimerProvider>
     <div className="flex min-h-screen">
       {/* sticky + h-dvh keeps the rail viewport-height so its footer stays pinned to
@@ -42,5 +45,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <TimezoneCookie />
     </div>
     </RestTimerProvider>
+    </HeartRateProvider>
   );
 }
