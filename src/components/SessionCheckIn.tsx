@@ -23,7 +23,18 @@ import { PainSlider, Chips, Segmented, NoteField, SaveButton, CheckInCard, toggl
  * once the day is complete; opens automatically when nothing's logged yet so the check-in is
  * front-and-centre right after finishing, and stays collapsed once answered.
  */
-export function SessionCheckIn({ dayId, initial }: { dayId: number; initial: PostCheckInMeta }) {
+export function SessionCheckIn({
+  dayId,
+  initial,
+  open,
+  onToggle,
+}: {
+  dayId: number;
+  initial: PostCheckInMeta;
+  /** Optional controlled open state (e.g. driven by a "View post survey" button). */
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const [pending, start] = useTransition();
 
   const [painScore, setPainScore] = useState<number | null>(initial.painScore);
@@ -54,7 +65,7 @@ export function SessionCheckIn({ dayId, initial }: { dayId: number; initial: Pos
     });
 
   return (
-    <CheckInCard title="Session Check-In" hasData={hasData} defaultOpen={!hasData}>
+    <CheckInCard title="Session Check-In" hasData={hasData} defaultOpen={!hasData} open={open} onToggle={onToggle}>
       <p className="text-xs text-muted">How did the session go? All optional.</p>
 
       <PainSlider id="session-pain" value={painScore} onChange={setPainScore} />

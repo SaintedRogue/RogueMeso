@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { createPortal } from "react-dom";
 import { EllipsisVertical, Loader2, Pencil, Share2 } from "lucide-react";
 import { usePopover } from "@/components/usePopover";
+import { useShareWorkout } from "@/components/useShareWorkout";
 import { toast } from "@/components/Toaster";
 import { reopenDay } from "@/lib/actions";
 
@@ -27,7 +28,7 @@ export function DayMenu({
   done: boolean;
 }) {
   const [editing, startEdit] = useTransition();
-  const [sharing, startShare] = useTransition();
+  const { share, sharing } = useShareWorkout(mesoKey, week, position);
   const { open, setOpen, toggle, pos, btnRef, menuRef } = usePopover();
 
   // Base item class matches MesoMenu/SetMenu; each item adds its own text color.
@@ -46,48 +47,7 @@ export function DayMenu({
       }
     });
 
-  const onShare = () =>
-    startShare(async () => {
-      const name = `roguemeso-week${week + 1}-day${position + 1}.png`;
-      try {
-        const res = await fetch(`/api/mesocycles/${mesoKey}/${week}/${position}/share-image`);
-        if (!res.ok) throw new Error(`image route returned ${res.status}`);
-        const blob = await res.blob();
-        const file = new File([blob], name, { type: "image/png" });
-        const text = `My workout — Week ${week + 1}, Day ${position + 1} 💪`;
-
-        // Native share sheet (Messages, WhatsApp, …) when available in a secure context.
-        if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: "My workout", text });
-            setOpen(false);
-            return;
-          } catch (err) {
-            // The user dismissing the share sheet is not an error.
-            if ((err as Error)?.name === "AbortError") {
-              setOpen(false);
-              return;
-            }
-            // Any other share failure → fall through to the download path.
-          }
-        }
-
-        // Fallback: download the PNG so it can be shared manually from Photos/Files.
-        const objUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = objUrl;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(objUrl);
-        setOpen(false);
-        toast("Saved the image — share it from your photos.");
-      } catch {
-        setOpen(false);
-        toast("Couldn't create the workout image — try again.", "error");
-      }
-    });
+  const onShare = () => share(() => setOpen(false));
 
   return (
     <>

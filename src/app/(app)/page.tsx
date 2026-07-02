@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, HeartPulse } from "lucide-react";
+import { cookies } from "next/headers";
 import { getActiveMeso, getDay, getDaySuggestions, getMuscleGroups, getSessionContext } from "@/lib/data";
 import { getLatestReadiness, readinessLabel } from "@/lib/features/recovery";
-import { DONE_STATUSES } from "@/lib/dayStatus";
+import { pickHomeDay } from "@/lib/homeDay";
 import { requireUser } from "@/lib/auth";
 import { DayView } from "@/components/DayView";
 import { PageHeader, StatusPill, ActiveBadge, EmptyState } from "@/components/ui";
@@ -23,12 +24,22 @@ export default async function Home() {
     );
   }
 
-  // Pick the current day from the shallow status list, then deep-load only that day.
-  const current =
-    active.days.find((d) => !DONE_STATUSES.has(d.status)) ?? active.days[0];
+  // Pick the day from the shallow status list, then deep-load only that day. After finishing a
+  // session we stay on it for the rest of the user's local day (so the completion state + survey
+  // are visible) and only then advance; `next` is the upcoming workout for "Start next workout".
+  const tzCookie = (await cookies()).get("tzoffset")?.value;
+  const offsetMin = Number.isFinite(Number(tzCookie)) ? Number(tzCookie) : new Date().getTimezoneOffset();
+  const toLocalDate = (d: Date) => new Date(d.getTime() - offsetMin * 60000).toISOString().slice(0, 10);
+  const { current, next } = pickHomeDay(active.days, toLocalDate(new Date()), toLocalDate);
   if (!current) return null;
   const day = await getDay(active.key, current.week, current.position, me.id);
   if (!day) return null;
+  const nextWorkout = next
+    ? {
+        href: `/mesocycles/${active.key}/${next.week}/${next.position}`,
+        label: `Week ${next.week + 1} · Day ${next.position + 1}${next.label ? ` · ${next.label}` : ""}`,
+      }
+    : null;
   const muscleGroups = await getMuscleGroups();
 
   // Advisory recovery nudge: only surfaced when the latest check-in flags low readiness.
@@ -91,6 +102,7 @@ export default async function Home() {
         physicalTherapyLens={me.physicalTherapyLens}
         checkIn={checkIn}
         lastSession={lastSession}
+        nextWorkout={nextWorkout}
       />
     </>
   );

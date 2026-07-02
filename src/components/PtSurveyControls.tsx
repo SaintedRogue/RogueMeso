@@ -12,26 +12,34 @@ export const toggleIn = (list: string[], value: string): string[] =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
 /** Collapsible card shell shared by both check-ins: header (icon + title + "logged" chip + chevron)
- *  and a controlled body panel. `hasData` tints the icon and shows the chip; `defaultOpen` seeds
- *  the collapse state (Recovery starts closed; Session opens when nothing's logged yet). */
+ *  and a body panel. `hasData` tints the icon and shows the chip. Open state is uncontrolled by
+ *  default (`defaultOpen` seeds it); pass `open` + `onToggle` to control it externally (e.g. a
+ *  separate "View post survey" button toggling the same panel). */
 export function CheckInCard({
   title,
   hasData,
   defaultOpen = false,
+  open: controlledOpen,
+  onToggle,
   children,
 }: {
   title: string;
   hasData: boolean;
   defaultOpen?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
   children: ReactNode;
 }) {
   const panelId = useId();
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const toggle = () => (isControlled ? onToggle?.() : setInternalOpen((o) => !o));
   return (
     <div className="card overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
         aria-controls={panelId}
         className="flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors hover:text-text"

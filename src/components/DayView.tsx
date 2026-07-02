@@ -47,6 +47,7 @@ export function DayView({
   physicalTherapyLens = false,
   checkIn = null,
   lastSession = null,
+  nextWorkout = null,
 }: {
   day: ViewDay;
   meso: { key: string; name: string; weeksCount: number; unit: string };
@@ -59,6 +60,8 @@ export function DayView({
   checkIn?: SessionCheckInRow;
   /** Previous session's post symptoms, for the pre-form context. */
   lastSession?: LastSessionSummary;
+  /** Upcoming workout to advance to once this session is done (home screen only). */
+  nextWorkout?: { href: string; label: string } | null;
 }) {
   const openSets = day.exercises.reduce(
     (n, ex) => n + ex.sets.filter((s) => !DONE_STATUSES.has(s.status)).length,
@@ -130,6 +133,7 @@ export function DayView({
           dayId={day.id}
           physicalTherapyLens={physicalTherapyLens}
           postInitial={postInitial}
+          nextWorkout={nextWorkout}
         />
       )}
     </div>

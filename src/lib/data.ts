@@ -39,7 +39,7 @@ export function getMesocycles(userId: number) {
 // Shallow day list (status only) for the home screen, so we can pick the current
 // day without deep-loading every week's exercises and sets.
 const homeDays = {
-  select: { week: true, position: true, status: true, label: true },
+  select: { week: true, position: true, status: true, label: true, finishedAt: true },
   orderBy: [{ week: "asc" }, { position: "asc" }],
 } satisfies Prisma.Mesocycle$daysArgs;
 
