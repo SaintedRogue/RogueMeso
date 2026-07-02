@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { normalizeSetInput } from "@/lib/setInput";
 import { PAIN_REGIONS, PAIN_TIMINGS, ROM_OPTIONS, QUALITY_TAGS } from "@/lib/features/physicalTherapyTaxonomy";
 import { maybePostWorkoutActivity, maybePostPrActivity } from "@/lib/features/community";
 import { rolledUpDayStatus, DONE_STATUSES as DONE } from "@/lib/dayStatus";
@@ -79,6 +80,10 @@ async function recomputeRollups(dayExerciseId: number) {
 export async function logSet(setId: number, weight: number | null, reps: number | null, side?: string) {
   const me = await requireUser();
   await assertSetOwner(setId, me.id);
+  // The client validates the common cases; this guard keeps non-finite/negative/absurd
+  // values (and fractional reps, which the Int column would reject anyway) out of the DB
+  // so they can't pollute analytics, PR detection, or community posts.
+  if (!normalizeSetInput(weight, reps)) throw new Error("Invalid set values");
   // `side` (Physical Therapy Lens) is only sent when the lens is on; a normal log omits it and
   // leaves the column untouched. Only the three known values are accepted; null == bilateral.
   const normalizedSide = side === "left" || side === "right" || side === "bilateral" ? side : undefined;
