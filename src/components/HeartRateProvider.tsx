@@ -77,28 +77,52 @@ async function flush() {
   }
 }
 
+// GATT handshakes on Android can hang silently (e.g. another receiver already holds the
+// broadcast — Heart Rate Push allows only one). Cap the wait so the pill can never be
+// stuck at "Connecting…" with no way out.
+const CONNECT_TIMEOUT_MS = 15_000;
+const withTimeout = <T,>(p: Promise<T>) =>
+  Promise.race<T>([
+    p,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), CONNECT_TIMEOUT_MS)),
+  ]);
+
+// Bumped on every connect/cancel so a stale in-flight handshake (cancelled by the user,
+// or racing a newer attempt) can tell it lost and must not touch the store.
+let connectSeq = 0;
+
 async function connect() {
   const bluetooth = navigator.bluetooth;
   if (!bluetooth || state.status !== "idle") return;
+  const seq = ++connectSeq;
   patch({ status: "connecting" });
+  let picked: BluetoothDevice | null = null;
   try {
-    const picked = await bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }] });
-    const server = await picked.gatt?.connect();
-    if (!server) throw new Error("no GATT server");
-    const service = await server.getPrimaryService("heart_rate");
-    const characteristic = await service.getCharacteristic("heart_rate_measurement");
-    await characteristic.startNotifications();
+    // The chooser itself is user-paced (no timeout); only the handshake after it is capped.
+    picked = await bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }] });
+    const server = await withTimeout(picked.gatt ? picked.gatt.connect() : Promise.reject(new Error("no GATT")));
+    const service = await withTimeout(server.getPrimaryService("heart_rate"));
+    const characteristic = await withTimeout(service.getCharacteristic("heart_rate_measurement"));
+    await withTimeout(characteristic.startNotifications());
+    if (seq !== connectSeq) throw new Error("cancelled");
     characteristic.addEventListener("characteristicvaluechanged", onMeasurement);
     picked.addEventListener("gattserverdisconnected", onDisconnected);
     device = picked;
     patch({ status: "connected", deviceName: picked.name ?? "HR monitor" });
   } catch {
-    // User cancelled the chooser or the device fell over mid-handshake — back to idle.
-    patch({ status: "idle" });
+    // Cancelled chooser, timeout, cancelled attempt, or mid-handshake failure: release
+    // whatever half-open link exists so the next attempt starts clean.
+    try {
+      picked?.gatt?.disconnect();
+    } catch {
+      /* already gone */
+    }
+    if (seq === connectSeq) patch({ status: "idle" });
   }
 }
 
 function disconnect() {
+  connectSeq++; // invalidates any in-flight connect attempt
   void flush();
   try {
     device?.gatt?.disconnect();
@@ -180,14 +204,17 @@ function HrPill() {
       ) : (
         <button
           type="button"
-          onClick={doConnect}
-          disabled={hr.status === "connecting"}
-          className="card flex items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg disabled:opacity-60"
-          aria-label="Connect a Bluetooth heart rate monitor"
+          onClick={hr.status === "connecting" ? doDisconnect : doConnect}
+          className="card flex items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg"
+          aria-label={
+            hr.status === "connecting"
+              ? "Cancel connecting to heart rate monitor"
+              : "Connect a Bluetooth heart rate monitor"
+          }
         >
           <Bluetooth aria-hidden size={14} strokeWidth={2} />
           <Heart aria-hidden size={14} strokeWidth={2} />
-          {hr.status === "connecting" ? "Connecting…" : "Connect HR"}
+          {hr.status === "connecting" ? "Connecting… tap to cancel" : "Connect HR"}
         </button>
       )}
     </div>
