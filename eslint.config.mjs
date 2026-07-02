@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Zepp OS mini-app: its own ecosystem (@zos/* runtime globals, zeus bundler) — not
+    // part of the Next.js toolchain. See zepp-beacon/README.md.
+    "zepp-beacon/**",
   ]),
 ]);
 
