@@ -8,6 +8,7 @@ import { ExerciseSets } from "@/components/ExerciseSets";
 import { ExerciseInfo } from "@/components/ExerciseInfo";
 import { CompleteSession } from "@/components/CompleteSession";
 import { RecoveryCheckIn } from "@/components/RecoveryCheckIn";
+import { HrSessionBinding } from "@/components/HeartRateProvider";
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -85,6 +86,8 @@ export function DayView({
 
   return (
     <div className="space-y-4">
+      {/* An open session on screen is the live heart-rate capture target (HR pill). */}
+      {!done && day.exercises.length > 0 && <HrSessionBinding dayId={day.id} />}
       {/* Pre-workout Recovery Check-In — top of the session, until it's finished. */}
       {physicalTherapyLens && !done && day.exercises.length > 0 && (
         <RecoveryCheckIn dayId={day.id} initial={preInitial} lastSession={lastSession} />

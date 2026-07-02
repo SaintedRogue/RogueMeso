@@ -96,8 +96,16 @@ export async function logSet(setId: number, weight: number | null, reps: number 
       status: weight != null && reps != null ? "complete" : "pendingWeight",
       finishedAt: weight != null && reps != null ? new Date() : null,
     },
-    select: { dayExerciseId: true },
+    select: { dayExerciseId: true, dayExercise: { select: { dayId: true } } },
   });
+  // First logged set opens the session: stamp MesoDay.startedAt once (never overwritten,
+  // survives reopen) so heart-rate capture has a left edge to window against.
+  if (weight != null && reps != null) {
+    await prisma.mesoDay.updateMany({
+      where: { id: set.dayExercise.dayId, startedAt: null },
+      data: { startedAt: new Date() },
+    });
+  }
   const info = await recomputeRollups(set.dayExerciseId);
   if (info) {
     await postCommunityActivity(info.dayId, me.id, setId);
