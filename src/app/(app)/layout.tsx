@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 import { UpdatesPanel } from "@/components/UpdatesPanel";
 import { ForcedPasswordChange } from "@/components/ForcedPasswordChange";
+import { TimezoneCookie } from "@/components/TimezoneCookie";
 import { requireUser } from "@/lib/auth";
 import { getUpdates } from "@/lib/updates";
 
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="stagger mx-auto max-w-5xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-7 sm:px-8 sm:py-7">{children}</div>
       </main>
       <BottomBar />
+      <TimezoneCookie />
     </div>
   );
 }
