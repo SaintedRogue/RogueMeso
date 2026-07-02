@@ -4,11 +4,14 @@ import type { SetSuggestion } from "@/lib/suggestions";
 import type { PreCheckInMeta, PostCheckInMeta } from "@/lib/actions";
 import type { SessionCheckInRow, LastSessionSummary } from "@/lib/data";
 import { parseJsonArray } from "@/lib/json";
+import { HeartPulse } from "lucide-react";
+import type { SessionHrView } from "@/lib/data";
 import { ExerciseSets } from "@/components/ExerciseSets";
 import { ExerciseInfo } from "@/components/ExerciseInfo";
 import { CompleteSession } from "@/components/CompleteSession";
 import { RecoveryCheckIn } from "@/components/RecoveryCheckIn";
 import { HrSessionBinding } from "@/components/HeartRateProvider";
+import { SessionHrChart } from "@/components/charts/SessionHrChart";
 
 // Structural types (subset of the Prisma payload) this view needs.
 export type ViewSet = {
@@ -49,6 +52,7 @@ export function DayView({
   checkIn = null,
   lastSession = null,
   nextWorkout = null,
+  hr = null,
 }: {
   day: ViewDay;
   meso: { key: string; name: string; weeksCount: number; unit: string };
@@ -63,6 +67,8 @@ export function DayView({
   lastSession?: LastSessionSummary;
   /** Upcoming workout to advance to once this session is done (home screen only). */
   nextWorkout?: { href: string; label: string } | null;
+  /** Captured heart-rate for this session (live BLE capture), when meaningful. */
+  hr?: SessionHrView | null;
 }) {
   const openSets = day.exercises.reduce(
     (n, ex) => n + ex.sets.filter((s) => !DONE_STATUSES.has(s.status)).length,
@@ -128,6 +134,33 @@ export function DayView({
           </div>
         );
       })}
+      {/* Session heart rate — appears once live capture has recorded ≥ a minute. */}
+      {hr && (
+        <div className="card p-4">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <HeartPulse aria-hidden size={16} className="text-accent" />
+              <h2 className="text-sm font-semibold">Heart rate</h2>
+              <span className="text-xs text-muted">via BLE monitor</span>
+            </div>
+            <div className="flex gap-4 text-sm font-semibold tabular-nums">
+              <span><span className="mr-1 text-xs font-normal text-muted">avg</span>{hr.stats.avgBpm}</span>
+              <span><span className="mr-1 text-xs font-normal text-muted">max</span>{hr.stats.maxBpm}</span>
+              <span>
+                <span className="mr-1 text-xs font-normal text-muted">Zone 3+</span>
+                {Math.round((hr.stats.zoneSeconds[3] + hr.stats.zoneSeconds[4] + hr.stats.zoneSeconds[5]) / 60)} min
+              </span>
+            </div>
+          </div>
+          <SessionHrChart points={hr.points} markers={hr.markers} maxHr={hr.maxHr} />
+          <p className="mt-2 text-xs text-muted">
+            Dashed lines mark logged sets.
+            {hr.recoveryDrop != null && (
+              <> Between-sets recovery: heart rate drops <span className="font-semibold text-text">{hr.recoveryDrop} bpm</span> on average within 90s of a set.</>
+            )}
+          </p>
+        </div>
+      )}
       {day.exercises.length > 0 && (
         <CompleteSession
           mesoKey={meso.key}
