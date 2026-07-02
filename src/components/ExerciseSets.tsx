@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SetLogger } from "@/components/SetLogger";
+import { useRestTimer } from "@/components/RestTimerProvider";
 import { addSet, removeSet } from "@/lib/setActions";
 import type { ViewSet } from "@/components/DayView";
 import type { SetSuggestion } from "@/lib/suggestions";
@@ -26,6 +27,8 @@ export function ExerciseSets({
   dayExerciseId,
   suggestions = {},
   physicalTherapyLens = false,
+  exerciseName = "",
+  exerciseType = null,
 }: {
   sets: ViewSet[];
   targetRir: number | null;
@@ -34,6 +37,10 @@ export function ExerciseSets({
   suggestions?: Record<number, SetSuggestion>;
   /** Physical Therapy Lens: reveal a per-set Left/Both/Right control (persisted on log). */
   physicalTherapyLens?: boolean;
+  /** Shown on the rest-timer pill after a set is logged. */
+  exerciseName?: string;
+  /** Drives the rest duration (barbell rests longer than a machine). */
+  exerciseType?: string | null;
 }) {
   // Seed each field: a logged value wins, else the last-week suggestion, else empty.
   const [weights, setWeights] = useState<Record<number, string>>(() =>
@@ -57,6 +64,9 @@ export function ExerciseSets({
   const [sides, setSides] = useState<Record<number, string>>(() =>
     Object.fromEntries(sets.map((s) => [s.id, s.side ?? "bilateral"])),
   );
+
+  // Auto-start the between-sets rest countdown whenever a set is logged.
+  const restTimer = useRestTimer();
 
   // Touching a field locks it in: it's the user's value now, not a suggestion.
   const confirm = (id: number) =>
@@ -105,7 +115,10 @@ export function ExerciseSets({
           suggested={suggestedIds.has(s.id)}
           onWeightChange={(v) => setWeight(s.id, v)}
           onRepsChange={(v) => setRepsFor(s.id, v)}
-          onLogged={() => fillNext(i)}
+          onLogged={() => {
+            fillNext(i);
+            restTimer.start(exerciseType, exerciseName);
+          }}
           onAdd={(scope) => addSet(dayExerciseId, scope)}
           canRemove={sets.length > 1}
           onRemove={(scope) => removeSet(s.id, scope)}

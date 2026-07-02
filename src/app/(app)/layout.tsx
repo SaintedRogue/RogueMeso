@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { UpdatesPanel } from "@/components/UpdatesPanel";
 import { ForcedPasswordChange } from "@/components/ForcedPasswordChange";
 import { TimezoneCookie } from "@/components/TimezoneCookie";
+import { RestTimerProvider } from "@/components/RestTimerProvider";
 import { requireUser } from "@/lib/auth";
 import { getUpdates } from "@/lib/updates";
 
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (user.mustChangePassword) return <ForcedPasswordChange name={user.name ?? user.email} />;
   const updates = await getUpdates();
   return (
+    <RestTimerProvider>
     <div className="flex min-h-screen">
       {/* sticky + h-dvh keeps the rail viewport-height so its footer stays pinned to
           the bottom of the screen — only <main> scrolls, not the whole row. */}
@@ -39,5 +41,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <BottomBar />
       <TimezoneCookie />
     </div>
+    </RestTimerProvider>
   );
 }

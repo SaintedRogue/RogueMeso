@@ -119,6 +119,8 @@ export function DayView({
               dayExerciseId={ex.id}
               suggestions={suggestions}
               physicalTherapyLens={physicalTherapyLens}
+              exerciseName={ex.exercise?.name ?? "—"}
+              exerciseType={ex.exercise?.exerciseType ?? null}
             />
           </div>
         );
