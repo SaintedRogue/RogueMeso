@@ -1,0 +1,13 @@
+{
+  "name": "roguemeso-beacon",
+  "version": "0.1.0",
+  "description": "Zepp OS mini-app spike: watch -> Side Service -> RogueMeso ping",
+  "main": "app.js",
+  "private": true,
+  "dependencies": {
+    "@zeppos/zml": "^0.0.9"
+  },
+  "devDependencies": {
+    "@zeppos/device-types": "^3.0.0"
+  }
+}

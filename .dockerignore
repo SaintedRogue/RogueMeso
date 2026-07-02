@@ -21,6 +21,9 @@ vitest.config.ts
 **/*.test.ts
 tsconfig.tsbuildinfo
 
+# Zepp OS mini-app — built with zeus, never part of the web image
+zepp-beacon
+
 # Editor / OS noise
 .vscode
 .idea
