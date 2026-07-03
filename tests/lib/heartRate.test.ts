@@ -6,6 +6,8 @@ import {
   sanitizeBpm,
   sanitizeBatch,
   appendSample,
+  reconnectDelayMs,
+  pushEvent,
   HR_MAX_BUFFER,
   HR_MAX_BATCH,
   type HrSamplePoint,
@@ -131,6 +133,34 @@ describe("sanitizeBatch", () => {
     const rows = sanitizeBatch(batch, NOW);
     expect(rows).toHaveLength(HR_MAX_BATCH);
     expect(rows.some((r) => r.at === NOW)).toBe(true); // newest survived
+  });
+});
+
+describe("reconnectDelayMs", () => {
+  it("backs off exponentially from 1s and caps at 15s", () => {
+    expect(reconnectDelayMs(0)).toBe(1000);
+    expect(reconnectDelayMs(1)).toBe(2000);
+    expect(reconnectDelayMs(2)).toBe(4000);
+    expect(reconnectDelayMs(3)).toBe(8000);
+    expect(reconnectDelayMs(4)).toBe(15000);
+    expect(reconnectDelayMs(9)).toBe(15000);
+  });
+});
+
+describe("pushEvent", () => {
+  it("appends and returns a new array (store-snapshot friendly)", () => {
+    const a: { at: number; step: string }[] = [];
+    const b = pushEvent(a, { at: 1, step: "x" });
+    expect(a).toHaveLength(0);
+    expect(b.map((e) => e.step)).toEqual(["x"]);
+  });
+
+  it("drops the oldest beyond the cap", () => {
+    let list: { at: number; step: string }[] = [];
+    for (let i = 0; i < 60; i++) list = pushEvent(list, { at: i, step: `e${i}` }, 50);
+    expect(list).toHaveLength(50);
+    expect(list[0].step).toBe("e10");
+    expect(list[49].step).toBe("e59");
   });
 });
 

@@ -1,38 +1,66 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
-import { Bluetooth, Heart, X } from "lucide-react";
+import { Bluetooth, Heart, Info, X } from "lucide-react";
 import {
   appendSample,
   parseHeartRateMeasurement,
+  pushEvent,
+  reconnectDelayMs,
   sanitizeBpm,
   zoneFor,
   HR_FLUSH_INTERVAL_MS,
+  type HrDiagEvent,
   type HrSamplePoint,
 } from "@/lib/heartRate";
-import { logHrBatch } from "@/lib/hrActions";
+import { logHrBatch, logHrDiag } from "@/lib/hrActions";
 
 // Live heart rate over Web Bluetooth (standard GATT Heart Rate service, 0x180D) — works
 // with any broadcasting wearable: chest straps natively, Amazfit "Heart Rate Push",
 // Whoop/Garmin broadcast modes. Chromium-only; the UI feature-detects and stays hidden
 // elsewhere. Like the rest timer, an in-memory module store read through
-// useSyncExternalStore is the single source of truth — but unlike it, nothing persists:
-// a BLE connection can't survive a reload, so there's no localStorage to restore.
+// useSyncExternalStore is the single source of truth.
+//
+// Resilience (BLE on Android is moody):
+//  - handshake steps are retried once, and each step is capped at 15s (no stuck pill);
+//  - a drop triggers auto-reconnect with exponential backoff to the SAME device (no
+//    chooser round-trip) — Heart Rate Push blips become a few seconds of gap;
+//  - a screen wake lock is held while connected: Android suspending the screen is the
+//    classic silent link-killer mid-workout;
+//  - previously-granted devices (getDevices, where supported) reconnect with one tap.
+// Every lifecycle event lands in a diagnostics log — visible from the pill's ⓘ and
+// mirrored server-side (logHrDiag) so flaky sessions can be reconstructed remotely.
 
-type HrStatus = "idle" | "connecting" | "connected";
+type HrStatus = "idle" | "connecting" | "connected" | "reconnecting";
 type HrState = {
   status: HrStatus;
   bpm: number | null;
   deviceName: string | null;
+  /** A previously-granted device we can offer to reconnect to without the chooser. */
+  knownDeviceName: string | null;
   /** The session (MesoDay) currently on screen — samples are only captured while set. */
   dayId: number | null;
+  /** Diagnostics ring buffer (also mirrored to the server). */
+  events: HrDiagEvent[];
+  showDiag: boolean;
 };
 
-const IDLE: HrState = { status: "idle", bpm: null, deviceName: null, dayId: null };
+const IDLE: HrState = {
+  status: "idle",
+  bpm: null,
+  deviceName: null,
+  knownDeviceName: null,
+  dayId: null,
+  events: [],
+  showDiag: false,
+};
 
 let state: HrState = IDLE;
 let buffer: HrSamplePoint[] = [];
 let device: BluetoothDevice | null = null;
+let wakeLock: { release(): Promise<void> } | null = null;
+let diagQueue: HrDiagEvent[] = [];
+let diagTimer: ReturnType<typeof setTimeout> | null = null;
 
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -49,6 +77,23 @@ function patch(next: Partial<HrState>) {
   emit();
 }
 
+/** Record a lifecycle event: store (for the ⓘ panel), console, and a batched server mirror. */
+function diag(step: string, detail?: string) {
+  const event: HrDiagEvent = { at: Date.now(), step, ...(detail ? { detail } : {}) };
+  patch({ events: pushEvent(state.events, event) });
+  console.debug(`[hr] ${step}`, detail ?? "");
+  diagQueue = pushEvent(diagQueue, event, 30);
+  diagTimer ??= setTimeout(() => {
+    const batch = diagQueue;
+    diagQueue = [];
+    diagTimer = null;
+    logHrDiag(batch).catch(() => {});
+  }, 5000);
+}
+
+const errText = (e: unknown) =>
+  e instanceof Error ? `${e.name}: ${e.message}`.slice(0, 200) : String(e).slice(0, 200);
+
 function onMeasurement(ev: Event) {
   const value = (ev.target as BluetoothRemoteGATTCharacteristic).value;
   if (!value) return;
@@ -59,11 +104,6 @@ function onMeasurement(ev: Event) {
   patch({ bpm });
 }
 
-function onDisconnected() {
-  device = null;
-  patch({ status: "idle", bpm: null, deviceName: null });
-}
-
 /** Send buffered samples to the server; on failure put them back for the next attempt. */
 async function flush() {
   const dayId = state.dayId;
@@ -72,46 +112,97 @@ async function flush() {
   buffer = [];
   try {
     await logHrBatch(dayId, batch);
-  } catch {
+  } catch (e) {
     buffer = [...batch, ...buffer];
+    diag("flush failed — will retry", errText(e));
   }
 }
 
-// GATT handshakes on Android can hang silently (e.g. another receiver already holds the
-// broadcast — Heart Rate Push allows only one). Cap the wait so the pill can never be
-// stuck at "Connecting…" with no way out.
-const CONNECT_TIMEOUT_MS = 15_000;
+// Screen wake lock: Android suspending the display is the top cause of mid-set drops.
+async function acquireWakeLock() {
+  try {
+    const nav = navigator as Navigator & { wakeLock?: { request(type: "screen"): Promise<{ release(): Promise<void> }> } };
+    if (!nav.wakeLock || wakeLock) return;
+    wakeLock = await nav.wakeLock.request("screen");
+    diag("wake lock acquired");
+  } catch (e) {
+    diag("wake lock unavailable", errText(e));
+  }
+}
+async function releaseWakeLock() {
+  try {
+    await wakeLock?.release();
+  } catch {
+    /* already released */
+  }
+  wakeLock = null;
+}
+
+// Bumped on every connect/cancel so a stale in-flight attempt can tell it lost.
+let connectSeq = 0;
+
+// GATT handshakes on Android can hang silently; cap each step so the pill can't stick.
+const STEP_TIMEOUT_MS = 15_000;
 const withTimeout = <T,>(p: Promise<T>) =>
   Promise.race<T>([
     p,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), CONNECT_TIMEOUT_MS)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), STEP_TIMEOUT_MS)),
   ]);
 
-// Bumped on every connect/cancel so a stale in-flight handshake (cancelled by the user,
-// or racing a newer attempt) can tell it lost and must not touch the store.
-let connectSeq = 0;
+/** Connect GATT + subscribe to HR notifications on `target`. Throws on any failure. */
+async function subscribeHr(target: BluetoothDevice, seq: number) {
+  if (!target.gatt) throw new Error("no GATT on device");
+  diag("gatt connect…");
+  const server = await withTimeout(target.gatt.connect());
+  diag("service lookup…");
+  const service = await withTimeout(server.getPrimaryService("heart_rate"));
+  const characteristic = await withTimeout(service.getCharacteristic("heart_rate_measurement"));
+  await withTimeout(characteristic.startNotifications());
+  if (seq !== connectSeq) throw new Error("cancelled");
+  characteristic.addEventListener("characteristicvaluechanged", onMeasurement);
+  target.addEventListener("gattserverdisconnected", onDisconnected);
+  device = target;
+  diag("notifications on", target.name ?? undefined);
+}
 
-async function connect() {
+/** Full connect for a chosen device, with one automatic retry (first attempts are flaky). */
+async function establish(target: BluetoothDevice, seq: number) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await subscribeHr(target, seq);
+      return;
+    } catch (e) {
+      if (seq !== connectSeq || attempt >= 1) throw e;
+      diag("handshake failed — retrying once", errText(e));
+      try {
+        target.gatt?.disconnect();
+      } catch {
+        /* half-open */
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+
+async function connect(known?: BluetoothDevice) {
   const bluetooth = navigator.bluetooth;
-  if (!bluetooth || state.status !== "idle") return;
+  if (!bluetooth || (state.status !== "idle" && state.status !== "reconnecting")) return;
   const seq = ++connectSeq;
   patch({ status: "connecting" });
-  let picked: BluetoothDevice | null = null;
+  let picked: BluetoothDevice | null = known ?? null;
   try {
-    // The chooser itself is user-paced (no timeout); only the handshake after it is capped.
-    picked = await bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }] });
-    const server = await withTimeout(picked.gatt ? picked.gatt.connect() : Promise.reject(new Error("no GATT")));
-    const service = await withTimeout(server.getPrimaryService("heart_rate"));
-    const characteristic = await withTimeout(service.getCharacteristic("heart_rate_measurement"));
-    await withTimeout(characteristic.startNotifications());
-    if (seq !== connectSeq) throw new Error("cancelled");
-    characteristic.addEventListener("characteristicvaluechanged", onMeasurement);
-    picked.addEventListener("gattserverdisconnected", onDisconnected);
-    device = picked;
-    patch({ status: "connected", deviceName: picked.name ?? "HR monitor" });
-  } catch {
-    // Cancelled chooser, timeout, cancelled attempt, or mid-handshake failure: release
-    // whatever half-open link exists so the next attempt starts clean.
+    if (!picked) {
+      diag("opening device chooser");
+      picked = await bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }] });
+      diag("device chosen", picked.name ?? "(unnamed)");
+    } else {
+      diag("reconnecting to remembered device", picked.name ?? undefined);
+    }
+    await establish(picked, seq);
+    patch({ status: "connected", deviceName: picked.name ?? "HR monitor", knownDeviceName: null });
+    void acquireWakeLock();
+  } catch (e) {
+    diag("connect failed", errText(e));
     try {
       picked?.gatt?.disconnect();
     } catch {
@@ -121,15 +212,53 @@ async function connect() {
   }
 }
 
+/** Unplanned drop: try to get back to the same device without bothering the user. */
+function onDisconnected() {
+  const dropped = device;
+  device = null;
+  if (!dropped || state.status !== "connected") {
+    patch({ status: "idle", bpm: null, deviceName: null });
+    return;
+  }
+  diag("link dropped — auto-reconnecting");
+  const seq = ++connectSeq;
+  patch({ status: "reconnecting", bpm: null });
+  void (async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise((r) => setTimeout(r, reconnectDelayMs(attempt)));
+      if (seq !== connectSeq) return;
+      diag(`reconnect attempt ${attempt + 1}/5`);
+      try {
+        await establish(dropped, seq);
+        patch({ status: "connected", deviceName: dropped.name ?? "HR monitor" });
+        void acquireWakeLock();
+        diag("reconnected");
+        return;
+      } catch (e) {
+        diag("reconnect attempt failed", errText(e));
+      }
+    }
+    if (seq === connectSeq) {
+      diag("gave up reconnecting");
+      void flush();
+      void releaseWakeLock();
+      patch({ status: "idle", deviceName: null });
+    }
+  })();
+}
+
 function disconnect() {
-  connectSeq++; // invalidates any in-flight connect attempt
+  connectSeq++; // invalidates any in-flight connect/reconnect attempt
+  diag("disconnected by user");
   void flush();
+  void releaseWakeLock();
   try {
     device?.gatt?.disconnect();
   } catch {
     /* already gone */
   }
-  onDisconnected();
+  device = null;
+  patch({ status: "idle", bpm: null, deviceName: null });
 }
 
 function setDay(dayId: number | null) {
@@ -139,14 +268,32 @@ function setDay(dayId: number | null) {
   patch({ dayId });
 }
 
+/** Where supported, surface a previously-granted device for one-tap reconnect. */
+async function findKnownDevice(): Promise<BluetoothDevice | null> {
+  try {
+    const bt = navigator.bluetooth as Bluetooth & { getDevices?: () => Promise<BluetoothDevice[]> };
+    const devices = (await bt.getDevices?.()) ?? [];
+    return devices[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 type HeartRateContext = {
   state: HrState;
   maxHr: number;
   connect: () => void;
   disconnect: () => void;
+  toggleDiag: () => void;
 };
 
-const Ctx = createContext<HeartRateContext>({ state: IDLE, maxHr: 190, connect: () => {}, disconnect: () => {} });
+const Ctx = createContext<HeartRateContext>({
+  state: IDLE,
+  maxHr: 190,
+  connect: () => {},
+  disconnect: () => {},
+  toggleDiag: () => {},
+});
 export const useHeartRate = () => useContext(Ctx);
 
 /** Rendered by DayView: marks its session as the live-capture target while on screen. */
@@ -168,55 +315,84 @@ const ZONE_VARS: Record<number, string> = {
   5: "var(--color-bad)",
 };
 
+const fmtEventTime = (at: number) =>
+  new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+
 function HrPill() {
-  const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect } = useHeartRate();
-  // false on the server and during hydration, so SSR and first client paint agree; flips
-  // true right after — the standard mounted gate, via the store to satisfy the lint rule.
+  const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
+  // false on the server and during hydration, so SSR and first client paint agree.
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
   if (!hydrated || typeof navigator === "undefined" || !navigator.bluetooth) return null;
-  // Idle with no session on screen: nothing to offer — stay out of the way.
   if (hr.status === "idle" && hr.dayId == null) return null;
 
   const zone = hr.bpm != null ? zoneFor(hr.bpm, maxHr) : null;
+  const busy = hr.status === "connecting" || hr.status === "reconnecting";
 
   return (
     <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-4 z-[90] sm:bottom-20 sm:left-auto sm:right-6">
-      {hr.status === "connected" ? (
-        <div className="card flex items-center gap-2 px-3 py-2 shadow-lg">
-          <Heart aria-hidden size={14} strokeWidth={2} className="text-accent motion-safe:animate-pulse" fill="currentColor" />
-          <span className="num text-sm font-semibold tabular-nums" aria-label={`Heart rate ${hr.bpm ?? "unknown"} beats per minute`}>
-            {hr.bpm ?? "—"}
-          </span>
-          <span className="text-xs text-muted">bpm</span>
-          {zone != null && zone > 0 && (
-            <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-              style={{ color: ZONE_VARS[zone], background: `color-mix(in oklab, ${ZONE_VARS[zone]} 14%, transparent)` }}
-              aria-label={`Training zone ${zone}`}
-            >
-              Z{zone}
-            </span>
-          )}
-          <button type="button" onClick={doDisconnect} className="chip chip-nav" aria-label="Disconnect heart rate monitor">
-            <X aria-hidden size={14} />
-          </button>
+      {hr.showDiag && (
+        <div className="card mb-2 max-h-48 w-72 overflow-y-auto p-3 text-xs shadow-lg">
+          <div className="mb-1 font-semibold">HR connection log</div>
+          {hr.events.length === 0 && <div className="text-muted">No events yet.</div>}
+          {[...hr.events].reverse().map((e, i) => (
+            <div key={`${e.at}-${i}`} className="border-t border-line py-1 first:border-t-0">
+              <span className="num mr-2 tabular-nums text-muted">{fmtEventTime(e.at)}</span>
+              {e.step}
+              {e.detail && <div className="truncate text-muted">{e.detail}</div>}
+            </div>
+          ))}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={hr.status === "connecting" ? doDisconnect : doConnect}
-          className="card flex items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg"
-          aria-label={
-            hr.status === "connecting"
-              ? "Cancel connecting to heart rate monitor"
-              : "Connect a Bluetooth heart rate monitor"
-          }
-        >
-          <Bluetooth aria-hidden size={14} strokeWidth={2} />
-          <Heart aria-hidden size={14} strokeWidth={2} />
-          {hr.status === "connecting" ? "Connecting… tap to cancel" : "Connect HR"}
-        </button>
       )}
+      <div className="flex items-center gap-2">
+        {hr.status === "connected" ? (
+          <div className="card flex items-center gap-2 px-3 py-2 shadow-lg">
+            <Heart aria-hidden size={14} strokeWidth={2} className="text-accent motion-safe:animate-pulse" fill="currentColor" />
+            <span className="num text-sm font-semibold tabular-nums" aria-label={`Heart rate ${hr.bpm ?? "unknown"} beats per minute`}>
+              {hr.bpm ?? "—"}
+            </span>
+            <span className="text-xs text-muted">bpm</span>
+            {zone != null && zone > 0 && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                style={{ color: ZONE_VARS[zone], background: `color-mix(in oklab, ${ZONE_VARS[zone]} 14%, transparent)` }}
+                aria-label={`Training zone ${zone}`}
+              >
+                Z{zone}
+              </span>
+            )}
+            <button type="button" onClick={toggleDiag} className="chip chip-nav" aria-label="Show heart rate connection log">
+              <Info aria-hidden size={14} />
+            </button>
+            <button type="button" onClick={doDisconnect} className="chip chip-nav" aria-label="Disconnect heart rate monitor">
+              <X aria-hidden size={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="card flex items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg">
+            <button
+              type="button"
+              onClick={busy ? doDisconnect : doConnect}
+              className="flex items-center gap-2"
+              aria-label={
+                busy ? "Cancel connecting to heart rate monitor" : "Connect a Bluetooth heart rate monitor"
+              }
+            >
+              <Bluetooth aria-hidden size={14} strokeWidth={2} />
+              <Heart aria-hidden size={14} strokeWidth={2} />
+              {hr.status === "reconnecting"
+                ? "Reconnecting… tap to stop"
+                : hr.status === "connecting"
+                  ? "Connecting… tap to cancel"
+                  : hr.knownDeviceName
+                    ? `Reconnect ${hr.knownDeviceName}`
+                    : "Connect HR"}
+            </button>
+            <button type="button" onClick={toggleDiag} className="chip chip-nav" aria-label="Show heart rate connection log">
+              <Info aria-hidden size={14} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -224,26 +400,46 @@ function HrPill() {
 export function HeartRateProvider({ maxHr, children }: { maxHr: number; children: React.ReactNode }) {
   const hr = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  // Flush cadence while capturing; also flush when the tab hides (pocketed phone) so a
-  // dropped connection loses seconds, not the session.
+  // Offer one-tap reconnect to a previously-granted device (Chromium getDevices).
   useEffect(() => {
-    if (hr.status !== "connected" || hr.dayId == null) return;
-    const id = setInterval(() => void flush(), HR_FLUSH_INTERVAL_MS);
-    const onHide = () => {
-      if (document.visibilityState === "hidden") void flush();
+    if (hr.status !== "idle" || hr.dayId == null || hr.knownDeviceName) return;
+    let stale = false;
+    void findKnownDevice().then((d) => {
+      if (!stale && d?.name && state.status === "idle") patch({ knownDeviceName: d.name });
+    });
+    return () => {
+      stale = true;
     };
-    document.addEventListener("visibilitychange", onHide);
+  }, [hr.status, hr.dayId, hr.knownDeviceName]);
+
+  // Flush cadence while capturing; on tab-hide flush AND re-acquire the wake lock when
+  // the tab returns (the OS silently releases wake locks on visibility change).
+  useEffect(() => {
+    if (hr.status !== "connected") return;
+    const id = setInterval(() => void flush(), HR_FLUSH_INTERVAL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") void flush();
+      else void acquireWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(id);
-      document.removeEventListener("visibilitychange", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [hr.status, hr.dayId]);
+  }, [hr.status]);
 
-  const doConnect = useCallback(() => void connect(), []);
+  const doConnect = useCallback(() => {
+    // Prefer the remembered device when we have one; fall back to the chooser.
+    void (async () => {
+      const known = state.knownDeviceName ? await findKnownDevice() : null;
+      void connect(known ?? undefined);
+    })();
+  }, []);
   const doDisconnect = useCallback(() => disconnect(), []);
+  const toggleDiag = useCallback(() => patch({ showDiag: !state.showDiag }), []);
 
   return (
-    <Ctx.Provider value={{ state: hr, maxHr, connect: doConnect, disconnect: doDisconnect }}>
+    <Ctx.Provider value={{ state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag }}>
       {children}
       <HrPill />
     </Ctx.Provider>
