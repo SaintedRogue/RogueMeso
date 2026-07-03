@@ -160,6 +160,8 @@ async function subscribeHr(target: BluetoothDevice, seq: number) {
   await withTimeout(characteristic.startNotifications());
   if (seq !== connectSeq) throw new Error("cancelled");
   characteristic.addEventListener("characteristicvaluechanged", onMeasurement);
+  // Idempotent: a reconnect re-subscribes the same device; never stack duplicate listeners.
+  target.removeEventListener("gattserverdisconnected", onDisconnected);
   target.addEventListener("gattserverdisconnected", onDisconnected);
   device = target;
   diag("notifications on", target.name ?? undefined);
@@ -252,12 +254,19 @@ function disconnect() {
   diag("disconnected by user");
   void flush();
   void releaseWakeLock();
-  try {
-    device?.gatt?.disconnect();
-  } catch {
-    /* already gone */
-  }
+  // Detach the drop listener and clear `device` BEFORE severing the link: the
+  // gattserverdisconnected event can fire synchronously mid-call, and an intentional
+  // disconnect must never spawn the auto-reconnect loop (field bug, 2026-07-02 diag).
+  const dropped = device;
   device = null;
+  if (dropped) {
+    dropped.removeEventListener("gattserverdisconnected", onDisconnected);
+    try {
+      dropped.gatt?.disconnect();
+    } catch {
+      /* already gone */
+    }
+  }
   patch({ status: "idle", bpm: null, deviceName: null });
 }
 
@@ -333,6 +342,11 @@ function HrPill() {
       {hr.showDiag && (
         <div className="card mb-2 max-h-48 w-72 overflow-y-auto p-3 text-xs shadow-lg">
           <div className="mb-1 font-semibold">HR connection log</div>
+          <p className="mb-2 border-b border-line pb-2 text-muted">
+            Watch missing from the chooser? Its broadcast hides while the Zepp app holds the
+            link — toggle phone Bluetooth off/on, connect here first, and Zepp will re-attach
+            alongside afterwards.
+          </p>
           {hr.events.length === 0 && <div className="text-muted">No events yet.</div>}
           {[...hr.events].reverse().map((e, i) => (
             <div key={`${e.at}-${i}`} className="border-t border-line py-1 first:border-t-0">
