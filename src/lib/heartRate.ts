@@ -101,6 +101,35 @@ export function sanitizeBatch(samples: HrSamplePoint[], now: number): HrSamplePo
   return clean.slice(clean.length - HR_MAX_BATCH);
 }
 
+/** Ignore watch-clock drift below this; beyond it, correct every sample (spec §5). */
+const SKEW_TOLERANCE_MS = 5000;
+
+/**
+ * Per-batch clock correction for the on-watch recorder: how far to shift the watch's
+ * timestamps onto server time. Small disagreements (network transit, honest jitter)
+ * pass through untouched; real drift gets corrected so set markers still line up.
+ */
+export function clockSkewMs(watchNow: number | undefined, serverNow: number): number {
+  if (watchNow == null || !Number.isFinite(watchNow)) return 0;
+  const skew = serverNow - watchNow;
+  return Math.abs(skew) <= SKEW_TOLERANCE_MS ? 0 : skew;
+}
+
+/**
+ * Expand the recorder's compact batch — `t0` epoch ms + `[secondsSinceT0, bpm]` pairs
+ * (BLE-payload economy) — into timestamped samples, applying the skew correction.
+ * Malformed pairs are dropped; bpm plausibility is sanitizeBatch's job downstream.
+ */
+export function decodeHrBatch(t0: number, s: [number, number][], skewMs: number): HrSamplePoint[] {
+  if (!Array.isArray(s) || !Number.isFinite(t0)) return [];
+  return s.flatMap((pair) => {
+    if (!Array.isArray(pair) || pair.length < 2) return [];
+    const [sec, bpm] = pair;
+    if (!Number.isFinite(sec) || !Number.isFinite(bpm)) return [];
+    return [{ at: t0 + sec * 1000 + skewMs, bpm }];
+  });
+}
+
 /** Exponential reconnect backoff: 1s, 2s, 4s, 8s, then 15s forever. */
 export function reconnectDelayMs(attempt: number): number {
   return Math.min(15_000, 1000 * 2 ** attempt);

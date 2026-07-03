@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseJsonArray } from "@/lib/json";
 import { rirForWeek } from "@/lib/progression";
 import { maxHrFor } from "@/lib/heartRate";
-import { downsampleHr, hrSessionStats, setRecoveryDrop, type HrSessionStats } from "@/lib/features/hrInsights";
+import { downsampleHr, hrSessionStats, mergePerSecond, setRecoveryDrop, type HrSessionStats } from "@/lib/features/hrInsights";
 import {
   buildSetSuggestions,
   buildBodyweightSeeds,
@@ -296,23 +296,43 @@ export type SessionHrView = {
   maxHr: number;
 };
 
+/** How far beyond the session's own bounds recorder samples still count as "this session". */
+const HR_WINDOW_SLACK_MS = 15 * 60_000;
+
 /**
  * Everything the session heart-rate card needs, or null when the day has no meaningful
- * capture (< 60 samples ≈ a minute — less renders as noise, not insight). Samples come
- * from live Web Bluetooth capture (HeartRateProvider → logHrBatch); markers are the
- * day's logged sets so the chart can show HR against the actual work.
+ * capture (< 60 samples ≈ a minute — less renders as noise, not insight). Two sources
+ * merge here (recorder spec §1/§6): live Web Bluetooth rows carry the dayId directly;
+ * on-watch recorder rows are day-agnostic and match by time window around the session
+ * (startedAt − 15 min … finishedAt|now + 15 min). Same-second duplicates collapse.
  */
 export async function getSessionHrView(
   dayId: number,
   user: { id: number; birthDate: Date | null },
 ): Promise<SessionHrView | null> {
+  const day = await prisma.mesoDay.findUnique({
+    where: { id: dayId },
+    select: { startedAt: true, finishedAt: true },
+  });
+  const windowed =
+    day?.startedAt != null
+      ? [
+          {
+            dayId: null,
+            at: {
+              gte: new Date(day.startedAt.getTime() - HR_WINDOW_SLACK_MS),
+              lte: new Date((day.finishedAt ?? new Date()).getTime() + HR_WINDOW_SLACK_MS),
+            },
+          },
+        ]
+      : [];
   const samples = await prisma.hrSample.findMany({
-    where: { dayId, userId: user.id },
+    where: { userId: user.id, OR: [{ dayId }, ...windowed] },
     orderBy: { at: "asc" },
     select: { at: true, bpm: true },
   });
   if (samples.length < 60) return null;
-  const raw = samples.map((s) => ({ ts: s.at.getTime(), bpm: s.bpm }));
+  const raw = mergePerSecond(samples.map((s) => ({ ts: s.at.getTime(), bpm: s.bpm })));
   const maxHr = maxHrFor(user.birthDate, new Date());
   const stats = hrSessionStats(raw, maxHr);
   if (!stats) return null;

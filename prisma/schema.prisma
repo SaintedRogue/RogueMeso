@@ -80,6 +80,10 @@ model User {
   // acknowledged. null = never seen the panel; baselined to the current version on first
   // load so a user only ever sees changes shipped *after* they started using it.
   lastSeenVersion String?
+  // Wearables: sha256 of this user's beacon token (the credential the Zepp mini-app
+  // presents to /api/wearables/zepp). Plaintext is shown once at generation and never
+  // stored; null = no wearable paired. Regenerating/revoking replaces/clears the hash.
+  zeppTokenHash String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -299,9 +303,12 @@ model HrSample {
   id     Int      @id @default(autoincrement())
   userId Int
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dayId  Int
-  day    MesoDay  @relation(fields: [dayId], references: [id], onDelete: Cascade)
-  at     DateTime // reading time (client clock, validated server-side)
+  // Nullable by design (recorder spec §1): rows from the on-watch recorder are
+  // day-agnostic and get matched to a session at read time by time window; rows from
+  // live browser capture keep the direct day link.
+  dayId  Int?
+  day    MesoDay? @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  at     DateTime // reading time (client clock, validated/skew-corrected server-side)
   bpm    Int
 
   @@index([dayId, at])

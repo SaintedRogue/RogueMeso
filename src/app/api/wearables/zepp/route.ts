@@ -1,11 +1,14 @@
-// Ping receiver for the Zepp OS beacon spike (zepp-beacon/). Unlike every other route,
-// the caller is NOT a browser with a session cookie — it's the mini-app's Side Service
-// fetch()-ing from inside the Zepp phone app — so auth is a bearer token checked against
-// the ZEPP_BEACON_TOKEN env var (set it in the container env to enable; unset = 503,
-// the route is dark). The spike only logs + echoes; no DB writes until the real beacon.
-import { createHash, timingSafeEqual } from "node:crypto";
+// Receiver for the Zepp OS mini-app (zepp-beacon/): pings from the spike and, as of
+// recorder R1, HR sample batches from the on-watch recorder. The caller is the
+// mini-app's Side Service fetch()-ing from inside the Zepp phone app — no session
+// cookie — so auth is a per-user bearer token: the presented token's sha256 is looked
+// up in User.zeppTokenHash (generated/revoked in Profile → Wearables, shown once).
+// Design: docs/superpowers/specs/2026-07-02-hr-recorder-design.md
 import { NextResponse, type NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { RateLimiter } from "@/lib/rateLimit";
+import { hashBeaconToken } from "@/lib/wearableTokens";
+import { clockSkewMs, decodeHrBatch, sanitizeBatch } from "@/lib/heartRate";
 
 // Generous for one household, hostile to guessing: 20 bad tokens in 10 min locks 30 min.
 const limiter = new RateLimiter({
@@ -15,17 +18,7 @@ const limiter = new RateLimiter({
   maxLockoutMs: 6 * 60 * 60_000,
 });
 
-const sha256 = (s: string) => createHash("sha256").update(s).digest();
-
-function tokenMatches(presented: string, expected: string) {
-  // Hash both sides so the comparison is constant-time regardless of length.
-  return timingSafeEqual(sha256(presented), sha256(expected));
-}
-
 export async function POST(req: NextRequest) {
-  const expected = process.env.ZEPP_BEACON_TOKEN;
-  if (!expected) return NextResponse.json({ ok: false, error: "disabled" }, { status: 503 });
-
   const key = req.headers.get("x-forwarded-for") ?? "unknown";
   if (!limiter.check(key).allowed) {
     return NextResponse.json({ ok: false }, { status: 429 });
@@ -33,7 +26,15 @@ export async function POST(req: NextRequest) {
 
   const auth = req.headers.get("authorization") ?? "";
   const presented = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!presented || !tokenMatches(presented, expected)) {
+  // Hash-then-lookup is constant-time by construction: no comparison against the
+  // presented string, and an unknown hash simply finds no row.
+  const user = presented
+    ? await prisma.user.findUnique({
+        where: { zeppTokenHash: hashBeaconToken(presented) },
+        select: { id: true, active: true },
+      })
+    : null;
+  if (!user?.active) {
     limiter.recordFailure(key);
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -46,9 +47,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  // Spike observability: `docker logs roguemeso` is the server side of the experiment.
-  // Log the whole (bounded) payload — pings and rate-test results have different shapes.
-  console.log(`[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"}`, JSON.stringify(body).slice(0, 500));
+  if (body.type === "hr") {
+    // Recorder batch: compact [secondsSinceT0, bpm] pairs + the watch's clock for
+    // skew correction, then the same sanitize gate live capture uses. Rows land
+    // day-agnostic (dayId null) — session attribution happens at read time.
+    const now = Date.now();
+    const skew = clockSkewMs(typeof body.watchNow === "number" ? body.watchNow : undefined, now);
+    const decoded = decodeHrBatch(
+      typeof body.t0 === "number" ? body.t0 : NaN,
+      body.s as [number, number][],
+      skew,
+    );
+    const rows = sanitizeBatch(decoded, now);
+    if (rows.length) {
+      await prisma.hrSample.createMany({
+        data: rows.map((p) => ({ userId: user.id, dayId: null, at: new Date(p.at), bpm: p.bpm })),
+      });
+    }
+    return NextResponse.json({ ok: true, seq: body.seq ?? null, stored: rows.length, serverAt: now });
+  }
 
+  // Anything else (pings, rate-test results): log-and-echo observability, bounded.
+  console.log(
+    `[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"} user=${user.id}`,
+    JSON.stringify(body).slice(0, 500),
+  );
   return NextResponse.json({ ok: true, serverAt: Date.now() });
 }
