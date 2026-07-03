@@ -5,14 +5,17 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 1,
-      "name": "0.1.0"
+      "code": 2,
+      "name": "0.2.0"
     },
     "icon": "icon.png",
     "vender": "roguemeso",
     "description": "Spike: ping RogueMeso from the watch via the Side Service"
   },
-  "permissions": ["data:os.device.info", "data:user.hd.heart_rate"],
+  "permissions": [
+    "data:os.device.info",
+    "data:user.hd.heart_rate"
+  ],
   "runtime": {
     "apiVersion": {
       "compatible": "3.0",
@@ -24,7 +27,9 @@
     "common": {
       "module": {
         "page": {
-          "pages": ["page/index"]
+          "pages": [
+            "page/index"
+          ]
         },
         "app-side": {
           "path": "app-side/index"

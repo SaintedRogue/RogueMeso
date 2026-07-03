@@ -10,7 +10,7 @@ function readConfig() {
   return { serverUrl, token };
 }
 
-async function ping(params, res) {
+async function relay(payload, res) {
   const { serverUrl, token } = readConfig();
   if (!serverUrl || !token) {
     res(null, { ok: false, error: "not configured" });
@@ -24,17 +24,23 @@ async function ping(params, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        type: "ping",
-        watchAt: params.watchAt,
-        phoneAt: Date.now(),
-        hr: params.hr,
-        restingHr: params.restingHr,
-      }),
+      body: JSON.stringify({ ...payload, phoneAt: Date.now() }),
     });
-    res(null, { ok: response.status === 200, status: response.status });
+    // Trust the body, not the status: a proxy redirect to the login page also answers
+    // 200 (learned the hard way, 2026-07-02). Only our route says `"ok": true`.
+    const body = typeof response.body === "string" ? safeParse(response.body) : response.body;
+    const ok = response.status === 200 && !!body && body.ok === true;
+    res(null, { ok, status: response.status });
   } catch (e) {
     res(null, { ok: false, error: "fetch failed" });
+  }
+}
+
+function safeParse(s) {
+  try {
+    return JSON.parse(s);
+  } catch (e) {
+    return null;
   }
 }
 
@@ -42,10 +48,14 @@ AppSideService(
   BaseSideService({
     onInit() {},
     onRequest(req, res) {
-      if (req.method === "PING") {
-        ping(req.params || {}, res);
+      // zml puts the request payload's fields on `req` itself (alongside `method`).
+      const { method, ...payload } = req;
+      if (method === "PING") {
+        relay({ type: "ping", ...payload }, res);
+      } else if (method === "RATE") {
+        relay({ type: "rate", ...payload }, res);
       } else {
-        res(null, { ok: false, error: `unknown method ${req.method}` });
+        res(null, { ok: false, error: `unknown method ${method}` });
       }
     },
     onRun() {},
