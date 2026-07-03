@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Bluetooth, Heart, Watch, X } from "lucide-react";
 import {
   appendSample,
@@ -340,6 +340,15 @@ function HrPill() {
   const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
   // false on the server and during hydration, so SSR and first client paint agree.
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
+  // Render-pure clock for watch-sync freshness/age (Date.now() in render is banned by
+  // the fork's lint) — same ticking pattern as RestTimerPill, coarse 5s grain.
+  const [now, setNow] = useState(() => Date.now());
+  const hasWatchHr = hr.watchHr != null;
+  useEffect(() => {
+    if (!hasWatchHr) return;
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, [hasWatchHr]);
   // Long-press (anywhere on the pill) opens the diagnostics log — a debug surface earns
   // zero pixels of chrome. The fired flag swallows the click that follows a completed
   // press so holding the pill never *also* triggers connect/disconnect.
@@ -374,7 +383,7 @@ function HrPill() {
 
   if (!hydrated) return null;
   const bleCapable = typeof navigator !== "undefined" && !!navigator.bluetooth;
-  const watchFresh = hr.watchHr != null && Date.now() - hr.watchHr.at < WATCH_FRESH_MS;
+  const watchFresh = hr.watchHr != null && now - hr.watchHr.at < WATCH_FRESH_MS;
   // The pill earns its pixels when there's something to show or something to offer:
   // a BLE connection (live/possible) on an open session, or fresh watch-synced HR —
   // the latter works on ANY browser, no Bluetooth involved.
@@ -442,7 +451,7 @@ function HrPill() {
             <span className="num text-sm font-semibold tabular-nums" aria-label={`Heart rate ${hr.watchHr.bpm} beats per minute, synced from watch`}>
               {hr.watchHr.bpm}
             </span>
-            <span className="text-xs text-muted">bpm · {Math.max(1, Math.round((Date.now() - hr.watchHr.at) / 1000))}s</span>
+            <span className="text-xs text-muted">bpm · {Math.max(1, Math.round((now - hr.watchHr.at) / 1000))}s</span>
             {watchZone != null && watchZone > 0 && (
               <span
                 className="rounded-full px-2 py-0.5 text-[10px] font-bold"
