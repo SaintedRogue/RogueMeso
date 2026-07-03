@@ -296,6 +296,26 @@ export type SessionHrView = {
   maxHr: number;
 };
 
+/**
+ * Receipt for the Profile → Wearables panel: proof the watch recorder is delivering,
+ * even when no session has claimed the samples yet (a test run is otherwise invisible —
+ * the exact confusion this line exists to prevent).
+ */
+export async function getWatchSyncReceipt(
+  userId: number,
+): Promise<{ lastAt: Date; count24h: number } | null> {
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60_000);
+  const [latest, count24h] = await Promise.all([
+    prisma.hrSample.findFirst({
+      where: { userId, dayId: null },
+      orderBy: { at: "desc" },
+      select: { at: true },
+    }),
+    prisma.hrSample.count({ where: { userId, dayId: null, at: { gte: dayAgo } } }),
+  ]);
+  return latest ? { lastAt: latest.at, count24h } : null;
+}
+
 /** How far beyond the session's own bounds recorder samples still count as "this session". */
 const HR_WINDOW_SLACK_MS = 15 * 60_000;
 /** An unfinished session's claim window never extends past this — a day left open must

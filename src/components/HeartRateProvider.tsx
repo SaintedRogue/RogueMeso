@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
-import { Bluetooth, Heart, X } from "lucide-react";
+import { Bluetooth, Heart, Watch, X } from "lucide-react";
 import {
   appendSample,
   parseHeartRateMeasurement,
@@ -13,7 +13,7 @@ import {
   type HrDiagEvent,
   type HrSamplePoint,
 } from "@/lib/heartRate";
-import { logHrBatch, logHrDiag } from "@/lib/hrActions";
+import { getLatestWatchHr, logHrBatch, logHrDiag } from "@/lib/hrActions";
 
 // Live heart rate over Web Bluetooth (standard GATT Heart Rate service, 0x180D) — works
 // with any broadcasting wearable: chest straps natively, Amazfit "Heart Rate Push",
@@ -40,6 +40,8 @@ type HrState = {
   knownDeviceName: string | null;
   /** The session (MesoDay) currently on screen — samples are only captured while set. */
   dayId: number | null;
+  /** Freshest server-synced reading (the on-watch recorder), shown when BLE isn't connected. */
+  watchHr: { bpm: number; at: number } | null;
   /** Diagnostics ring buffer (also mirrored to the server). */
   events: HrDiagEvent[];
   showDiag: boolean;
@@ -51,6 +53,7 @@ const IDLE: HrState = {
   deviceName: null,
   knownDeviceName: null,
   dayId: null,
+  watchHr: null,
   events: [],
   showDiag: false,
 };
@@ -330,6 +333,9 @@ const fmtEventTime = (at: number) =>
 /** Hold this long anywhere on the pill to toggle the connection log. */
 const LONG_PRESS_MS = 500;
 
+/** A synced-from-watch reading counts as live-ish for this long. */
+const WATCH_FRESH_MS = 90_000;
+
 function HrPill() {
   const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
   // false on the server and during hydration, so SSR and first client paint agree.
@@ -366,10 +372,17 @@ function HrPill() {
     }
   }, []);
 
-  if (!hydrated || typeof navigator === "undefined" || !navigator.bluetooth) return null;
-  if (hr.status === "idle" && hr.dayId == null) return null;
+  if (!hydrated) return null;
+  const bleCapable = typeof navigator !== "undefined" && !!navigator.bluetooth;
+  const watchFresh = hr.watchHr != null && Date.now() - hr.watchHr.at < WATCH_FRESH_MS;
+  // The pill earns its pixels when there's something to show or something to offer:
+  // a BLE connection (live/possible) on an open session, or fresh watch-synced HR —
+  // the latter works on ANY browser, no Bluetooth involved.
+  if (!bleCapable && !watchFresh) return null;
+  if (hr.status === "idle" && hr.dayId == null && !watchFresh) return null;
 
   const zone = hr.bpm != null ? zoneFor(hr.bpm, maxHr) : null;
+  const watchZone = watchFresh && hr.watchHr ? zoneFor(hr.watchHr.bpm, maxHr) : null;
   const busy = hr.status === "connecting" || hr.status === "reconnecting";
   const pressHandlers = {
     onPointerDown: pressStart,
@@ -421,6 +434,30 @@ function HrPill() {
               <X aria-hidden size={14} />
             </button>
           </div>
+        ) : watchFresh && hr.watchHr && !busy ? (
+          // Live-ish via the on-watch recorder: no Bluetooth in the loop at all. Tapping
+          // the Bluetooth chip upgrades to a direct BLE connection when available.
+          <div className="card flex select-none items-center gap-2 px-3 py-2 shadow-lg" {...pressHandlers}>
+            <Watch aria-hidden size={14} strokeWidth={2} className="text-accent" />
+            <span className="num text-sm font-semibold tabular-nums" aria-label={`Heart rate ${hr.watchHr.bpm} beats per minute, synced from watch`}>
+              {hr.watchHr.bpm}
+            </span>
+            <span className="text-xs text-muted">bpm · {Math.max(1, Math.round((Date.now() - hr.watchHr.at) / 1000))}s</span>
+            {watchZone != null && watchZone > 0 && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                style={{ color: ZONE_VARS[watchZone], background: `color-mix(in oklab, ${ZONE_VARS[watchZone]} 14%, transparent)` }}
+                aria-label={`Training zone ${watchZone}`}
+              >
+                Z{watchZone}
+              </span>
+            )}
+            {bleCapable && hr.dayId != null && (
+              <button type="button" onClick={doConnect} className="chip chip-nav" aria-label="Connect directly over Bluetooth">
+                <Bluetooth aria-hidden size={14} />
+              </button>
+            )}
+          </div>
         ) : (
           <div className="card flex select-none items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg" {...pressHandlers}>
             <button
@@ -462,6 +499,27 @@ export function HeartRateProvider({ maxHr, children }: { maxHr: number; children
       stale = true;
     };
   }, [hr.status, hr.dayId, hr.knownDeviceName]);
+
+  // While a session is on screen and no BLE device is connected, poll for the freshest
+  // watch-synced reading — recorder batches land ~every 30s, so this is "live-ish" HR
+  // with zero pairing. Stops itself whenever a real BLE connection takes over.
+  useEffect(() => {
+    if (hr.status !== "idle" || hr.dayId == null) return;
+    let stale = false;
+    const poll = () => {
+      getLatestWatchHr()
+        .then((latest) => {
+          if (!stale) patch({ watchHr: latest });
+        })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => {
+      stale = true;
+      clearInterval(id);
+    };
+  }, [hr.status, hr.dayId]);
 
   // Flush cadence while capturing; on tab-hide flush AND re-acquire the wake lock when
   // the tab returns (the OS silently releases wake locks on visibility change).

@@ -27,6 +27,25 @@ export async function logHrBatch(dayId: number, samples: HrSamplePoint[]) {
   return { stored: rows.length };
 }
 
+/** How recent a synced sample must be to count as "live-ish" on the pill. */
+const WATCH_LIVE_FRESH_MS = 90_000;
+
+/**
+ * The freshest heart-rate reading the server has for the caller, if recent enough to
+ * show as live-ish. Polled by the pill when no BLE device is connected: recorder
+ * batches land every ~30s, so "♥ 132 · via watch · 40s ago" works with the phone
+ * never pairing anything (recorder spec: R3).
+ */
+export async function getLatestWatchHr(): Promise<{ bpm: number; at: number } | null> {
+  const me = await requireUser();
+  const latest = await prisma.hrSample.findFirst({
+    where: { userId: me.id, at: { gte: new Date(Date.now() - WATCH_LIVE_FRESH_MS) } },
+    orderBy: { at: "desc" },
+    select: { at: true, bpm: true },
+  });
+  return latest ? { bpm: latest.bpm, at: latest.at.getTime() } : null;
+}
+
 /** Mirrors getSessionHrView's claim window (data.ts) — keep the two in sync. */
 const CLEAR_SLACK_MS = 15 * 60_000;
 const CLEAR_MAX_SESSION_MS = 6 * 60 * 60_000;

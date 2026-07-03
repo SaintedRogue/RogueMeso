@@ -10,7 +10,14 @@ import { generateZeppToken, revokeZeppToken } from "@/lib/wearablesActions";
  * plaintext appears exactly once, right after generation — copy it into the mini-app's
  * settings (Zepp app). Regenerate replaces it; revoke cuts the watch off instantly.
  */
-export function WearablesPanel({ paired }: { paired: boolean }) {
+export function WearablesPanel({
+  paired,
+  lastSync = null,
+}: {
+  paired: boolean;
+  /** Receipt that the watch recorder is delivering (visible even before a session claims the data). */
+  lastSync?: { atLabel: string; count24h: number } | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [freshToken, setFreshToken] = useState<string | null>(null);
@@ -67,6 +74,13 @@ export function WearablesPanel({ paired }: { paired: boolean }) {
       ) : (
         <p className="text-xs text-muted">
           {paired ? "A token is active — the watch can sync." : "No token yet — the watch can't sync."}
+        </p>
+      )}
+
+      {lastSync && (
+        <p className="text-xs text-muted">
+          Last watch sync: <span className="num font-semibold text-text">{lastSync.atLabel}</span>
+          {lastSync.count24h > 0 && <> · {lastSync.count24h.toLocaleString()} samples in 24h</>}
         </p>
       )}
 
