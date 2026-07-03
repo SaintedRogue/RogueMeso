@@ -12,14 +12,24 @@ export function writeBatchFile(seq, batch) {
   writeFileSync({ path: `${BATCH_PREFIX}${String(seq).padStart(6, "0")}.json`, data: JSON.stringify(batch) });
 }
 
+/**
+ * List pending batch files, or null when the directory listing itself fails (distinct
+ * from "none pending" so the page can surface a broken fs instead of looking idle).
+ * The exact readdirSync path form varies across firmwares — try the known spellings.
+ */
 export function listBatchFiles() {
-  try {
-    const entries = readdirSync({ path: "" });
-    const names = Array.isArray(entries) ? entries : (entries && entries[1]) || [];
-    return names.filter((n) => typeof n === "string" && n.indexOf(BATCH_PREFIX) === 0).sort();
-  } catch (e) {
-    return [];
+  for (const path of ["", ".", "data://"]) {
+    try {
+      const entries = readdirSync({ path });
+      const names = Array.isArray(entries) ? entries : (entries && entries[1]) || null;
+      if (Array.isArray(names)) {
+        return names.filter((n) => typeof n === "string" && n.indexOf(BATCH_PREFIX) === 0).sort();
+      }
+    } catch (e) {
+      /* try the next spelling */
+    }
   }
+  return null;
 }
 
 export function readBatchFile(name) {

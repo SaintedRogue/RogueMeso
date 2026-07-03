@@ -8,46 +8,74 @@ import { listBatchFiles, readBatchFile, removeBatchFile, readStatus } from "../u
 import { TITLE_TEXT, RECORD_BUTTON, PING_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
 // Recorder control surface (spec: R2). The App Service does the recording; this page
-// starts/stops it, shows the heartbeat status, and — critically — DRAINS sealed batch
-// files to the server whenever it is open (the guaranteed sync path; the service's own
-// in-background relay is opportunistic). Tap Stop and keep the app open a few seconds:
-// that is the moment everything left lands.
+// starts/stops it, shows status, and drains sealed batch files to the server while
+// open (the guaranteed sync path). v0.4.1 lessons: transient messages must survive the
+// status tick, every tick is exception-guarded (a throwing tick looked like a dead
+// page), and "is it running" comes from getAllAppServices(), not just the status file.
 
 const SERVICE_FILE = "app-service/recorder";
 const BG_PERMISSION = ["device:os.bg_service"];
+const NOTICE_MS = 6000;
 
 let statusWidget;
 let recordBtn;
 let pollTimer = null;
 let draining = false;
+let notice = null;
+let noticeUntil = 0;
 
-function setStatus(text) {
+function setStatusText(text) {
   if (statusWidget) statusWidget.setProperty(hmUI.prop.TEXT, text);
 }
 function setRecordLabel(text) {
   if (recordBtn) recordBtn.setProperty(hmUI.prop.TEXT, text);
 }
+/** Show a message that survives the tick for a few seconds (start/stop/errors). */
+function notify(text, ms) {
+  notice = text;
+  noticeUntil = Date.now() + (ms || NOTICE_MS);
+  setStatusText(text);
+}
 
-const fmtAgo = (ms) => (ms < 2000 ? "now" : `${Math.round(ms / 1000)}s ago`);
+function serviceRunning() {
+  try {
+    const services = appService.getAllAppServices();
+    return Array.isArray(services) && services.indexOf(SERVICE_FILE) >= 0;
+  } catch (e) {
+    return null; // API unavailable — fall back to the status file
+  }
+}
+
+const errText = (e) => (e && e.message ? String(e.message) : String(e)).slice(0, 80);
 
 Page(
   BasePage({
-    state: { pendingShown: 0 },
+    state: {},
 
     build() {
       hmUI.createWidget(hmUI.widget.TEXT, TITLE_TEXT);
       statusWidget = hmUI.createWidget(hmUI.widget.TEXT, { ...STATUS_TEXT, text: "Ready" });
       recordBtn = hmUI.createWidget(hmUI.widget.BUTTON, {
         ...RECORD_BUTTON,
-        click_func: () => this.toggleRecording(),
+        click_func: () => {
+          try {
+            this.toggleRecording();
+          } catch (e) {
+            notify(`record err:\n${errText(e)}`);
+          }
+        },
       });
       hmUI.createWidget(hmUI.widget.BUTTON, {
         ...PING_BUTTON,
         click_func: () => this.sendPing(),
       });
-      // 1s heartbeat: refresh status + drain pending batches while the page is open.
-      pollTimer = createTimer(1000, 1000, () => this.tick());
-      this.tick();
+      pollTimer = createTimer(1000, 1000, () => {
+        try {
+          this.tick();
+        } catch (e) {
+          notify(`tick err:\n${errText(e)}`);
+        }
+      });
     },
 
     onDestroy() {
@@ -55,18 +83,24 @@ Page(
     },
 
     tick() {
+      const pending = listBatchFiles(); // null = fs listing broken (shown, not hidden)
+      const running = serviceRunning();
       const st = readStatus();
-      const pending = listBatchFiles();
-      this.state.pendingShown = pending.length;
-      if (st && st.recording) {
-        setRecordLabel("Stop");
+      const isRecording = running != null ? running : !!(st && st.recording);
+      setRecordLabel(isRecording ? "Stop" : "Record");
+
+      if (pending && pending.length > 0) this.drain(pending);
+      if (Date.now() < noticeUntil) return; // let start/stop/error messages be read
+
+      const pendingLabel = pending == null ? "fs?" : `${pending.length} pending`;
+      if (isRecording && st) {
         const mins = Math.floor((Date.now() - st.startAt) / 60000);
-        setStatus(`● Recording ${mins}m · ${st.total || 0} samples\n♥ ${st.bpm || "—"} · ${pending.length} batch${pending.length === 1 ? "" : "es"} pending`);
+        setStatusText(`● Recording ${mins}m · ${st.total || 0} samples\n♥ ${st.bpm || "—"} · ${pendingLabel}`);
+      } else if (isRecording) {
+        setStatusText(`● Recording…\n${pendingLabel}`);
       } else {
-        setRecordLabel("Record");
-        setStatus(pending.length > 0 ? `Not recording\n${pending.length} pending — syncing…` : "Ready");
+        setStatusText(pending && pending.length > 0 ? `Not recording\n${pendingLabel} — syncing…` : `Ready · ${pendingLabel}`);
       }
-      void this.drain(pending);
     },
 
     /** Send sealed batches oldest-first, deleting each only on a server-confirmed ack. */
@@ -85,6 +119,7 @@ Page(
       this.request({ method: "HR_BATCH", ...batch, watchNow: Date.now() })
         .then((res) => {
           if (res && res.ok) removeBatchFile(name);
+          else notify(`sync failed: ${(res && (res.error || res.status)) || "?"}`);
         })
         .catch(() => {})
         .finally(() => {
@@ -93,16 +128,18 @@ Page(
     },
 
     toggleRecording() {
+      const running = serviceRunning();
       const st = readStatus();
-      if (st && st.recording) {
+      if (running === true || (running == null && st && st.recording)) {
+        notify("Stopping — syncing…");
         appService.stop({
           url: SERVICE_FILE,
           param: "action=stop",
-          complete_func: () => this.tick(),
+          complete_func: (info) => notify(info && info.result ? "Stopped ✓" : "Stop failed — retry"),
         });
-        setStatus("Stopping — syncing…");
         return;
       }
+      notify("Checking permission…");
       const [granted] = queryPermission({ permissions: BG_PERMISSION });
       if (granted === 2) this.startService();
       else {
@@ -110,25 +147,26 @@ Page(
           permissions: BG_PERMISSION,
           callback: ([result]) => {
             if (result === 2) this.startService();
-            else setStatus("Background permission denied");
+            else notify(`Permission not granted (${result})\ntap Record to retry`);
           },
         });
       }
     },
 
     startService() {
+      notify("Starting recorder…");
       appService.start({
         url: SERVICE_FILE,
         param: "action=start",
         complete_func: (info) => {
-          if (!info || !info.result) setStatus("Couldn't start recorder\n(another service running?)");
-          else this.tick();
+          if (info && info.result) notify("Recording started ●", 3000);
+          else notify(`Start failed (${info && info.file ? info.file : "?"})\nanother service running?`);
         },
       });
     },
 
     sendPing() {
-      setStatus("Pinging…");
+      notify("Pinging…");
       let hr = null;
       try {
         hr = new HeartRate().getLast() || null;
@@ -138,10 +176,10 @@ Page(
       const startedAt = Date.now();
       this.request({ method: "PING", hr, watchAt: startedAt })
         .then((data) => {
-          if (data && data.ok) setStatus(`Server OK · ${Date.now() - startedAt} ms`);
-          else setStatus(`Ping failed: ${(data && data.error) || (data && data.status)}\n(check settings in Zepp app)`);
+          if (data && data.ok) notify(`Server OK · ${Date.now() - startedAt} ms`);
+          else notify(`Ping failed: ${(data && data.error) || (data && data.status)}\n(check settings in Zepp app)`);
         })
-        .catch(() => setStatus("No reply from phone.\nIs the Zepp app running?"));
+        .catch(() => notify("No reply from phone.\nIs the Zepp app running?"));
     },
   }),
 );
