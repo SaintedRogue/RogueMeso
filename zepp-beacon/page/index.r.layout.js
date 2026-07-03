@@ -6,19 +6,19 @@ import { DEVICE_WIDTH } from "../utils/device";
 
 export const TITLE_TEXT = {
   x: px(60),
-  y: px(60),
+  y: px(52),
   w: DEVICE_WIDTH - 2 * px(60),
-  h: px(60),
+  h: px(56),
   color: 0x3fc6c9,
-  text_size: px(34),
+  text_size: px(32),
   align_h: hmUI.align.CENTER_H,
   text: "ROGUEMESO",
 };
 
 export const STATUS_TEXT = {
-  x: px(70),
-  y: px(128),
-  w: DEVICE_WIDTH - 2 * px(70),
+  x: px(64),
+  y: px(114),
+  w: DEVICE_WIDTH - 2 * px(64),
   h: px(140),
   color: 0xffffff,
   text_size: px(28),
@@ -27,26 +27,26 @@ export const STATUS_TEXT = {
   text_style: hmUI.text_style.WRAP,
 };
 
-export const PING_BUTTON = {
+export const RECORD_BUTTON = {
   x: (DEVICE_WIDTH - px(280)) / 2,
-  y: px(282),
+  y: px(268),
   w: px(280),
-  h: px(72),
-  text_size: px(32),
-  radius: px(36),
+  h: px(80),
+  text_size: px(34),
+  radius: px(40),
   normal_color: 0x0e7c86,
   press_color: 0x3fc6c9,
-  text: "Send ping",
+  text: "Record",
 };
 
-export const RATE_BUTTON = {
-  x: (DEVICE_WIDTH - px(240)) / 2,
-  y: px(364),
-  w: px(240),
-  h: px(60),
-  text_size: px(28),
-  radius: px(30),
+export const PING_BUTTON = {
+  x: (DEVICE_WIDTH - px(220)) / 2,
+  y: px(362),
+  w: px(220),
+  h: px(56),
+  text_size: px(26),
+  radius: px(28),
   normal_color: 0x2a3340,
   press_color: 0x3fc6c9,
-  text: "HR rate 60s",
+  text: "Ping server",
 };

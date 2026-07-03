@@ -5,8 +5,8 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 3,
-      "name": "0.3.0"
+      "code": 4,
+      "name": "0.4.0"
     },
     "icon": "icon.png",
     "vender": "roguemeso",
@@ -14,7 +14,8 @@
   },
   "permissions": [
     "data:os.device.info",
-    "data:user.hd.heart_rate"
+    "data:user.hd.heart_rate",
+    "device:os.bg_service"
   ],
   "runtime": {
     "apiVersion": {
@@ -36,6 +37,11 @@
         },
         "setting": {
           "path": "setting/index"
+        },
+        "app-service": {
+          "services": [
+            "app-service/recorder"
+          ]
         }
       },
       "platforms": [
