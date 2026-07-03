@@ -8,6 +8,7 @@ import { ParticipationToggle } from "@/components/community/ParticipationToggle"
 import { PhysicalTherapyLensToggle } from "@/components/PhysicalTherapyLensToggle";
 import { ToastForm } from "@/components/forms";
 import { PasswordInput } from "@/components/PasswordInput";
+import { WearablesPanel } from "@/components/WearablesPanel";
 import { setBiometrics } from "@/lib/bodyTuningActions";
 import { cmToFtIn } from "@/lib/format";
 
@@ -156,6 +157,8 @@ export default async function ProfilePage({
           </div>
           <PhysicalTherapyLensToggle enabled={me.physicalTherapyLens} />
         </div>
+
+        <WearablesPanel paired={me.zeppTokenHash != null} />
 
         {/* Templates, Body Tuning & Community live in the desktop sidebar; on mobile they're
             not in the 5-tab bottom bar, so surface them here as link cards (mobile only). */}

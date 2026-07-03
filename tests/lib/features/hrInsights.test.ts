@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { downsampleHr, hrSessionStats, setRecoveryDrop, type HrPoint } from "@/lib/features/hrInsights";
+import { downsampleHr, hrSessionStats, mergePerSecond, setRecoveryDrop, type HrPoint } from "@/lib/features/hrInsights";
 
 /** 1 Hz series builder: seconds → epoch ms. */
 const p = (sec: number, bpm: number): HrPoint => ({ ts: sec * 1000, bpm });
@@ -50,6 +50,37 @@ describe("hrSessionStats", () => {
   it("returns null when there is nothing meaningful to summarize", () => {
     expect(hrSessionStats([], MAX)).toBeNull();
     expect(hrSessionStats([p(0, 120)], MAX)).toBeNull();
+  });
+});
+
+describe("mergePerSecond", () => {
+  it("collapses same-second samples from two sources into one, keeping the max bpm", () => {
+    // Recorder at 1000ms and BLE pill at 1400ms captured the same heartbeat second.
+    const merged = mergePerSecond([
+      { ts: 1000, bpm: 120 },
+      { ts: 1400, bpm: 122 },
+      { ts: 2100, bpm: 125 },
+    ]);
+    expect(merged).toEqual([
+      { ts: 1000, bpm: 122 },
+      { ts: 2000, bpm: 125 },
+    ]);
+  });
+
+  it("sorts unordered input chronologically", () => {
+    const merged = mergePerSecond([
+      { ts: 5000, bpm: 110 },
+      { ts: 1000, bpm: 100 },
+    ]);
+    expect(merged.map((p) => p.ts)).toEqual([1000, 5000]);
+  });
+
+  it("passes an already-clean series through unchanged", () => {
+    const pts = [
+      { ts: 0, bpm: 100 },
+      { ts: 1000, bpm: 101 },
+    ];
+    expect(mergePerSecond(pts)).toEqual(pts);
   });
 });
 

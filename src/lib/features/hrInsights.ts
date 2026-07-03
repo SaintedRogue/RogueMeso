@@ -48,6 +48,21 @@ export function downsampleHr(points: HrPoint[], targetCount = 360): HrPoint[] {
   return out;
 }
 
+/**
+ * Collapse samples to one per second, max bpm winning. The recorder and the live BLE
+ * pill may both capture the same session (spec §6) — same sensor, so duplicates are
+ * redundancy, not conflict; merging at read time means no write-time coordination.
+ */
+export function mergePerSecond(points: HrPoint[]): HrPoint[] {
+  const bySecond = new Map<number, number>();
+  for (const p of points) {
+    const sec = Math.floor(p.ts / 1000) * 1000;
+    const prev = bySecond.get(sec);
+    if (prev == null || p.bpm > prev) bySecond.set(sec, p.bpm);
+  }
+  return [...bySecond.entries()].sort((a, b) => a[0] - b[0]).map(([ts, bpm]) => ({ ts, bpm }));
+}
+
 export type HrSessionStats = {
   avgBpm: number;
   maxBpm: number;

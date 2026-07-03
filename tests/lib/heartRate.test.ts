@@ -3,6 +3,8 @@ import {
   parseHeartRateMeasurement,
   zoneFor,
   maxHrFor,
+  clockSkewMs,
+  decodeHrBatch,
   sanitizeBpm,
   sanitizeBatch,
   appendSample,
@@ -133,6 +135,53 @@ describe("sanitizeBatch", () => {
     const rows = sanitizeBatch(batch, NOW);
     expect(rows).toHaveLength(HR_MAX_BATCH);
     expect(rows.some((r) => r.at === NOW)).toBe(true); // newest survived
+  });
+});
+
+describe("clockSkewMs", () => {
+  const SERVER_NOW = 1_750_000_000_000;
+
+  it("trusts clocks that agree within 5s", () => {
+    expect(clockSkewMs(SERVER_NOW - 3000, SERVER_NOW)).toBe(0);
+    expect(clockSkewMs(SERVER_NOW + 4999, SERVER_NOW)).toBe(0);
+  });
+
+  it("returns the correction when the watch clock drifts", () => {
+    expect(clockSkewMs(SERVER_NOW - 60_000, SERVER_NOW)).toBe(60_000); // watch behind → shift forward
+    expect(clockSkewMs(SERVER_NOW + 30_000, SERVER_NOW)).toBe(-30_000); // watch ahead → shift back
+  });
+
+  it("treats a missing/junk watch clock as no correction", () => {
+    expect(clockSkewMs(NaN, SERVER_NOW)).toBe(0);
+    expect(clockSkewMs(undefined, SERVER_NOW)).toBe(0);
+  });
+});
+
+describe("decodeHrBatch", () => {
+  const T0 = 1_750_000_000_000;
+
+  it("expands [secondsSinceT0, bpm] pairs into timestamped samples", () => {
+    expect(decodeHrBatch(T0, [[0, 102], [1, 104], [2, 101]], 0)).toEqual([
+      { at: T0, bpm: 102 },
+      { at: T0 + 1000, bpm: 104 },
+      { at: T0 + 2000, bpm: 101 },
+    ]);
+  });
+
+  it("applies the clock-skew correction to every sample", () => {
+    expect(decodeHrBatch(T0, [[0, 100]], 60_000)).toEqual([{ at: T0 + 60_000, bpm: 100 }]);
+  });
+
+  it("drops malformed pairs instead of crashing on them", () => {
+    const junk = [[0, 100], "nope", [1], [NaN, 90], [2, 95]] as unknown as [number, number][];
+    expect(decodeHrBatch(T0, junk, 0)).toEqual([
+      { at: T0, bpm: 100 },
+      { at: T0 + 2000, bpm: 95 },
+    ]);
+  });
+
+  it("returns empty for a non-array payload", () => {
+    expect(decodeHrBatch(T0, "junk" as unknown as [number, number][], 0)).toEqual([]);
   });
 });
 
