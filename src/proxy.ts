@@ -16,7 +16,10 @@ export const config = {
   // and PWA assets (the manifest is fetched without credentials, so it must stay
   // public). /setup is public so a fresh, user-less deploy isn't locked out; the
   // page and its action both close themselves once any account exists.
+  // api/wearables is the Zepp beacon's endpoint: its caller (the mini-app's Side
+  // Service inside the Zepp phone app) has no session cookie — the route does its own
+  // bearer-token auth + rate limiting, and answers 503 until ZEPP_BEACON_TOKEN is set.
   matcher: [
-    "/((?!login|setup|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-192.png|icon-512.png|sw.js).*)",
+    "/((?!login|setup|api/wearables|_next/static|_next/image|favicon.ico|manifest.webmanifest|apple-icon.png|icon-192.png|icon-512.png|sw.js).*)",
   ],
 };
