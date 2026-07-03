@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
-import { Bluetooth, Heart, Info, X } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
+import { Bluetooth, Heart, X } from "lucide-react";
 import {
   appendSample,
   parseHeartRateMeasurement,
@@ -327,15 +327,58 @@ const ZONE_VARS: Record<number, string> = {
 const fmtEventTime = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
 
+/** Hold this long anywhere on the pill to toggle the connection log. */
+const LONG_PRESS_MS = 500;
+
 function HrPill() {
   const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
   // false on the server and during hydration, so SSR and first client paint agree.
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
+  // Long-press (anywhere on the pill) opens the diagnostics log — a debug surface earns
+  // zero pixels of chrome. The fired flag swallows the click that follows a completed
+  // press so holding the pill never *also* triggers connect/disconnect.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressFired = useRef(false);
+  const pressStart = useCallback(() => {
+    pressFired.current = false;
+    pressTimer.current ??= setTimeout(() => {
+      pressTimer.current = null;
+      pressFired.current = true;
+      try {
+        navigator.vibrate?.(10);
+      } catch {
+        /* unsupported */
+      }
+      toggleDiag();
+    }, LONG_PRESS_MS);
+  }, [toggleDiag]);
+  const pressEnd = useCallback(() => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+  const swallowClickAfterPress = useCallback((e: React.MouseEvent) => {
+    if (pressFired.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      pressFired.current = false;
+    }
+  }, []);
+
   if (!hydrated || typeof navigator === "undefined" || !navigator.bluetooth) return null;
   if (hr.status === "idle" && hr.dayId == null) return null;
 
   const zone = hr.bpm != null ? zoneFor(hr.bpm, maxHr) : null;
   const busy = hr.status === "connecting" || hr.status === "reconnecting";
+  const pressHandlers = {
+    onPointerDown: pressStart,
+    onPointerUp: pressEnd,
+    onPointerLeave: pressEnd,
+    onPointerCancel: pressEnd,
+    onClickCapture: swallowClickAfterPress,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
 
   return (
     <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-4 z-[90] sm:bottom-20 sm:left-auto sm:right-6">
@@ -345,7 +388,7 @@ function HrPill() {
           <p className="mb-2 border-b border-line pb-2 text-muted">
             Watch missing from the chooser? Its broadcast hides while the Zepp app holds the
             link — toggle phone Bluetooth off/on, connect here first, and Zepp will re-attach
-            alongside afterwards.
+            alongside afterwards. Long-press the pill to close this log.
           </p>
           {hr.events.length === 0 && <div className="text-muted">No events yet.</div>}
           {[...hr.events].reverse().map((e, i) => (
@@ -359,7 +402,7 @@ function HrPill() {
       )}
       <div className="flex items-center gap-2">
         {hr.status === "connected" ? (
-          <div className="card flex items-center gap-2 px-3 py-2 shadow-lg">
+          <div className="card flex select-none items-center gap-2 px-3 py-2 shadow-lg" {...pressHandlers}>
             <Heart aria-hidden size={14} strokeWidth={2} className="text-accent motion-safe:animate-pulse" fill="currentColor" />
             <span className="num text-sm font-semibold tabular-nums" aria-label={`Heart rate ${hr.bpm ?? "unknown"} beats per minute`}>
               {hr.bpm ?? "—"}
@@ -374,15 +417,12 @@ function HrPill() {
                 Z{zone}
               </span>
             )}
-            <button type="button" onClick={toggleDiag} className="chip chip-nav" aria-label="Show heart rate connection log">
-              <Info aria-hidden size={14} />
-            </button>
             <button type="button" onClick={doDisconnect} className="chip chip-nav" aria-label="Disconnect heart rate monitor">
               <X aria-hidden size={14} />
             </button>
           </div>
         ) : (
-          <div className="card flex items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg">
+          <div className="card flex select-none items-center gap-2 px-3 py-2 text-sm text-muted shadow-lg" {...pressHandlers}>
             <button
               type="button"
               onClick={busy ? doDisconnect : doConnect}
@@ -400,9 +440,6 @@ function HrPill() {
                   : hr.knownDeviceName
                     ? `Reconnect ${hr.knownDeviceName}`
                     : "Connect HR"}
-            </button>
-            <button type="button" onClick={toggleDiag} className="chip chip-nav" aria-label="Show heart rate connection log">
-              <Info aria-hidden size={14} />
             </button>
           </div>
         )}
