@@ -10,6 +10,7 @@ import { ToastForm } from "@/components/forms";
 import { PasswordInput } from "@/components/PasswordInput";
 import { WearablesPanel } from "@/components/WearablesPanel";
 import { setBiometrics } from "@/lib/bodyTuningActions";
+import { getWatchSyncReceipt } from "@/lib/data";
 import { cmToFtIn } from "@/lib/format";
 
 export default async function ProfilePage({
@@ -21,6 +22,7 @@ export default async function ProfilePage({
   const { pw } = await searchParams;
   const imperial = me.unit === "lb";
   const h = me.heightCm != null ? cmToFtIn(me.heightCm) : null;
+  const syncReceipt = me.zeppTokenHash != null ? await getWatchSyncReceipt(me.id) : null;
   return (
     <>
       <PageHeader title="Profile & Settings" subtitle={me.role === "admin" ? "Admin · self-hosted" : "Self-hosted"} />
@@ -158,7 +160,22 @@ export default async function ProfilePage({
           <PhysicalTherapyLensToggle enabled={me.physicalTherapyLens} />
         </div>
 
-        <WearablesPanel paired={me.zeppTokenHash != null} />
+        <WearablesPanel
+          paired={me.zeppTokenHash != null}
+          lastSync={
+            syncReceipt
+              ? {
+                  atLabel: syncReceipt.lastAt.toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }),
+                  count24h: syncReceipt.count24h,
+                }
+              : null
+          }
+        />
 
         {/* Templates, Body Tuning & Community live in the desktop sidebar; on mobile they're
             not in the 5-tab bottom bar, so surface them here as link cards (mobile only). */}
