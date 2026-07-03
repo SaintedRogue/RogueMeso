@@ -1,6 +1,7 @@
 import * as hmUI from "@zos/ui";
 import { HeartRate } from "@zos/sensor";
 import { createTimer, deleteTimer } from "@zos/timer";
+import { setPageBrightTime, resetPageBrightTime, pauseDropWristScreenOff, resumeDropWristScreenOff } from "@zos/display";
 import { BasePage } from "@zeppos/zml/base-page";
 import { TITLE_TEXT, PING_BUTTON, RATE_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
@@ -62,11 +63,19 @@ Page(
     startRateTest() {
       if (this.state.testing) return;
       this.state.testing = true;
+      // Hold the screen for the whole window: a dimmed page suspends the test, and a
+      // minute is too long to keep a watch awake by hand (field feedback, v0.2).
+      try {
+        setPageBrightTime({ brightTime: RATE_TEST_MS + 10_000 });
+        pauseDropWristScreenOff({ duration: RATE_TEST_MS + 10_000 });
+      } catch (e) {
+        /* older firmware — worst case the user taps to keep it awake */
+      }
       let sensor;
       const stamps = [];
       const onChange = () => {
         stamps.push(Date.now());
-        setStatus(`Sampling… ${stamps.length} updates\nkeep the screen on`);
+        setStatus(`Sampling… ${stamps.length} updates`);
       };
       try {
         sensor = new HeartRate();
@@ -76,13 +85,19 @@ Page(
         setStatus("HR sensor unavailable");
         return;
       }
-      setStatus("Sampling for 60s…\nkeep the screen on");
+      setStatus("Sampling for 60s…\nscreen will stay on");
       const timer = createTimer(RATE_TEST_MS, 0, () => {
         deleteTimer(timer);
         try {
           sensor.offCurrentChange(onChange);
         } catch (e) {
           /* already off */
+        }
+        try {
+          resetPageBrightTime();
+          resumeDropWristScreenOff();
+        } catch (e) {
+          /* older firmware */
         }
         this.state.testing = false;
         // Median gap says more than the mean when the sensor bursts.
