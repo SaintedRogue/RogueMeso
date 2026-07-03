@@ -54,6 +54,10 @@ AppSideService(
         relay({ type: "ping", ...payload }, res);
       } else if (method === "RATE") {
         relay({ type: "rate", ...payload }, res);
+      } else if (method === "HR_BATCH") {
+        // Recorder batch: pass through verbatim — the server decodes t0/s and answers
+        // {ok, seq, stored}; the watch deletes the batch file only on that ack.
+        relay({ type: "hr", ...payload }, res);
       } else {
         res(null, { ok: false, error: `unknown method ${method}` });
       }

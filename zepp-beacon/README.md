@@ -1,12 +1,21 @@
 # RogueMeso Beacon (Zepp OS mini-app)
 
-A watch app for Amazfit (Zepp OS 3.0+). **Current state: the spike** — a single
-"Send ping" button that exercises every hop the real recovery beacon depends on:
+A watch app for Amazfit (Zepp OS 3.0+). **Current state: the HR session recorder (R2)**
+— see `docs/superpowers/specs/2026-07-02-hr-recorder-design.md`.
 
 ```
-watch (Device App, @zos/sensor) → BLE (zml request) → Side Service (Zepp phone app)
-  → HTTPS POST → RogueMeso /api/wearables/zepp
+Record tap → App Service (1 Hz HR, background) → sealed batch files (@zos/fs)
+  → drained via zml → Side Service (Zepp phone app) → POST /api/wearables/zepp {type:"hr"}
+  → HrSample rows (day-agnostic) → session chart claims them by time window
 ```
+
+Delivery is two-path: the service *attempts* an immediate relay per sealed batch
+(30 samples ≈ 30s — if the app-level bridge works in background, sync is near-live);
+the Device App page *guarantees* a drain whenever open — so open the app and tap Stop
+at session end, and everything lands. Batch files are deleted only on a server ack.
+
+Auth is the per-user beacon token: RogueMeso → Profile → Wearables → Generate, paste
+into the mini-app settings in the Zepp app (replaces the old env-token from the spike).
 
 This directory is its own ecosystem (zeus bundler, `@zos/*` runtime): it is excluded
 from the web app's lint/typecheck/Docker build. Nothing here ships in the container.
@@ -38,6 +47,16 @@ Then in the Zepp app, open the mini-app's **Settings** (long-press the app card 
 Developer Mode / app list) and paste:
 - **Server URL**: the RogueMeso base URL
 - **Beacon token**: the same value as `ZEPP_BEACON_TOKEN`
+
+## R2 field-test protocol
+
+| # | Test | Pass looks like |
+|---|------|-----------------|
+| 1 | Record 5 min at desk, phone nearby, then Stop with app open | `HrSample` rows appear (server), pending drops to 0 on Stop |
+| 2 | During-workout sync: while recording, refresh the workout page | chart grows without touching the watch (= background relay works) |
+| 3 | Phone-in-locker: record 10 min with phone far away, return, open app | batches queue then drain; no gaps in the final chart |
+| 4 | Zepp app force-killed while recording | as #3 — data lands once Zepp revives |
+| 5 | Stop → immediately close app | any stragglers drain next time the app opens |
 
 ## The spike protocol (answers the 4 undocumented behaviors)
 

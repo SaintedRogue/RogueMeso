@@ -1,123 +1,147 @@
 import * as hmUI from "@zos/ui";
 import { HeartRate } from "@zos/sensor";
 import { createTimer, deleteTimer } from "@zos/timer";
-import { setPageBrightTime, resetPageBrightTime, pauseDropWristScreenOff, resumeDropWristScreenOff } from "@zos/display";
+import * as appService from "@zos/app-service";
+import { queryPermission, requestPermission } from "@zos/app";
 import { BasePage } from "@zeppos/zml/base-page";
-import { TITLE_TEXT, PING_BUTTON, RATE_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
+import { listBatchFiles, readBatchFile, removeBatchFile, readStatus } from "../utils/recorderStore";
+import { TITLE_TEXT, RECORD_BUTTON, PING_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
-// Spike page, v2. Two experiments:
-//  - "Send ping": full round-trip test (sensor read -> BLE -> Side Service -> RogueMeso).
-//  - "HR rate 60s": THE recorder-decider — subscribe to HeartRate.onCurrentChange for
-//    60 seconds and count callbacks. ~60 events = per-second capture is viable on-watch;
-//    a handful = the sensor ticks slowly outside workouts and the recorder idea dies.
-//    Run it twice: once idle, once with a native workout running.
+// Recorder control surface (spec: R2). The App Service does the recording; this page
+// starts/stops it, shows the heartbeat status, and — critically — DRAINS sealed batch
+// files to the server whenever it is open (the guaranteed sync path; the service's own
+// in-background relay is opportunistic). Tap Stop and keep the app open a few seconds:
+// that is the moment everything left lands.
 
-const RATE_TEST_MS = 60_000;
+const SERVICE_FILE = "app-service/recorder";
+const BG_PERMISSION = ["device:os.bg_service"];
 
 let statusWidget;
+let recordBtn;
+let pollTimer = null;
+let draining = false;
 
 function setStatus(text) {
   if (statusWidget) statusWidget.setProperty(hmUI.prop.TEXT, text);
 }
+function setRecordLabel(text) {
+  if (recordBtn) recordBtn.setProperty(hmUI.prop.TEXT, text);
+}
+
+const fmtAgo = (ms) => (ms < 2000 ? "now" : `${Math.round(ms / 1000)}s ago`);
 
 Page(
   BasePage({
-    state: { testing: false },
+    state: { pendingShown: 0 },
+
     build() {
       hmUI.createWidget(hmUI.widget.TEXT, TITLE_TEXT);
-      statusWidget = hmUI.createWidget(hmUI.widget.TEXT, {
-        ...STATUS_TEXT,
-        text: "Ping = round trip\nRate = 60s sensor test",
+      statusWidget = hmUI.createWidget(hmUI.widget.TEXT, { ...STATUS_TEXT, text: "Ready" });
+      recordBtn = hmUI.createWidget(hmUI.widget.BUTTON, {
+        ...RECORD_BUTTON,
+        click_func: () => this.toggleRecording(),
       });
       hmUI.createWidget(hmUI.widget.BUTTON, {
         ...PING_BUTTON,
         click_func: () => this.sendPing(),
       });
-      hmUI.createWidget(hmUI.widget.BUTTON, {
-        ...RATE_BUTTON,
-        click_func: () => this.startRateTest(),
+      // 1s heartbeat: refresh status + drain pending batches while the page is open.
+      pollTimer = createTimer(1000, 1000, () => this.tick());
+      this.tick();
+    },
+
+    onDestroy() {
+      if (pollTimer != null) deleteTimer(pollTimer);
+    },
+
+    tick() {
+      const st = readStatus();
+      const pending = listBatchFiles();
+      this.state.pendingShown = pending.length;
+      if (st && st.recording) {
+        setRecordLabel("Stop");
+        const mins = Math.floor((Date.now() - st.startAt) / 60000);
+        setStatus(`● Recording ${mins}m · ${st.total || 0} samples\n♥ ${st.bpm || "—"} · ${pending.length} batch${pending.length === 1 ? "" : "es"} pending`);
+      } else {
+        setRecordLabel("Record");
+        setStatus(pending.length > 0 ? `Not recording\n${pending.length} pending — syncing…` : "Ready");
+      }
+      void this.drain(pending);
+    },
+
+    /** Send sealed batches oldest-first, deleting each only on a server-confirmed ack. */
+    drain(pending) {
+      if (draining || pending.length === 0) return;
+      draining = true;
+      const name = pending[0];
+      const batch = readBatchFile(name);
+      if (!batch) {
+        removeBatchFile(name); // unreadable file is unrecoverable — drop, don't wedge the queue
+        draining = false;
+        return;
+      }
+      // watchNow is stamped at SEND time (not seal time): skew correction measures clock
+      // offset, and a batch drained 20 minutes late must not be shifted by its own delay.
+      this.request({ method: "HR_BATCH", ...batch, watchNow: Date.now() })
+        .then((res) => {
+          if (res && res.ok) removeBatchFile(name);
+        })
+        .catch(() => {})
+        .finally(() => {
+          draining = false;
+        });
+    },
+
+    toggleRecording() {
+      const st = readStatus();
+      if (st && st.recording) {
+        appService.stop({
+          url: SERVICE_FILE,
+          param: "action=stop",
+          complete_func: () => this.tick(),
+        });
+        setStatus("Stopping — syncing…");
+        return;
+      }
+      const [granted] = queryPermission({ permissions: BG_PERMISSION });
+      if (granted === 2) this.startService();
+      else {
+        requestPermission({
+          permissions: BG_PERMISSION,
+          callback: ([result]) => {
+            if (result === 2) this.startService();
+            else setStatus("Background permission denied");
+          },
+        });
+      }
+    },
+
+    startService() {
+      appService.start({
+        url: SERVICE_FILE,
+        param: "action=start",
+        complete_func: (info) => {
+          if (!info || !info.result) setStatus("Couldn't start recorder\n(another service running?)");
+          else this.tick();
+        },
       });
     },
 
     sendPing() {
       setStatus("Pinging…");
       let hr = null;
-      let restingHr = null;
       try {
-        const sensor = new HeartRate();
-        hr = sensor.getLast() || null;
-        restingHr = sensor.getResting() || null;
+        hr = new HeartRate().getLast() || null;
       } catch (e) {
-        // Sensor unavailable/denied — the ping still tests the network path.
+        /* sensor optional for a ping */
       }
       const startedAt = Date.now();
-      this.request({ method: "PING", hr, restingHr, watchAt: startedAt })
+      this.request({ method: "PING", hr, watchAt: startedAt })
         .then((data) => {
-          const ms = Date.now() - startedAt;
-          if (data && data.ok) setStatus(`OK ${data.status} · ${ms} ms\nserver confirmed`);
-          else setStatus(`Failed: ${(data && data.error) || `status ${data && data.status}`}\n(check settings in Zepp app)`);
+          if (data && data.ok) setStatus(`Server OK · ${Date.now() - startedAt} ms`);
+          else setStatus(`Ping failed: ${(data && data.error) || (data && data.status)}\n(check settings in Zepp app)`);
         })
         .catch(() => setStatus("No reply from phone.\nIs the Zepp app running?"));
-    },
-
-    startRateTest() {
-      if (this.state.testing) return;
-      this.state.testing = true;
-      // Hold the screen for the whole window: a dimmed page suspends the test, and a
-      // minute is too long to keep a watch awake by hand (field feedback, v0.2).
-      try {
-        setPageBrightTime({ brightTime: RATE_TEST_MS + 10_000 });
-        pauseDropWristScreenOff({ duration: RATE_TEST_MS + 10_000 });
-      } catch (e) {
-        /* older firmware — worst case the user taps to keep it awake */
-      }
-      let sensor;
-      const stamps = [];
-      const onChange = () => {
-        stamps.push(Date.now());
-        setStatus(`Sampling… ${stamps.length} updates`);
-      };
-      try {
-        sensor = new HeartRate();
-        sensor.onCurrentChange(onChange);
-      } catch (e) {
-        this.state.testing = false;
-        setStatus("HR sensor unavailable");
-        return;
-      }
-      setStatus("Sampling for 60s…\nscreen will stay on");
-      const timer = createTimer(RATE_TEST_MS, 0, () => {
-        deleteTimer(timer);
-        try {
-          sensor.offCurrentChange(onChange);
-        } catch (e) {
-          /* already off */
-        }
-        try {
-          resetPageBrightTime();
-          resumeDropWristScreenOff();
-        } catch (e) {
-          /* older firmware */
-        }
-        this.state.testing = false;
-        // Median gap says more than the mean when the sensor bursts.
-        const gaps = stamps.slice(1).map((t, i) => t - stamps[i]).sort((a, b) => a - b);
-        const medianGapMs = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null;
-        setStatus(`${stamps.length} updates / 60s\nmedian gap ${medianGapMs != null ? Math.round(medianGapMs / 100) / 10 : "—"}s`);
-        this.request({
-          method: "RATE",
-          watchAt: Date.now(),
-          updates: stamps.length,
-          seconds: RATE_TEST_MS / 1000,
-          medianGapMs,
-        })
-          .then((data) => {
-            if (data && data.ok) setStatus(`${stamps.length} updates / 60s · median gap ${medianGapMs != null ? Math.round(medianGapMs / 100) / 10 : "—"}s\nresult sent ✓`);
-          })
-          .catch(() => {
-            /* result still on screen; server copy is best-effort */
-          });
-      });
     },
   }),
 );
