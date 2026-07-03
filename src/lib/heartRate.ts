@@ -101,6 +101,20 @@ export function sanitizeBatch(samples: HrSamplePoint[], now: number): HrSamplePo
   return clean.slice(clean.length - HR_MAX_BATCH);
 }
 
+/** Exponential reconnect backoff: 1s, 2s, 4s, 8s, then 15s forever. */
+export function reconnectDelayMs(attempt: number): number {
+  return Math.min(15_000, 1000 * 2 ** attempt);
+}
+
+/** A connection-lifecycle diagnostic event (shown in the pill's log, mirrored server-side). */
+export type HrDiagEvent = { at: number; step: string; detail?: string };
+
+/** Immutable ring-buffer push for the diagnostics log (snapshot-friendly for the store). */
+export function pushEvent<T>(list: T[], event: T, cap = 50): T[] {
+  const next = [...list, event];
+  return next.length > cap ? next.slice(next.length - cap) : next;
+}
+
 /** Append to the capture buffer, dropping the oldest past HR_MAX_BUFFER. */
 export function appendSample(buffer: HrSamplePoint[], sample: HrSamplePoint): HrSamplePoint[] {
   const next = [...buffer, sample];
