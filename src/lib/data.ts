@@ -298,6 +298,9 @@ export type SessionHrView = {
 
 /** How far beyond the session's own bounds recorder samples still count as "this session". */
 const HR_WINDOW_SLACK_MS = 15 * 60_000;
+/** An unfinished session's claim window never extends past this — a day left open must
+ *  not hoover up unrelated recorder samples hours or days later. (Recorder caps at 3h.) */
+const HR_MAX_SESSION_MS = 6 * 60 * 60_000;
 
 /**
  * Everything the session heart-rate card needs, or null when the day has no meaningful
@@ -321,7 +324,12 @@ export async function getSessionHrView(
             dayId: null,
             at: {
               gte: new Date(day.startedAt.getTime() - HR_WINDOW_SLACK_MS),
-              lte: new Date((day.finishedAt ?? new Date()).getTime() + HR_WINDOW_SLACK_MS),
+              lte: new Date(
+                Math.min(
+                  (day.finishedAt ?? new Date()).getTime(),
+                  day.startedAt.getTime() + HR_MAX_SESSION_MS,
+                ) + HR_WINDOW_SLACK_MS,
+              ),
             },
           },
         ]
