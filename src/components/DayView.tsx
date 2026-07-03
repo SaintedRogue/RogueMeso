@@ -11,6 +11,7 @@ import { ExerciseInfo } from "@/components/ExerciseInfo";
 import { CompleteSession } from "@/components/CompleteSession";
 import { RecoveryCheckIn } from "@/components/RecoveryCheckIn";
 import { HrSessionBinding } from "@/components/HeartRateProvider";
+import { ClearSessionHr } from "@/components/ClearSessionHr";
 import { SessionHrChart } from "@/components/charts/SessionHrChart";
 
 // Structural types (subset of the Prisma payload) this view needs.
@@ -141,7 +142,7 @@ export function DayView({
             <div className="flex items-center gap-2">
               <HeartPulse aria-hidden size={16} className="text-accent" />
               <h2 className="text-sm font-semibold">Heart rate</h2>
-              <span className="text-xs text-muted">via BLE monitor</span>
+              <ClearSessionHr dayId={day.id} />
             </div>
             <div className="flex gap-4 text-sm font-semibold tabular-nums">
               <span><span className="mr-1 text-xs font-normal text-muted">avg</span>{hr.stats.avgBpm}</span>

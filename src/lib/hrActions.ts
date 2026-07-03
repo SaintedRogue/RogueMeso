@@ -27,6 +27,50 @@ export async function logHrBatch(dayId: number, samples: HrSamplePoint[]) {
   return { stored: rows.length };
 }
 
+/** Mirrors getSessionHrView's claim window (data.ts) — keep the two in sync. */
+const CLEAR_SLACK_MS = 15 * 60_000;
+const CLEAR_MAX_SESSION_MS = 6 * 60 * 60_000;
+
+/**
+ * Wipe a session's heart-rate data: rows linked to the day directly plus day-agnostic
+ * recorder rows inside the session's claim window. On an unfinished day, startedAt is
+ * also reset so the next logged set restarts the session clock — the escape hatch for
+ * "I was just testing the recorder, my real workout is tomorrow".
+ */
+export async function clearSessionHr(dayId: number) {
+  const me = await requireUser();
+  const day = await prisma.mesoDay.findUnique({
+    where: { id: dayId },
+    select: { startedAt: true, finishedAt: true, status: true, meso: { select: { userId: true } } },
+  });
+  if (!day || day.meso.userId !== me.id) throw new Error("Forbidden");
+
+  const windowed =
+    day.startedAt != null
+      ? [
+          {
+            dayId: null,
+            at: {
+              gte: new Date(day.startedAt.getTime() - CLEAR_SLACK_MS),
+              lte: new Date(
+                Math.min(
+                  (day.finishedAt ?? new Date()).getTime(),
+                  day.startedAt.getTime() + CLEAR_MAX_SESSION_MS,
+                ) + CLEAR_SLACK_MS,
+              ),
+            },
+          },
+        ]
+      : [];
+  const { count } = await prisma.hrSample.deleteMany({
+    where: { userId: me.id, OR: [{ dayId }, ...windowed] },
+  });
+  if (day.status !== "complete") {
+    await prisma.mesoDay.update({ where: { id: dayId }, data: { startedAt: null } });
+  }
+  return { deleted: count };
+}
+
 /**
  * Mirror the client's BLE connection-lifecycle events into the server log, so
  * `docker logs roguemeso | grep hr-diag` can reconstruct a flaky gym session remotely.
