@@ -17,11 +17,11 @@ export const TITLE_TEXT = {
 
 export const STATUS_TEXT = {
   x: px(70),
-  y: px(140),
+  y: px(128),
   w: DEVICE_WIDTH - 2 * px(70),
-  h: px(150),
+  h: px(140),
   color: 0xffffff,
-  text_size: px(30),
+  text_size: px(28),
   align_h: hmUI.align.CENTER_H,
   align_v: hmUI.align.CENTER_V,
   text_style: hmUI.text_style.WRAP,
@@ -29,12 +29,24 @@ export const STATUS_TEXT = {
 
 export const PING_BUTTON = {
   x: (DEVICE_WIDTH - px(280)) / 2,
-  y: px(310),
+  y: px(282),
   w: px(280),
-  h: px(80),
-  text_size: px(34),
-  radius: px(40),
+  h: px(72),
+  text_size: px(32),
+  radius: px(36),
   normal_color: 0x0e7c86,
   press_color: 0x3fc6c9,
   text: "Send ping",
+};
+
+export const RATE_BUTTON = {
+  x: (DEVICE_WIDTH - px(240)) / 2,
+  y: px(364),
+  w: px(240),
+  h: px(60),
+  text_size: px(28),
+  radius: px(30),
+  normal_color: 0x2a3340,
+  press_color: 0x3fc6c9,
+  text: "HR rate 60s",
 };

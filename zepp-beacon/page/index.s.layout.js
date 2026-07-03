@@ -29,12 +29,24 @@ export const STATUS_TEXT = {
 
 export const PING_BUTTON = {
   x: (DEVICE_WIDTH - px(260)) / 2,
-  y: px(260),
+  y: px(248),
   w: px(260),
-  h: px(72),
-  text_size: px(30),
-  radius: px(36),
+  h: px(64),
+  text_size: px(28),
+  radius: px(32),
   normal_color: 0x0e7c86,
   press_color: 0x3fc6c9,
   text: "Send ping",
+};
+
+export const RATE_BUTTON = {
+  x: (DEVICE_WIDTH - px(240)) / 2,
+  y: px(322),
+  w: px(240),
+  h: px(56),
+  text_size: px(26),
+  radius: px(28),
+  normal_color: 0x2a3340,
+  press_color: 0x3fc6c9,
+  text: "HR rate 60s",
 };

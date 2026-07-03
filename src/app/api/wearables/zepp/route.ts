@@ -47,12 +47,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Spike observability: `docker logs roguemeso` is the server side of the experiment.
-  console.log("[zepp-beacon] ping", {
-    watchAt: body.watchAt,
-    phoneAt: body.phoneAt,
-    hr: body.hr,
-    restingHr: body.restingHr,
-  });
+  // Log the whole (bounded) payload — pings and rate-test results have different shapes.
+  console.log(`[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"}`, JSON.stringify(body).slice(0, 500));
 
   return NextResponse.json({ ok: true, serverAt: Date.now() });
 }
