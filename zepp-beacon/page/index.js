@@ -8,7 +8,17 @@ import { BasePage } from "@zeppos/zml/base-page";
 import { listBatchFiles, readBatchFile, removeBatchFile, readStatus, readJsonFile, writeJsonFile } from "../utils/recorderStore";
 import { collectWellnessSnapshot } from "../utils/wellness-collector";
 import { listWellnessFiles, readWellnessRecords, removeWellnessFile } from "../utils/wellnessStore";
-import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, WELLNESS_BUTTON, TRACK_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
+import {
+  ICON_IMG,
+  TITLE_TEXT,
+  STATUS_CARD,
+  STATUS_TEXT,
+  SYNC_BUTTON,
+  RECORD_BUTTON,
+  PING_BUTTON,
+  WELLNESS_BUTTON,
+  TRACK_BUTTON,
+} from "zosLoader:./index.[pf].layout.js";
 
 // Recorder control surface (spec: R2). The App Service does the recording; this page
 // starts/stops it, shows status, and drains sealed batch files to the server while
@@ -21,6 +31,8 @@ const LOGGER_SERVICE_FILE = "app-service/minute-logger";
 // Track toggle state survives page restarts here; the alarm itself survives reboots
 // via store: true, so this file is the page's view of "did I arm one?".
 const TRACK_CFG_FILE = "hrtrack_cfg.json";
+// Heartbeat the minute-logger writes each sample (keep in sync with its TRACK_STATUS_FILE).
+const TRACK_STATUS_FILE = "hrtrack.json";
 // Workout-scoped: tracking self-terminates after this long (matches the recorder's
 // old battery guard). Long enough for any gym session, short enough that a forgotten
 // toggle costs an afternoon, not a week.
@@ -73,7 +85,9 @@ Page(
     state: {},
 
     build() {
+      hmUI.createWidget(hmUI.widget.IMG, ICON_IMG);
       hmUI.createWidget(hmUI.widget.TEXT, TITLE_TEXT);
+      hmUI.createWidget(hmUI.widget.FILL_RECT, STATUS_CARD);
       statusWidget = hmUI.createWidget(hmUI.widget.TEXT, { ...STATUS_TEXT, text: "Ready" });
       hmUI.createWidget(hmUI.widget.BUTTON, {
         ...SYNC_BUTTON,
@@ -111,7 +125,7 @@ Page(
       });
       trackBtn = hmUI.createWidget(hmUI.widget.BUTTON, {
         ...TRACK_BUTTON,
-        text: this.trackingArmed() ? "Track ●" : "Track",
+        text: this.trackingArmed() ? "Stop Tracking" : "Track Workout",
         click_func: () => {
           try {
             this.toggleTracking();
@@ -149,6 +163,10 @@ Page(
       const st = readStatus();
       const isRecording = running != null ? running : !!(st && st.recording);
       setRecordLabel(isRecording ? "Stop" : "Record");
+      // trackingArmed() also clears an expired auto-off config, so the primary CTA
+      // label heals itself if the 3h deadline passes while the page is open.
+      const tracking = this.trackingArmed();
+      if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, tracking ? "Stop Tracking" : "Track Workout");
 
       if (pending && pending.length > 0) this.drain(pending);
       if (Date.now() < noticeUntil) return; // let start/stop/error messages be read
@@ -159,8 +177,14 @@ Page(
         setStatusText(`● Recording ${mins}m · ${st.total || 0} samples\n♥ ${st.bpm || "—"} · ${pendingLabel}`);
       } else if (isRecording) {
         setStatusText(`● Recording…\n${pendingLabel}`);
+      } else if (tracking) {
+        const cfg = readJsonFile(TRACK_CFG_FILE);
+        const ts = readJsonFile(TRACK_STATUS_FILE);
+        const mins = cfg && cfg.armedAt ? Math.floor((Date.now() - cfg.armedAt) / 60000) : 0;
+        const fresh = ts && ts.at && Date.now() - ts.at < 180_000; // ~3 missed wakes = stale
+        setStatusText(`● Tracking ${mins}m${fresh ? ` · ♥ ${ts.bpm}` : ""}\n${pendingLabel}`);
       } else {
-        setStatusText(pending && pending.length > 0 ? `Not recording\n${pendingLabel} — syncing…` : `Ready · ${pendingLabel}`);
+        setStatusText(pending && pending.length > 0 ? `Syncing…\n${pendingLabel}` : `Ready · ${pendingLabel}`);
       }
     },
 
@@ -490,7 +514,7 @@ Page(
           /* stale id — clearing the config is what matters */
         }
         writeJsonFile(TRACK_CFG_FILE, { alarmId: 0 });
-        if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track");
+        if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track Workout");
         notify("Tracking off");
         return;
       }
@@ -516,7 +540,7 @@ Page(
         return;
       }
       writeJsonFile(TRACK_CFG_FILE, { alarmId, armedAt: now, until });
-      if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track ●");
+      if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Stop Tracking");
       notify("Workout tracking ●\n1/min · auto-off in 3h");
     },
 

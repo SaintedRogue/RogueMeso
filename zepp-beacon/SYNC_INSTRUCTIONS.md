@@ -1,6 +1,6 @@
 # Wellness sync — build, install, trigger, and what the server receives
 
-The beacon app (v0.8.1) collects a full wellness snapshot — heart rate, SpO2, sleep,
+The beacon app (v0.9.0) collects a full wellness snapshot — heart rate, SpO2, sleep,
 stress, steps/calories/distance, PAI, body temperature, workout history, barometer,
 device metadata — buffers it on the watch filesystem, and syncs it to your RogueMeso
 server through the Zepp phone app. API behavior referenced below is documented in
