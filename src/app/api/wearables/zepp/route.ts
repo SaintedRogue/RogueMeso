@@ -9,7 +9,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { RateLimiter } from "@/lib/rateLimit";
 import { hashBeaconToken } from "@/lib/wearableTokens";
-import { clockSkewMs, decodeHrBatch, sanitizeBatch } from "@/lib/heartRate";
+import { clockSkewMs, decodeHrBatch, sanitizeBatch, HR_WATCH_MAX_AGE_MS } from "@/lib/heartRate";
 import { parseWellnessSnapshot } from "@/lib/wellness";
 
 // Generous for one household, hostile to guessing: 20 bad tokens in 10 min locks 30 min.
@@ -60,7 +60,10 @@ export async function POST(req: NextRequest) {
       body.s as [number, number][],
       skew,
     );
-    const rows = sanitizeBatch(decoded, now);
+    // Watch batches (recorder or all-day minute logger) can drain up to a day late —
+    // the wider watch gate applies here; the browser's live-capture path keeps the
+    // tight session-scoped default.
+    const rows = sanitizeBatch(decoded, now, HR_WATCH_MAX_AGE_MS);
     if (rows.length) {
       await prisma.hrSample.createMany({
         data: rows.map((p) => ({ userId: user.id, dayId: null, at: new Date(p.at), bpm: p.bpm })),

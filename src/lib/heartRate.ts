@@ -80,6 +80,12 @@ export const HR_MAX_BATCH = 400;
 
 /** Readings older than this are not from the session being logged; reject them. */
 const HR_MAX_SAMPLE_AGE_MS = 6 * 60 * 60 * 1000;
+/**
+ * Wider gate for the watch's all-day minute logger: batches buffer on the watch and
+ * may drain a full day late (open the app once per evening), so "same session" aging
+ * doesn't apply — but anything past ~a day is stale enough to reject.
+ */
+export const HR_WATCH_MAX_AGE_MS = 26 * 60 * 60 * 1000;
 /** Small allowance for client clocks running slightly ahead of the server. */
 const HR_CLOCK_SKEW_MS = 2 * 60 * 1000;
 
@@ -88,11 +94,15 @@ const HR_CLOCK_SKEW_MS = 2 * 60 * 1000;
  * [now − 6h, now + 2min] window, newest HR_MAX_BATCH rows. The shared gate between the
  * browser's flush and the DB — a hand-crafted payload can't write junk analytics.
  */
-export function sanitizeBatch(samples: HrSamplePoint[], now: number): HrSamplePoint[] {
+export function sanitizeBatch(
+  samples: HrSamplePoint[],
+  now: number,
+  maxAgeMs: number = HR_MAX_SAMPLE_AGE_MS,
+): HrSamplePoint[] {
   const clean = samples.flatMap((s) => {
     const bpm = sanitizeBpm(s.bpm);
     if (bpm == null || !Number.isFinite(s.at)) return [];
-    if (now - s.at > HR_MAX_SAMPLE_AGE_MS || s.at - now > HR_CLOCK_SKEW_MS) return [];
+    if (now - s.at > maxAgeMs || s.at - now > HR_CLOCK_SKEW_MS) return [];
     return [{ at: s.at, bpm }];
   });
   if (clean.length <= HR_MAX_BATCH) return clean;

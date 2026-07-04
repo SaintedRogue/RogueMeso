@@ -12,6 +12,7 @@ import {
   pushEvent,
   HR_MAX_BUFFER,
   HR_MAX_BATCH,
+  HR_WATCH_MAX_AGE_MS,
   type HrSamplePoint,
 } from "@/lib/heartRate";
 
@@ -135,6 +136,18 @@ describe("sanitizeBatch", () => {
     const rows = sanitizeBatch(batch, NOW);
     expect(rows).toHaveLength(HR_MAX_BATCH);
     expect(rows.some((r) => r.at === NOW)).toBe(true); // newest survived
+  });
+
+  it("accepts day-old watch samples under the wider watch gate, still bounding at it", () => {
+    const batch = [
+      ok(NOW - 20 * 60 * 60 * 1000), // yesterday morning, drained tonight — keep
+      ok(NOW - 27 * 60 * 60 * 1000), // beyond even the watch gate — drop
+    ];
+    expect(sanitizeBatch(batch, NOW, HR_WATCH_MAX_AGE_MS)).toEqual([
+      { at: NOW - 20 * 60 * 60 * 1000, bpm: 120 },
+    ]);
+    // The default (browser live-capture) gate is unchanged by the new parameter.
+    expect(sanitizeBatch(batch, NOW)).toEqual([]);
   });
 });
 

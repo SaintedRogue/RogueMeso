@@ -2,12 +2,13 @@ import * as hmUI from "@zos/ui";
 import { HeartRate, Time } from "@zos/sensor";
 import { createTimer, deleteTimer } from "@zos/timer";
 import * as appService from "@zos/app-service";
+import * as alarmMgr from "@zos/alarm";
 import { queryPermission, requestPermission } from "@zos/app";
 import { BasePage } from "@zeppos/zml/base-page";
-import { listBatchFiles, readBatchFile, removeBatchFile, readStatus } from "../utils/recorderStore";
+import { listBatchFiles, readBatchFile, removeBatchFile, readStatus, readJsonFile, writeJsonFile } from "../utils/recorderStore";
 import { collectWellnessSnapshot } from "../utils/wellness-collector";
 import { listWellnessFiles, readWellnessRecords, removeWellnessFile } from "../utils/wellnessStore";
-import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, WELLNESS_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
+import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, WELLNESS_BUTTON, TRACK_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
 // Recorder control surface (spec: R2). The App Service does the recording; this page
 // starts/stops it, shows status, and drains sealed batch files to the server while
@@ -16,6 +17,10 @@ import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, WELLNESS_BUTTON, S
 // page), and "is it running" comes from getAllAppServices(), not just the status file.
 
 const SERVICE_FILE = "app-service/recorder";
+const LOGGER_SERVICE_FILE = "app-service/minute-logger";
+// Track toggle state survives page restarts here; the alarm itself survives reboots
+// via store: true, so this file is the page's view of "did I arm one?".
+const TRACK_CFG_FILE = "hrtrack_cfg.json";
 const BG_PERMISSION = ["device:os.bg_service"];
 const NOTICE_MS = 6000;
 // On-demand sync: the watch's own all-day monitoring keeps per-minute HR regardless of
@@ -26,6 +31,7 @@ const SYNC_CHUNK = 350;
 
 let statusWidget;
 let recordBtn;
+let trackBtn;
 let pollTimer = null;
 let collectTimer = null;
 let draining = false;
@@ -96,6 +102,17 @@ Page(
             this.syncWellness();
           } catch (e) {
             notify(`wellness err:\n${errText(e)}`);
+          }
+        },
+      });
+      trackBtn = hmUI.createWidget(hmUI.widget.BUTTON, {
+        ...TRACK_BUTTON,
+        text: this.trackingArmed() ? "Track ●" : "Track",
+        click_func: () => {
+          try {
+            this.toggleTracking();
+          } catch (e) {
+            notify(`track err:\n${errText(e)}`);
           }
         },
       });
@@ -434,6 +451,54 @@ Page(
           else notify(`Start failed (${info && info.file ? info.file : "?"})\nanother service running?`);
         },
       });
+    },
+
+    trackingArmed() {
+      const cfg = readJsonFile(TRACK_CFG_FILE);
+      return !!(cfg && cfg.alarmId);
+    },
+
+    /**
+     * All-day HR tracking toggle. Arms a repeating one-minute alarm targeting the
+     * minute-logger App Service (Single Execution mode — no long-lived process for
+     * the battery manager to kill). This is the trusted alternative to getToday(),
+     * whose gap-compacted array has no recoverable index→time mapping on this device:
+     * every logged sample is timestamped at capture instead.
+     */
+    toggleTracking() {
+      if (this.trackingArmed()) {
+        const cfg = readJsonFile(TRACK_CFG_FILE);
+        try {
+          alarmMgr.cancel(cfg.alarmId);
+        } catch (e) {
+          /* stale id — clearing the config is what matters */
+        }
+        writeJsonFile(TRACK_CFG_FILE, { alarmId: 0 });
+        if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track");
+        notify("Tracking off");
+        return;
+      }
+      // Defensive: clear any orphaned alarms from a previous install before arming,
+      // so a re-sideload can't end up with two loggers firing per minute.
+      try {
+        const ids = alarmMgr.getAllAlarms();
+        if (Array.isArray(ids)) for (const id of ids) alarmMgr.cancel(id);
+      } catch (e) {
+        /* none to clear */
+      }
+      const alarmId = alarmMgr.set({
+        url: LOGGER_SERVICE_FILE,
+        delay: 60,
+        repeat_type: alarmMgr.REPEAT_MINUTE,
+        store: true, // keep logging across reboots until explicitly toggled off
+      });
+      if (!alarmId) {
+        notify("Track failed\n(alarm not granted?)");
+        return;
+      }
+      writeJsonFile(TRACK_CFG_FILE, { alarmId, armedAt: Date.now() });
+      if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track ●");
+      notify("Tracking on ●\n1 sample/min, syncs on open");
     },
 
     sendPing() {

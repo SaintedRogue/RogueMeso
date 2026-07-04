@@ -29,7 +29,7 @@ import { getDeviceInfo } from "@zos/device";
 import { createSnapshotWriter, pruneWellnessFiles } from "./wellnessStore";
 
 // Keep in sync with app.json version.name (surfaced in every payload for server triage).
-export const APP_VERSION = "0.7.0";
+export const APP_VERSION = "0.8.0";
 export const WELLNESS_SCHEMA_VERSION = 1;
 
 const DAY_MS = 86_400_000;
