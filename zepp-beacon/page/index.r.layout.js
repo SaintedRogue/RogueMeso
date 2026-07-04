@@ -62,3 +62,16 @@ export const PING_BUTTON = {
   press_color: 0x3fc6c9,
   text: "Ping",
 };
+
+// Bottom row hugs the circle's lower safe area — keep it narrower than the rows above.
+export const WELLNESS_BUTTON = {
+  x: (DEVICE_WIDTH - px(200)) / 2,
+  y: px(396),
+  w: px(200),
+  h: px(52),
+  text_size: px(24),
+  radius: px(26),
+  normal_color: 0x2a3340,
+  press_color: 0x3fc6c9,
+  text: "Wellness",
+};
