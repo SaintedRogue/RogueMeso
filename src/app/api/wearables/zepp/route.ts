@@ -5,10 +5,12 @@
 // up in User.zeppTokenHash (generated/revoked in Profile → Wearables, shown once).
 // Design: docs/superpowers/specs/2026-07-02-hr-recorder-design.md
 import { NextResponse, type NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { RateLimiter } from "@/lib/rateLimit";
 import { hashBeaconToken } from "@/lib/wearableTokens";
 import { clockSkewMs, decodeHrBatch, sanitizeBatch } from "@/lib/heartRate";
+import { parseWellnessSnapshot } from "@/lib/wellness";
 
 // Generous for one household, hostile to guessing: 20 bad tokens in 10 min locks 30 min.
 const limiter = new RateLimiter({
@@ -91,6 +93,29 @@ export async function POST(req: NextRequest) {
       from: bounds._min.finishedAt!.getTime() - pad,
       to: bounds._max.finishedAt!.getTime() + pad,
     });
+  }
+
+  if (body.type === "wellness") {
+    // Full wellness snapshot, reassembled by the Side Service from per-domain parts.
+    // Stored as-collected (schema-on-read; see WellnessSnapshot model note) after the
+    // whitelist/size/clock gate in lib/wellness. The {ok:true} ack is what lets the
+    // watch delete its buffered snapshot file — only send it after the row is durable.
+    const now = Date.now();
+    const parsed = parseWellnessSnapshot(body, now);
+    if (!parsed) return NextResponse.json({ ok: false }, { status: 400 });
+    await prisma.wellnessSnapshot.create({
+      data: {
+        userId: user.id,
+        collectedAt: new Date(parsed.collectedAt),
+        payload: { sections: parsed.sections, errors: parsed.errors } as Prisma.InputJsonValue,
+      },
+    });
+    const domains = Object.keys(parsed.sections);
+    console.log(
+      `[zepp-beacon] wellness user=${user.id} domains=${domains.join(",")}` +
+        (Object.keys(parsed.errors).length ? ` errors=${JSON.stringify(parsed.errors).slice(0, 300)}` : ""),
+    );
+    return NextResponse.json({ ok: true, stored: domains.length, serverAt: now });
   }
 
   // Anything else (pings, diag, raw dumps): log-and-echo observability, bounded.

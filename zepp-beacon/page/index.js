@@ -5,7 +5,9 @@ import * as appService from "@zos/app-service";
 import { queryPermission, requestPermission } from "@zos/app";
 import { BasePage } from "@zeppos/zml/base-page";
 import { listBatchFiles, readBatchFile, removeBatchFile, readStatus } from "../utils/recorderStore";
-import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
+import { collectWellnessSnapshot } from "../utils/wellness-collector";
+import { listWellnessFiles, readWellnessRecords, removeWellnessFile } from "../utils/wellnessStore";
+import { TITLE_TEXT, SYNC_BUTTON, RECORD_BUTTON, PING_BUTTON, WELLNESS_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
 // Recorder control surface (spec: R2). The App Service does the recording; this page
 // starts/stops it, shows status, and drains sealed batch files to the server while
@@ -25,8 +27,10 @@ const SYNC_CHUNK = 350;
 let statusWidget;
 let recordBtn;
 let pollTimer = null;
+let collectTimer = null;
 let draining = false;
 let syncing = false;
+let wellnessBusy = false;
 let notice = null;
 let noticeUntil = 0;
 
@@ -85,6 +89,16 @@ Page(
         ...PING_BUTTON,
         click_func: () => this.sendPing(),
       });
+      hmUI.createWidget(hmUI.widget.BUTTON, {
+        ...WELLNESS_BUTTON,
+        click_func: () => {
+          try {
+            this.syncWellness();
+          } catch (e) {
+            notify(`wellness err:\n${errText(e)}`);
+          }
+        },
+      });
       pollTimer = createTimer(1000, 1000, () => {
         try {
           this.tick();
@@ -92,10 +106,20 @@ Page(
           notify(`tick err:\n${errText(e)}`);
         }
       });
+      // Buffer a wellness snapshot on every open (off the build path so first paint
+      // isn't blocked by ~12 sensor reads). Sync stays deliberate — button only.
+      collectTimer = createTimer(1500, 0, () => {
+        try {
+          collectWellnessSnapshot();
+        } catch (e) {
+          /* a failed background collection must never mark the page broken */
+        }
+      });
     },
 
     onDestroy() {
       if (pollTimer != null) deleteTimer(pollTimer);
+      if (collectTimer != null) deleteTimer(collectTimer);
     },
 
     tick() {
@@ -284,6 +308,94 @@ Page(
           syncing = false;
           notify("Dump: no reply from phone");
         });
+    },
+
+    /**
+     * "Wellness" button: seal a fresh snapshot of every wellness stream, then drain
+     * ALL buffered snapshots (this one plus any earlier failed sends) oldest-first.
+     * Same durability contract as HR batches — a snapshot file is deleted only after
+     * the server ack comes back through the Side Service.
+     */
+    syncWellness() {
+      if (wellnessBusy) return;
+      wellnessBusy = true;
+      notify("Collecting wellness…");
+      const sealed = collectWellnessSnapshot();
+      if (!sealed) {
+        wellnessBusy = false;
+        notify("Wellness: storage unavailable");
+        return;
+      }
+      this.drainWellnessFiles(sealed.failed);
+    },
+
+    drainWellnessFiles(failedDomains) {
+      const files = listWellnessFiles();
+      if (!files || files.length === 0) {
+        wellnessBusy = false;
+        notify(files ? "Wellness: nothing to sync" : "Wellness: fs?");
+        return;
+      }
+      let sent = 0;
+      const nextFile = () => {
+        const name = files[sent];
+        if (!name) {
+          wellnessBusy = false;
+          const suffix = failedDomains ? `\n(${failedDomains} sensors unavailable)` : "";
+          notify(`Wellness synced ✓ ${sent} snapshot${sent === 1 ? "" : "s"}${suffix}`);
+          return;
+        }
+        const records = readWellnessRecords(name);
+        if (!records || records.length === 0) {
+          removeWellnessFile(name); // unreadable/empty file is unrecoverable — drop it
+          sent++;
+          nextFile();
+          return;
+        }
+        this.sendWellnessParts(name, records, () => {
+          sent++;
+          nextFile();
+        });
+      };
+      nextFile();
+    },
+
+    /**
+     * Ship one snapshot's domain records as sequential parts. The Side Service
+     * reassembles by syncId and POSTs the whole snapshot once the last part lands;
+     * only that final ack (server-confirmed) deletes the file. Per-domain parts keep
+     * every BLE message small — same reasoning as SYNC_CHUNK for HR rows.
+     */
+    sendWellnessParts(name, records, onDone) {
+      const syncId = `${name}-${Date.now()}`;
+      const sendPart = (index) => {
+        notify(`Wellness: sending ${index + 1}/${records.length}…`);
+        this.request({
+          method: "WELLNESS",
+          syncId,
+          index,
+          total: records.length,
+          record: records[index],
+          watchNow: Date.now(),
+        })
+          .then((res) => {
+            if (!res || !res.ok) {
+              wellnessBusy = false;
+              notify(`Wellness failed: ${(res && (res.error || res.status)) || "?"}`);
+              return;
+            }
+            if (index + 1 < records.length) sendPart(index + 1);
+            else {
+              removeWellnessFile(name); // final part carried the server ack
+              onDone();
+            }
+          })
+          .catch(() => {
+            wellnessBusy = false;
+            notify("Wellness: no reply from phone");
+          });
+      };
+      sendPart(0);
     },
 
     toggleRecording() {

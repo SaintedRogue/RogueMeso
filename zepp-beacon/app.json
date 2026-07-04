@@ -5,16 +5,26 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 9,
-      "name": "0.6.2"
+      "code": 10,
+      "name": "0.7.0"
     },
     "icon": "icon.png",
     "vender": "roguemeso",
-    "description": "Spike: ping RogueMeso from the watch via the Side Service"
+    "description": "RogueMeso wearable beacon: HR recorder + wellness snapshot sync"
   },
   "permissions": [
     "data:os.device.info",
     "data:user.hd.heart_rate",
+    "data:user.hd.spo2",
+    "data:user.hd.sleep",
+    "data:user.hd.stress",
+    "data:user.hd.step",
+    "data:user.hd.calorie",
+    "data:user.hd.distance",
+    "data:user.hd.pai",
+    "data:user.hd.workout",
+    "data:user.hd.body_temp",
+    "device:os.barometer",
     "device:os.bg_service"
   ],
   "runtime": {
