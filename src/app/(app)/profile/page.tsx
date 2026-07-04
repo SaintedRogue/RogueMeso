@@ -1,8 +1,8 @@
-import { ChevronRight, BellRing, LayoutTemplate, Gauge, UsersRound, HeartPulse, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { logout, changeMyPassword } from "@/lib/authActions";
 import { setDefaultUnit } from "@/lib/settingsActions";
 import { requireUser } from "@/lib/auth";
-import { PageHeader, CardLink } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ParticipationToggle } from "@/components/community/ParticipationToggle";
 import { PhysicalTherapyLensToggle } from "@/components/PhysicalTherapyLensToggle";
@@ -177,87 +177,6 @@ export default async function ProfilePage({
               : null
           }
         />
-
-        {/* Templates, Body Tuning & Community live in the desktop sidebar; on mobile they're
-            not in the 5-tab bottom bar, so surface them here as link cards (mobile only). */}
-        <div className="space-y-4 sm:hidden">
-          <CardLink href="/community">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <UsersRound aria-hidden size={18} className="shrink-0 text-accent" />
-                <div>
-                  <div className="text-sm font-medium">Community</div>
-                  <div className="text-xs text-muted">Feed, leaderboard &amp; shared templates.</div>
-                </div>
-              </div>
-              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-            </div>
-          </CardLink>
-
-          <CardLink href="/templates">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <LayoutTemplate aria-hidden size={18} className="shrink-0 text-accent" />
-                <div>
-                  <div className="text-sm font-medium">Templates</div>
-                  <div className="text-xs text-muted">Browse the program template catalog.</div>
-                </div>
-              </div>
-              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-            </div>
-          </CardLink>
-
-          <CardLink href="/body-tuning">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Gauge aria-hidden size={18} className="shrink-0 text-accent" />
-                <div>
-                  <div className="text-sm font-medium">Body Tuning</div>
-                  <div className="text-xs text-muted">Log weigh-ins and set calorie &amp; macro targets.</div>
-                </div>
-              </div>
-              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-            </div>
-          </CardLink>
-
-          <CardLink href="/recovery">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <HeartPulse aria-hidden size={18} className="shrink-0 text-accent" />
-                <div>
-                  <div className="text-sm font-medium">Recovery</div>
-                  <div className="text-xs text-muted">Readiness check-ins &amp; active-recovery routines.</div>
-                </div>
-              </div>
-              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-            </div>
-          </CardLink>
-        </div>
-
-        <CardLink href="/adhd-mode">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <BellRing aria-hidden size={18} className="shrink-0 text-accent" />
-              <div>
-                <div className="text-sm font-medium">ADHD Mode</div>
-                <div className="text-xs text-muted">Push reminders for workouts, meals, hydration &amp; more.</div>
-              </div>
-            </div>
-            <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-          </div>
-        </CardLink>
-
-        {me.role === "admin" && (
-          <CardLink href="/admin/users">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium">User management</div>
-                <div className="text-xs text-muted">Add or remove household members.</div>
-              </div>
-              <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
-            </div>
-          </CardLink>
-        )}
 
         <form action="/api/export" method="get" className="card flex flex-col gap-4 p-6">
           <div className="flex items-start gap-3">

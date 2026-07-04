@@ -4,6 +4,7 @@ import {
   ListChecks,
   TrendingUp,
   LayoutTemplate,
+  LayoutGrid,
   Gauge,
   BellRing,
   HeartPulse,
@@ -27,9 +28,12 @@ export type NavLink = {
 };
 
 // Profile & Settings and admin Users moved off the desktop sidebar into the user
-// menu (UserMenu). PROFILE_LINK still appears in the mobile bottom bar.
+// menu (UserMenu). On mobile, Profile is reached through the More hub (5th tab).
 export const PROFILE_LINK: NavLink = { href: "/profile", label: "Profile & Settings", shortLabel: "Profile", icon: Settings, inUserMenu: true };
 export const ADMIN_LINK: NavLink = { href: "/admin/users", label: "Users", shortLabel: "Users", icon: Users };
+// The mobile bottom bar's 5th slot: a hub for every destination that doesn't fit the
+// bar (nav-hierarchy: primary = tabs, secondary = hub — never buried inside Profile).
+export const MORE_LINK: NavLink = { href: "/more", label: "More", shortLabel: "More", icon: LayoutGrid };
 
 export const NAV_LINKS: NavLink[] = [
   { href: "/", label: "Current workout", shortLabel: "Workout", icon: Dumbbell },
