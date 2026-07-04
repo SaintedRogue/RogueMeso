@@ -40,11 +40,17 @@ describe("hrSessionStats", () => {
     expect(stats!.totalSeconds).toBe(15);
   });
 
-  it("caps gaps so a paused capture cannot inflate zone time", () => {
+  it("counts per-minute backfill samples at full weight (60s gaps are normal cadence)", () => {
     const stats = hrSessionStats([p(0, 120), p(60, 120)], MAX);
-    // 60s gap counts as the 10s cap + 1s for the final sample.
-    expect(stats!.totalSeconds).toBe(11);
-    expect(stats!.zoneSeconds[2]).toBe(11);
+    expect(stats!.totalSeconds).toBe(61); // 60s owned by the first sample + 1s for the last
+    expect(stats!.zoneSeconds[2]).toBe(61);
+  });
+
+  it("caps gaps beyond minute cadence so a paused capture cannot inflate zone time", () => {
+    const stats = hrSessionStats([p(0, 120), p(600, 120)], MAX);
+    // A 10-minute hole counts as the 75s cap + 1s for the final sample.
+    expect(stats!.totalSeconds).toBe(76);
+    expect(stats!.zoneSeconds[2]).toBe(76);
   });
 
   it("returns null when there is nothing meaningful to summarize", () => {

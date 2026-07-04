@@ -7,8 +7,12 @@ import { zoneFor } from "@/lib/heartRate";
 /** One chart point: epoch ms + bpm (HrSample rows mapped server-side). */
 export type HrPoint = { ts: number; bpm: number };
 
-/** Consecutive-sample gaps beyond this stop accruing zone time (paused/dropped capture). */
-const GAP_CAP_SECONDS = 10;
+/**
+ * Consecutive-sample gaps beyond this stop accruing zone time (paused/dropped capture).
+ * 75s so per-minute backfill samples (the watch's all-day record — the guaranteed
+ * baseline when the 1 Hz recorder dies) count at full weight, with a little jitter room.
+ */
+const GAP_CAP_SECONDS = 75;
 
 /** Post-set window in which the recovery drop is measured. */
 const RECOVERY_WINDOW_MS = 90_000;
