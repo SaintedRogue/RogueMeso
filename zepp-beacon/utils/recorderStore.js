@@ -76,3 +76,25 @@ function arrayBufferToStr(buf) {
   for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
   return out;
 }
+
+/** Generic small-JSON-file read: null when missing/unparseable (never throws). */
+export function readJsonFile(path) {
+  try {
+    if (!statSync({ path })) return null;
+    const raw = readFileSync({ path });
+    const text = typeof raw === "string" ? raw : arrayBufferToStr(raw);
+    return JSON.parse(text);
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Generic small-JSON-file write. Returns false on failure (never throws). */
+export function writeJsonFile(path, value) {
+  try {
+    writeFileSync({ path, data: JSON.stringify(value) });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}

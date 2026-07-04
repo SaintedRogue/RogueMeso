@@ -5,8 +5,8 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 10,
-      "name": "0.7.0"
+      "code": 11,
+      "name": "0.8.0"
     },
     "icon": "icon.png",
     "vender": "roguemeso",
@@ -25,7 +25,8 @@
     "data:user.hd.workout",
     "data:user.hd.body_temp",
     "device:os.barometer",
-    "device:os.bg_service"
+    "device:os.bg_service",
+    "device:os.alarm"
   ],
   "runtime": {
     "apiVersion": {
@@ -50,7 +51,8 @@
         },
         "app-service": {
           "services": [
-            "app-service/recorder"
+            "app-service/recorder",
+            "app-service/minute-logger"
           ]
         }
       },

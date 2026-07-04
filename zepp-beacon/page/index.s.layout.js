@@ -66,11 +66,23 @@ export const PING_BUTTON = {
 export const WELLNESS_BUTTON = {
   x: (DEVICE_WIDTH - px(250)) / 2,
   y: px(356),
-  w: px(250),
+  w: px(120),
   h: px(52),
-  text_size: px(24),
+  text_size: px(22),
   radius: px(26),
   normal_color: 0x2a3340,
   press_color: 0x3fc6c9,
   text: "Wellness",
+};
+
+export const TRACK_BUTTON = {
+  x: (DEVICE_WIDTH - px(250)) / 2 + px(130),
+  y: px(356),
+  w: px(120),
+  h: px(52),
+  text_size: px(22),
+  radius: px(26),
+  normal_color: 0x2a3340,
+  press_color: 0x3fc6c9,
+  text: "Track",
 };

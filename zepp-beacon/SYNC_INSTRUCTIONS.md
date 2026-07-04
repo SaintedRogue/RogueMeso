@@ -1,6 +1,6 @@
 # Wellness sync — build, install, trigger, and what the server receives
 
-The beacon app (v0.7.0) collects a full wellness snapshot — heart rate, SpO2, sleep,
+The beacon app (v0.8.0) collects a full wellness snapshot — heart rate, SpO2, sleep,
 stress, steps/calories/distance, PAI, body temperature, workout history, barometer,
 device metadata — buffers it on the watch filesystem, and syncs it to your RogueMeso
 server through the Zepp phone app. API behavior referenced below is documented in
@@ -52,6 +52,30 @@ Open the beacon app on the watch:
 
 "Sync HR", "Record", and "Ping" behave exactly as before; the wellness path is
 additive.
+
+### All-day HR tracking ("Track" button)
+
+`getToday()` on this device is a gap-compacted array with no recoverable
+index→time mapping (characterized from raw dumps — see §5), so all-day HR uses
+capture-time sampling instead:
+
+- **Press "Track"** to arm a repeating one-minute alarm that wakes the
+  `minute-logger` App Service (Single Execution mode, ~600 ms per wake — no
+  long-lived background process). Each wake stamps the watch's latest HR reading
+  with the current epoch time and buffers it; batches seal every 30 samples into
+  the same files the session recorder uses.
+- The alarm **persists across reboots** until you press "Track ●" again to disarm.
+- Samples sync through the existing drain: **open the beacon app** and buffered
+  batches upload oldest-first with per-file server acks (a full day is ~48 files,
+  about a minute of the app being open). They land as `HrSample` rows.
+- Resolution follows the watch's own monitoring cadence: `getLast()` returns the
+  system's most recent measurement, sampled on a 1-minute clock (denser
+  measurements during workouts, sparser when idle — repeats are recorded as an
+  honest staircase).
+- Two caveats from the platform docs: file writes inside a background service only
+  work with the screen off or in AOD (a wake-up while the screen is on may skip
+  one minute), and unsynced batches cap at ~50 h — open the app at least daily to
+  avoid the oldest dropping.
 
 ## 4. What the server receives
 
