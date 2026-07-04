@@ -67,6 +67,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, seq: body.seq ?? null, stored: rows.length, serverAt: now });
   }
 
+  if (body.type === "window") {
+    // The watch's on-demand "Sync HR" asks: when was my latest workout? Answer with the
+    // set-log bounds ±5 min so the watch sends only workout-relevant minutes. Sessions
+    // older than 36h don't count — nothing recent means nothing to sync.
+    const latestSet = await prisma.exerciseSet.findFirst({
+      where: {
+        finishedAt: { not: null, gte: new Date(Date.now() - 36 * 60 * 60_000) },
+        dayExercise: { day: { meso: { userId: user.id } } },
+      },
+      orderBy: { finishedAt: "desc" },
+      select: { dayExercise: { select: { dayId: true } } },
+    });
+    if (!latestSet) return NextResponse.json({ ok: true, from: null, to: null });
+    const bounds = await prisma.exerciseSet.aggregate({
+      where: { dayExercise: { dayId: latestSet.dayExercise.dayId }, finishedAt: { not: null } },
+      _min: { finishedAt: true },
+      _max: { finishedAt: true },
+    });
+    const pad = 5 * 60_000;
+    return NextResponse.json({
+      ok: true,
+      from: bounds._min.finishedAt!.getTime() - pad,
+      to: bounds._max.finishedAt!.getTime() + pad,
+    });
+  }
+
   // Anything else (pings, rate-test results): log-and-echo observability, bounded.
   console.log(
     `[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"} user=${user.id}`,

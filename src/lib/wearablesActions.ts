@@ -21,3 +21,9 @@ export async function revokeZeppToken(): Promise<void> {
   const me = await requireUser();
   await prisma.user.update({ where: { id: me.id }, data: { zeppTokenHash: null } });
 }
+
+/** Opt in/out of the live Bluetooth HR connection UI (the connect pill/chooser). */
+export async function setBleHrEnabled(enabled: boolean): Promise<void> {
+  const me = await requireUser();
+  await prisma.user.update({ where: { id: me.id }, data: { bleHrEnabled: enabled === true } });
+}

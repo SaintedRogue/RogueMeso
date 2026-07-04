@@ -27,26 +27,38 @@ export const STATUS_TEXT = {
   text_style: hmUI.text_style.WRAP,
 };
 
-export const RECORD_BUTTON = {
+export const SYNC_BUTTON = {
   x: (DEVICE_WIDTH - px(280)) / 2,
-  y: px(268),
+  y: px(248),
   w: px(280),
-  h: px(80),
-  text_size: px(34),
-  radius: px(40),
+  h: px(72),
+  text_size: px(32),
+  radius: px(36),
   normal_color: 0x0e7c86,
   press_color: 0x3fc6c9,
-  text: "Record",
+  text: "Sync HR",
 };
 
-export const PING_BUTTON = {
-  x: (DEVICE_WIDTH - px(220)) / 2,
-  y: px(362),
-  w: px(220),
+export const RECORD_BUTTON = {
+  x: (DEVICE_WIDTH - px(290)) / 2,
+  y: px(332),
+  w: px(140),
   h: px(56),
   text_size: px(26),
   radius: px(28),
   normal_color: 0x2a3340,
   press_color: 0x3fc6c9,
-  text: "Ping server",
+  text: "Record",
+};
+
+export const PING_BUTTON = {
+  x: (DEVICE_WIDTH - px(290)) / 2 + px(150),
+  y: px(332),
+  w: px(140),
+  h: px(56),
+  text_size: px(26),
+  radius: px(28),
+  normal_color: 0x2a3340,
+  press_color: 0x3fc6c9,
+  text: "Ping",
 };

@@ -84,6 +84,9 @@ model User {
   // presents to /api/wearables/zepp). Plaintext is shown once at generation and never
   // stored; null = no wearable paired. Regenerating/revoking replaces/clears the hash.
   zeppTokenHash String? @unique
+  // Opt-in for the live Bluetooth (Web Bluetooth) heart-rate connection UI. Default OFF:
+  // the connect pill/chooser only appear when enabled; watch-sync display is unaffected.
+  bleHrEnabled Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

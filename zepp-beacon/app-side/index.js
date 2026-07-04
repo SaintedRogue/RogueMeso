@@ -30,7 +30,8 @@ async function relay(payload, res) {
     // 200 (learned the hard way, 2026-07-02). Only our route says `"ok": true`.
     const body = typeof response.body === "string" ? safeParse(response.body) : response.body;
     const ok = response.status === 200 && !!body && body.ok === true;
-    res(null, { ok, status: response.status });
+    // Pass the parsed body through: window lookups need `from`/`to` back on the watch.
+    res(null, { ok, status: response.status, body: ok ? body : null });
   } catch (e) {
     res(null, { ok: false, error: "fetch failed" });
   }
@@ -58,6 +59,9 @@ AppSideService(
         // Recorder batch: pass through verbatim — the server decodes t0/s and answers
         // {ok, seq, stored}; the watch deletes the batch file only on that ack.
         relay({ type: "hr", ...payload }, res);
+      } else if (method === "GET_WINDOW") {
+        // On-demand sync asks the server for the latest workout's set-log bounds.
+        relay({ type: "window" }, res);
       } else {
         res(null, { ok: false, error: `unknown method ${method}` });
       }

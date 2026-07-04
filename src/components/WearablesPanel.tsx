@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Watch } from "lucide-react";
-import { generateZeppToken, revokeZeppToken } from "@/lib/wearablesActions";
+import { generateZeppToken, revokeZeppToken, setBleHrEnabled } from "@/lib/wearablesActions";
 
 /**
  * Profile → Wearables: pair the Zepp watch app via a per-user beacon token. The
@@ -13,10 +13,13 @@ import { generateZeppToken, revokeZeppToken } from "@/lib/wearablesActions";
 export function WearablesPanel({
   paired,
   lastSync = null,
+  bleEnabled = false,
 }: {
   paired: boolean;
   /** Receipt that the watch recorder is delivering (visible even before a session claims the data). */
   lastSync?: { atLabel: string; count24h: number } | null;
+  /** Live Bluetooth connection UI opt-in (the connect pill). */
+  bleEnabled?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -93,6 +96,31 @@ export function WearablesPanel({
             Revoke
           </button>
         )}
+      </div>
+
+      <div className="mt-1 flex items-center justify-between gap-4 border-t border-line pt-3">
+        <div>
+          <div className="text-sm font-medium">Live Bluetooth connection</div>
+          <div className="text-xs text-muted">
+            Show the Connect-HR pill for pairing a strap or broadcast directly. Watch sync works
+            without it.
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={bleEnabled}
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              await setBleHrEnabled(!bleEnabled);
+              router.refresh();
+            })
+          }
+          className={`chip shrink-0 px-4 py-2 text-sm disabled:opacity-60 ${bleEnabled ? "border-accent text-accent" : "chip-nav"}`}
+        >
+          {bleEnabled ? "On" : "Off"}
+        </button>
       </div>
     </div>
   );

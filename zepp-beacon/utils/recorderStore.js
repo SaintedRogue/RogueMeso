@@ -7,28 +7,6 @@ import { readFileSync, writeFileSync, readdirSync, rmSync, statSync } from "@zos
 
 export const BATCH_PREFIX = "hrbatch_";
 export const STATUS_FILE = "hrstatus.json";
-const BACKFILL_FILE = "hrbackfill.json";
-
-/** Watermark: per-minute backfill has been sent through this epoch-ms. */
-export function readBackfillMark() {
-  try {
-    if (!statSync({ path: BACKFILL_FILE })) return 0;
-    const raw = readFileSync({ path: BACKFILL_FILE });
-    const text = typeof raw === "string" ? raw : arrayBufferToStr(raw);
-    const v = JSON.parse(text);
-    return typeof v.throughMs === "number" ? v.throughMs : 0;
-  } catch (e) {
-    return 0;
-  }
-}
-
-export function writeBackfillMark(throughMs) {
-  try {
-    writeFileSync({ path: BACKFILL_FILE, data: JSON.stringify({ throughMs }) });
-  } catch (e) {
-    /* worst case we re-send — server dedupes at read time */
-  }
-}
 
 export function writeBatchFile(seq, batch) {
   writeFileSync({ path: `${BATCH_PREFIX}${String(seq).padStart(6, "0")}.json`, data: JSON.stringify(batch) });
