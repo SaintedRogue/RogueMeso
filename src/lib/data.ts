@@ -359,7 +359,9 @@ export async function getSessionHrView(
     orderBy: { at: "asc" },
     select: { at: true, bpm: true },
   });
-  if (samples.length < 60) return null;
+  // ≥20 readings ≈ 20 min of per-minute backfill or 20s of live capture — below that
+  // it's noise, not insight. (Was 60 when 1 Hz was the only source.)
+  if (samples.length < 20) return null;
   const raw = mergePerSecond(samples.map((s) => ({ ts: s.at.getTime(), bpm: s.bpm })));
   const maxHr = maxHrFor(user.birthDate, new Date());
   const stats = hrSessionStats(raw, maxHr);

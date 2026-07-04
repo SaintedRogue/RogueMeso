@@ -1,10 +1,17 @@
 import * as hmUI from "@zos/ui";
-import { HeartRate } from "@zos/sensor";
+import { HeartRate, Time } from "@zos/sensor";
 import { createTimer, deleteTimer } from "@zos/timer";
 import * as appService from "@zos/app-service";
 import { queryPermission, requestPermission } from "@zos/app";
 import { BasePage } from "@zeppos/zml/base-page";
-import { listBatchFiles, readBatchFile, removeBatchFile, readStatus } from "../utils/recorderStore";
+import {
+  listBatchFiles,
+  readBatchFile,
+  removeBatchFile,
+  readStatus,
+  readBackfillMark,
+  writeBackfillMark,
+} from "../utils/recorderStore";
 import { TITLE_TEXT, RECORD_BUTTON, PING_BUTTON, STATUS_TEXT } from "zosLoader:./index.[pf].layout.js";
 
 // Recorder control surface (spec: R2). The App Service does the recording; this page
@@ -16,6 +23,12 @@ import { TITLE_TEXT, RECORD_BUTTON, PING_BUTTON, STATUS_TEXT } from "zosLoader:.
 const SERVICE_FILE = "app-service/recorder";
 const BG_PERMISSION = ["device:os.bg_service"];
 const NOTICE_MS = 6000;
+// Backfill: the watch's own all-day monitoring keeps per-minute HR regardless of our
+// recorder (field lesson 2026-07-03: the OS killed the App Service ~2 min in — the
+// 1 Hz stream is a bonus, the minute data is the guarantee). Look back at most 8h,
+// chunk under the server's 400-row batch cap.
+const BACKFILL_LOOKBACK_MS = 8 * 60 * 60 * 1000;
+const BACKFILL_CHUNK = 350;
 
 let statusWidget;
 let recordBtn;
@@ -23,6 +36,7 @@ let pollTimer = null;
 let draining = false;
 let notice = null;
 let noticeUntil = 0;
+let backfillTriedAt = 0; // once per page visit (and at most every 5 min)
 
 function setStatusText(text) {
   if (statusWidget) statusWidget.setProperty(hmUI.prop.TEXT, text);
@@ -92,6 +106,12 @@ Page(
       if (pending && pending.length > 0) this.drain(pending);
       if (Date.now() < noticeUntil) return; // let start/stop/error messages be read
 
+      // Idle with nothing queued: opportunistically backfill today's per-minute HR.
+      if (!isRecording && pending != null && pending.length === 0 && Date.now() - backfillTriedAt > 5 * 60_000) {
+        backfillTriedAt = Date.now();
+        this.backfill();
+      }
+
       const pendingLabel = pending == null ? "fs?" : `${pending.length} pending`;
       if (isRecording && st) {
         const mins = Math.floor((Date.now() - st.startAt) / 60000);
@@ -125,6 +145,53 @@ Page(
         .finally(() => {
           draining = false;
         });
+    },
+
+    /**
+     * Send today's per-minute HR (the watch's own all-day record) that we haven't sent
+     * yet — the guaranteed coverage when the 1 Hz service gets killed. Chunked under
+     * the server batch cap; the watermark advances only on a confirmed ack, and the
+     * server's read-time per-second dedup makes any overlap harmless.
+     */
+    backfill() {
+      let minutes;
+      let midnight;
+      try {
+        minutes = new HeartRate().getToday();
+        const t = new Time();
+        midnight = Date.now() - (t.getHours() * 3600 + t.getMinutes() * 60 + t.getSeconds()) * 1000;
+      } catch (e) {
+        return; // sensor/history unavailable — nothing to do
+      }
+      if (!Array.isArray(minutes) || minutes.length === 0) return;
+
+      const since = Math.max(readBackfillMark(), midnight, Date.now() - BACKFILL_LOOKBACK_MS);
+      const rows = [];
+      for (let i = 0; i < minutes.length; i++) {
+        const bpm = minutes[i];
+        const at = midnight + i * 60_000;
+        if (!bpm || bpm <= 25 || bpm > 250 || at <= since || at > Date.now()) continue;
+        rows.push([Math.round((at - midnight) / 1000), bpm]);
+      }
+      if (rows.length === 0) return;
+
+      notify(`Backfilling ${rows.length} min…`);
+      const sendChunk = (offset) => {
+        if (offset >= rows.length) {
+          const lastAt = midnight + rows[rows.length - 1][0] * 1000;
+          writeBackfillMark(lastAt);
+          notify(`Backfilled ${rows.length} min ✓`);
+          return;
+        }
+        const chunk = rows.slice(offset, offset + BACKFILL_CHUNK);
+        this.request({ method: "HR_BATCH", seq: 900_000 + offset, t0: midnight, watchNow: Date.now(), s: chunk })
+          .then((res) => {
+            if (res && res.ok) sendChunk(offset + BACKFILL_CHUNK);
+            else notify(`Backfill failed: ${(res && (res.error || res.status)) || "?"}`);
+          })
+          .catch(() => notify("Backfill: no reply from phone"));
+      };
+      sendChunk(0);
     },
 
     toggleRecording() {
