@@ -93,10 +93,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Anything else (pings, rate-test results): log-and-echo observability, bounded.
+  // Anything else (pings, diag, raw dumps): log-and-echo observability, bounded.
+  // Raw-array dump chunks must land whole (200 values ≈ 1KB); everything else stays tight.
   console.log(
     `[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"} user=${user.id}`,
-    JSON.stringify(body).slice(0, 500),
+    JSON.stringify(body).slice(0, body.type === "dump" ? 4000 : 500),
   );
   return NextResponse.json({ ok: true, serverAt: Date.now() });
 }

@@ -65,6 +65,9 @@ AppSideService(
       } else if (method === "DIAG") {
         // Shape/characterization reports — land in the server's log-and-echo branch.
         relay({ type: "diag", ...payload }, res);
+      } else if (method === "DUMP") {
+        // Raw-array chunks for offline analysis — same log-and-echo path.
+        relay({ type: "dump", ...payload }, res);
       } else {
         res(null, { ok: false, error: `unknown method ${method}` });
       }
