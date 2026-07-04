@@ -20,6 +20,7 @@
 
 import { HeartRate } from "@zos/sensor";
 import * as appServiceMgr from "@zos/app-service";
+import * as alarmMgr from "@zos/alarm";
 import {
   writeBatchFile,
   listBatchFiles,
@@ -30,6 +31,8 @@ import {
 
 const OPEN_BATCH_FILE = "hrtrack_open.json";
 export const TRACK_STATUS_FILE = "hrtrack.json";
+// Must match the page's TRACK_CFG_FILE — the toggle writes it, this service enforces it.
+const TRACK_CFG_FILE = "hrtrack_cfg.json";
 // 30 samples ≈ 30 min per sealed file; small enough for one BLE send, few enough
 // files that a once-a-day drain stays quick.
 const SEAL_AT = 30;
@@ -72,10 +75,28 @@ function pruneSealedBatches() {
   for (let i = 0; i < files.length - MAX_PENDING_BATCHES; i++) removeBatchFile(files[i]);
 }
 
+/**
+ * Workout-scoped auto-off: past the toggle's deadline, cancel the alarm and clear the
+ * config instead of sampling. The alarm's own end_time should make this unreachable,
+ * but end_time is a documented-yet-unproven field on this firmware — this guard makes
+ * "forgot to toggle off" cost at most one extra wake-up either way.
+ */
+function pastDeadline() {
+  const cfg = readJsonFile(TRACK_CFG_FILE);
+  if (!cfg || !cfg.alarmId || !cfg.until || Date.now() <= cfg.until) return false;
+  try {
+    alarmMgr.cancel(cfg.alarmId);
+  } catch (e) {
+    /* alarm already gone (end_time honored) — clearing the config still matters */
+  }
+  writeJsonFile(TRACK_CFG_FILE, { alarmId: 0 });
+  return true;
+}
+
 AppService({
   onInit() {
     try {
-      sampleOnce();
+      if (!pastDeadline()) sampleOnce();
     } catch (e) {
       /* one lost minute; never leave the service hanging */
     }

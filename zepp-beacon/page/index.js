@@ -21,6 +21,10 @@ const LOGGER_SERVICE_FILE = "app-service/minute-logger";
 // Track toggle state survives page restarts here; the alarm itself survives reboots
 // via store: true, so this file is the page's view of "did I arm one?".
 const TRACK_CFG_FILE = "hrtrack_cfg.json";
+// Workout-scoped: tracking self-terminates after this long (matches the recorder's
+// old battery guard). Long enough for any gym session, short enough that a forgotten
+// toggle costs an afternoon, not a week.
+const TRACK_MAX_MS = 3 * 60 * 60 * 1000;
 const BG_PERMISSION = ["device:os.bg_service"];
 const NOTICE_MS = 6000;
 // On-demand sync: the watch's own all-day monitoring keeps per-minute HR regardless of
@@ -455,15 +459,27 @@ Page(
 
     trackingArmed() {
       const cfg = readJsonFile(TRACK_CFG_FILE);
-      return !!(cfg && cfg.alarmId);
+      if (!cfg || !cfg.alarmId) return false;
+      // Auto-off: past the deadline the logger service disarms itself; treat the
+      // config as expired here too so the button never shows a stale "Track ●".
+      if (cfg.until && Date.now() > cfg.until) {
+        writeJsonFile(TRACK_CFG_FILE, { alarmId: 0 });
+        return false;
+      }
+      return true;
     },
 
     /**
-     * All-day HR tracking toggle. Arms a repeating one-minute alarm targeting the
+     * Workout HR tracking toggle. Arms a repeating one-minute alarm targeting the
      * minute-logger App Service (Single Execution mode — no long-lived process for
      * the battery manager to kill). This is the trusted alternative to getToday(),
      * whose gap-compacted array has no recoverable index→time mapping on this device:
      * every logged sample is timestamped at capture instead.
+     *
+     * Workout-scoped by design: auto-disarms TRACK_MAX_MS after arming (alarm-level
+     * end_time + a service-side self-disarm guard, in case end_time is firmware-
+     * flaky), so a forgotten toggle can't burn all-day battery. Press at the start
+     * of a session; press again to stop early.
      */
     toggleTracking() {
       if (this.trackingArmed()) {
@@ -486,19 +502,22 @@ Page(
       } catch (e) {
         /* none to clear */
       }
+      const now = Date.now();
+      const until = now + TRACK_MAX_MS;
       const alarmId = alarmMgr.set({
         url: LOGGER_SERVICE_FILE,
         delay: 60,
         repeat_type: alarmMgr.REPEAT_MINUTE,
-        store: true, // keep logging across reboots until explicitly toggled off
+        store: true, // survive a mid-workout reboot
+        end_time: Math.floor(until / 1000), // docs: repeat only effective within window
       });
       if (!alarmId) {
         notify("Track failed\n(alarm not granted?)");
         return;
       }
-      writeJsonFile(TRACK_CFG_FILE, { alarmId, armedAt: Date.now() });
+      writeJsonFile(TRACK_CFG_FILE, { alarmId, armedAt: now, until });
       if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track ●");
-      notify("Tracking on ●\n1 sample/min, syncs on open");
+      notify("Workout tracking ●\n1/min · auto-off in 3h");
     },
 
     sendPing() {
