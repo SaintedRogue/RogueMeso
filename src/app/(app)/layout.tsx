@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (user.mustChangePassword) return <ForcedPasswordChange name={user.name ?? user.email} />;
   const updates = await getUpdates();
   return (
-    <HeartRateProvider maxHr={maxHrFor(user.birthDate, new Date())}>
+    <HeartRateProvider maxHr={maxHrFor(user.birthDate, new Date())} bleEnabled={user.bleHrEnabled}>
     <RestTimerProvider>
     <div className="flex min-h-screen">
       {/* sticky + h-dvh keeps the rail viewport-height so its footer stays pinned to

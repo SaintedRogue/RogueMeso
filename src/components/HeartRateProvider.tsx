@@ -294,6 +294,8 @@ async function findKnownDevice(): Promise<BluetoothDevice | null> {
 type HeartRateContext = {
   state: HrState;
   maxHr: number;
+  /** Profile opt-in for the live Bluetooth connection UI (watch-sync display is always on). */
+  bleEnabled: boolean;
   connect: () => void;
   disconnect: () => void;
   toggleDiag: () => void;
@@ -302,6 +304,7 @@ type HeartRateContext = {
 const Ctx = createContext<HeartRateContext>({
   state: IDLE,
   maxHr: 190,
+  bleEnabled: false,
   connect: () => {},
   disconnect: () => {},
   toggleDiag: () => {},
@@ -337,7 +340,7 @@ const LONG_PRESS_MS = 500;
 const WATCH_FRESH_MS = 90_000;
 
 function HrPill() {
-  const { state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
+  const { state: hr, maxHr, bleEnabled, connect: doConnect, disconnect: doDisconnect, toggleDiag } = useHeartRate();
   // false on the server and during hydration, so SSR and first client paint agree.
   const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
   // Render-pure clock for watch-sync freshness/age (Date.now() in render is banned by
@@ -382,7 +385,7 @@ function HrPill() {
   }, []);
 
   if (!hydrated) return null;
-  const bleCapable = typeof navigator !== "undefined" && !!navigator.bluetooth;
+  const bleCapable = bleEnabled && typeof navigator !== "undefined" && !!navigator.bluetooth;
   const watchFresh = hr.watchHr != null && now - hr.watchHr.at < WATCH_FRESH_MS;
   // The pill earns its pixels when there's something to show or something to offer:
   // a BLE connection (live/possible) on an open session, or fresh watch-synced HR —
@@ -494,12 +497,20 @@ function HrPill() {
   );
 }
 
-export function HeartRateProvider({ maxHr, children }: { maxHr: number; children: React.ReactNode }) {
+export function HeartRateProvider({
+  maxHr,
+  bleEnabled,
+  children,
+}: {
+  maxHr: number;
+  bleEnabled: boolean;
+  children: React.ReactNode;
+}) {
   const hr = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   // Offer one-tap reconnect to a previously-granted device (Chromium getDevices).
   useEffect(() => {
-    if (hr.status !== "idle" || hr.dayId == null || hr.knownDeviceName) return;
+    if (!bleEnabled || hr.status !== "idle" || hr.dayId == null || hr.knownDeviceName) return;
     let stale = false;
     void findKnownDevice().then((d) => {
       if (!stale && d?.name && state.status === "idle") patch({ knownDeviceName: d.name });
@@ -507,7 +518,7 @@ export function HeartRateProvider({ maxHr, children }: { maxHr: number; children
     return () => {
       stale = true;
     };
-  }, [hr.status, hr.dayId, hr.knownDeviceName]);
+  }, [bleEnabled, hr.status, hr.dayId, hr.knownDeviceName]);
 
   // While a session is on screen and no BLE device is connected, poll for the freshest
   // watch-synced reading — recorder batches land ~every 30s, so this is "live-ish" HR
@@ -557,7 +568,7 @@ export function HeartRateProvider({ maxHr, children }: { maxHr: number; children
   const toggleDiag = useCallback(() => patch({ showDiag: !state.showDiag }), []);
 
   return (
-    <Ctx.Provider value={{ state: hr, maxHr, connect: doConnect, disconnect: doDisconnect, toggleDiag }}>
+    <Ctx.Provider value={{ state: hr, maxHr, bleEnabled, connect: doConnect, disconnect: doDisconnect, toggleDiag }}>
       {children}
       <HrPill />
     </Ctx.Provider>

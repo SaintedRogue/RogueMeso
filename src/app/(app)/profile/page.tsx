@@ -162,6 +162,7 @@ export default async function ProfilePage({
 
         <WearablesPanel
           paired={me.zeppTokenHash != null}
+          bleEnabled={me.bleHrEnabled}
           lastSync={
             syncReceipt
               ? {
