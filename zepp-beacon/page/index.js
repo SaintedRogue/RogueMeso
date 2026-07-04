@@ -228,11 +228,9 @@ Page(
         rows.push([Math.round((at - midnight) / 1000), bpm]);
       }
       if (rows.length === 0) {
-        syncing = false;
-        notify(
-          `Shape report sent (${entries.length} entries)\n` +
-            (nonzero ? "timestamps unclear — check with the server" : "no readings today?"),
-        );
+        // Bare numbers we refuse to timestamp — but ship the WHOLE array to the server
+        // (chunked) so the log characterizes the real cadence offline.
+        this.dumpEntries(entries, 0);
         return;
       }
       notify(`Syncing ${rows.length} min…`);
@@ -257,6 +255,35 @@ Page(
           });
       };
       sendChunk(0);
+    },
+
+    /** Send the raw getToday() array to the server log, 200 values per chunk. */
+    dumpEntries(entries, offset) {
+      const CHUNK = 200;
+      if (offset >= entries.length) {
+        syncing = false;
+        notify(`Dumped ${entries.length} raw values ✓\n(server has the full array)`);
+        return;
+      }
+      notify(`Dumping raw data… ${offset}/${entries.length}`);
+      this.request({
+        method: "DUMP",
+        offset,
+        total: entries.length,
+        watchNow: Date.now(),
+        values: entries.slice(offset, offset + CHUNK),
+      })
+        .then((res) => {
+          if (res && res.ok) this.dumpEntries(entries, offset + CHUNK);
+          else {
+            syncing = false;
+            notify(`Dump failed at ${offset}`);
+          }
+        })
+        .catch(() => {
+          syncing = false;
+          notify("Dump: no reply from phone");
+        });
     },
 
     toggleRecording() {
