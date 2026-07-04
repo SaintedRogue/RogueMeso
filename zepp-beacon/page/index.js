@@ -170,30 +170,69 @@ Page(
     },
 
     sendWindow(from, to) {
-      let minutes;
+      let entries;
       let midnight;
       try {
-        minutes = new HeartRate().getToday();
+        entries = new HeartRate().getToday();
         const t = new Time();
         midnight = Date.now() - (t.getHours() * 3600 + t.getMinutes() * 60 + t.getSeconds()) * 1000;
       } catch (e) {
         syncing = false;
-        notify("HR history unavailable");
+        notify(`HR history unavailable\n${errText(e)}`);
         return;
       }
-      const rows = [];
-      if (Array.isArray(minutes)) {
-        for (let i = 0; i < minutes.length; i++) {
-          const bpm = minutes[i];
-          const at = midnight + i * 60_000;
-          if (!bpm || bpm <= 25 || bpm > 250 || at < from || at > to || at > Date.now()) continue;
-          rows.push([Math.round((at - midnight) / 1000), bpm]);
+      if (!Array.isArray(entries)) entries = [];
+
+      // Field lesson (2026-07-03): on the Active 2 this array is NOT the documented
+      // minute grid — 102 entries covered a 1h workout (~9s apart, denser in workout
+      // mode). Characterize the real shape server-side before trusting any mapping.
+      let firstIdx = -1;
+      let lastIdx = -1;
+      let nonzero = 0;
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const v = typeof e === "number" ? e : e && typeof e === "object" ? e.value ?? e.hr ?? e.bpm : 0;
+        if (v > 0) {
+          nonzero++;
+          if (firstIdx < 0) firstIdx = i;
+          lastIdx = i;
         }
+      }
+      this.request({
+        method: "DIAG",
+        kind: "getToday",
+        len: entries.length,
+        nonzero,
+        firstIdx,
+        lastIdx,
+        head: entries.slice(0, 3),
+        tail: entries.slice(-3),
+        midnight,
+        watchNow: Date.now(),
+        windowFrom: from,
+        windowTo: to,
+      }).catch(() => {});
+
+      // Timestamped entries ({time,value}-ish objects) are trustworthy; bare numbers
+      // are NOT minute-indexed on this device, so refuse to fabricate times for them.
+      const rows = [];
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        if (!e || typeof e !== "object") continue;
+        const rawT = e.time ?? e.timestamp ?? e.t;
+        const bpm = e.value ?? e.hr ?? e.bpm;
+        if (!Number.isFinite(rawT) || !Number.isFinite(bpm) || bpm <= 25 || bpm > 250) continue;
+        // Timestamps may be epoch-ms, epoch-s, or seconds-since-midnight — normalize.
+        const at = rawT > 1e12 ? rawT : rawT > 1e9 ? rawT * 1000 : midnight + rawT * 1000;
+        if (at < from || at > to || at > Date.now()) continue;
+        rows.push([Math.round((at - midnight) / 1000), bpm]);
       }
       if (rows.length === 0) {
         syncing = false;
-        // A pre-midnight workout's minutes aren't in getToday() — the one honest gap.
-        notify("No readings in that window\n(workout before midnight?)");
+        notify(
+          `Shape report sent (${entries.length} entries)\n` +
+            (nonzero ? "timestamps unclear — check with the server" : "no readings today?"),
+        );
         return;
       }
       notify(`Syncing ${rows.length} min…`);

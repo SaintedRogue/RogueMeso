@@ -62,6 +62,9 @@ AppSideService(
       } else if (method === "GET_WINDOW") {
         // On-demand sync asks the server for the latest workout's set-log bounds.
         relay({ type: "window" }, res);
+      } else if (method === "DIAG") {
+        // Shape/characterization reports — land in the server's log-and-echo branch.
+        relay({ type: "diag", ...payload }, res);
       } else {
         res(null, { ok: false, error: `unknown method ${method}` });
       }
