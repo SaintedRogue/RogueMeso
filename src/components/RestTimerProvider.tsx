@@ -85,8 +85,17 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
         // No Web Audio — vibration/visual alerts still work.
       }
     };
+    // Browsers re-suspend the context when the tab backgrounds (pocketed phone between
+    // sets) — the cause of "the chime only played once". Re-prime on return, too.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") prime();
+    };
     document.addEventListener("pointerdown", prime, { passive: true });
-    return () => document.removeEventListener("pointerdown", prime);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("pointerdown", prime);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const start = useCallback((exerciseType: string | null, exerciseName: string) => {
@@ -106,21 +115,28 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
       /* unsupported */
     }
     const ctx = audioRef.current;
-    if (!ctx || ctx.state !== "running") return;
-    // Two short rising beeps — enough to register in a gym without being an alarm.
-    for (const [freq, at] of [
-      [880, 0],
-      [1175, 0.18],
-    ] as const) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.08, ctx.currentTime + at);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + at);
-      osc.stop(ctx.currentTime + at + 0.16);
-    }
+    if (!ctx) return;
+    const chime = () => {
+      if (ctx.state !== "running") return; // resume refused — vibration already fired
+      // Two short rising beeps — enough to register in a gym without being an alarm.
+      for (const [freq, at] of [
+        [880, 0],
+        [1175, 0.18],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, ctx.currentTime + at);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + 0.15);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + at);
+        osc.stop(ctx.currentTime + at + 0.16);
+      }
+    };
+    // The context often comes back suspended after the tab was backgrounded; a resume
+    // initiated from prior user activation is allowed — try it, then chime.
+    if (ctx.state === "running") chime();
+    else ctx.resume().then(chime).catch(() => {});
   }, []);
 
   return (
