@@ -98,3 +98,20 @@ export function writeJsonFile(path, value) {
     return false;
   }
 }
+
+/**
+ * Seal an open (unsealed) tracking batch into a drainable hrbatch_ file so the page
+ * drain can sync it. The minute logger only auto-seals every N samples; without this
+ * flush, a short workout's samples (and every workout's final partial batch) would sit
+ * in the open file forever, never syncing. Returns the number of samples sealed (0 if
+ * the open file is empty/absent). Idempotent: clears the open file after sealing.
+ */
+export function sealOpenBatch(openFileName) {
+  const open = readJsonFile(openFileName);
+  if (!open || !Array.isArray(open.s) || open.s.length === 0 || !(open.t0 > 0)) return 0;
+  const now = Date.now();
+  const seq = now % 1_000_000; // same uniqueness scheme as the recorder/minute-logger
+  writeBatchFile(seq, { seq, t0: open.t0, watchSealedAt: now, s: open.s });
+  writeJsonFile(openFileName, { t0: 0, s: [] });
+  return open.s.length;
+}

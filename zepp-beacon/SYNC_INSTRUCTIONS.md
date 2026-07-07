@@ -1,6 +1,6 @@
 # Wellness sync — build, install, trigger, and what the server receives
 
-The beacon app (v0.9.0) collects a full wellness snapshot — heart rate, SpO2, sleep,
+The beacon app (v0.9.1) collects a full wellness snapshot — heart rate, SpO2, sleep,
 stress, steps/calories/distance, PAI, body temperature, workout history, barometer,
 device metadata — buffers it on the watch filesystem, and syncs it to your RogueMeso
 server through the Zepp phone app. API behavior referenced below is documented in
@@ -59,16 +59,19 @@ additive.
 index→time mapping (characterized from raw dumps — see §5), so HR uses
 capture-time sampling instead, scoped to workouts:
 
-- **Press "Track" when you start a session** to arm a repeating one-minute alarm
-  that wakes the `minute-logger` App Service (Single Execution mode, ~600 ms per
-  wake — no long-lived background process). Each wake stamps the watch's latest
-  HR reading with the current epoch time and buffers it; batches seal every 30
+- **Press "Track Workout" when you start a session** to arm a repeating one-minute
+  alarm that wakes the `minute-logger` App Service (Single Execution mode, ~600 ms
+  per wake — no long-lived background process). Each wake stamps the watch's latest
+  HR reading with the current epoch time and buffers it; batches seal every 10
   samples into the same files the session recorder uses.
 - **Auto-off after 3 h** (alarm `end_time` + a service-side deadline guard), or
-  press "Track ●" to stop early. The alarm survives a mid-workout reboot.
-- Samples sync through the existing drain: **open the beacon app** and buffered
-  batches upload oldest-first with per-file server acks. They land as `HrSample`
-  rows, which the platform matches to your logged session by time window.
+  press "Stop Tracking" to stop early. The alarm survives a mid-workout reboot.
+- **Data syncs automatically the next time you open the app** — you do NOT press
+  "Sync HR" (that button is a device-specific diagnostic, unrelated to tracking).
+  On open, any stuck partial batch is sealed and all buffered batches drain
+  oldest-first with per-file server acks, landing as `HrSample` rows that the
+  platform matches to your logged session by time window. Pressing "Stop Tracking"
+  also seals the final partial batch immediately.
 - Resolution: 1 sample/min of the system's most recent measurement (the watch
   measures near-continuously during workouts, so minute samples are fresh; this
   path cannot exceed one sample per minute — the alarm API's floor).

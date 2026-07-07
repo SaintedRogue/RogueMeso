@@ -5,7 +5,7 @@ import * as appService from "@zos/app-service";
 import * as alarmMgr from "@zos/alarm";
 import { queryPermission, requestPermission } from "@zos/app";
 import { BasePage } from "@zeppos/zml/base-page";
-import { listBatchFiles, readBatchFile, removeBatchFile, readStatus, readJsonFile, writeJsonFile } from "../utils/recorderStore";
+import { listBatchFiles, readBatchFile, removeBatchFile, readStatus, readJsonFile, writeJsonFile, sealOpenBatch } from "../utils/recorderStore";
 import { collectWellnessSnapshot } from "../utils/wellness-collector";
 import { listWellnessFiles, readWellnessRecords, removeWellnessFile } from "../utils/wellnessStore";
 import {
@@ -33,6 +33,12 @@ const LOGGER_SERVICE_FILE = "app-service/minute-logger";
 const TRACK_CFG_FILE = "hrtrack_cfg.json";
 // Heartbeat the minute-logger writes each sample (keep in sync with its TRACK_STATUS_FILE).
 const TRACK_STATUS_FILE = "hrtrack.json";
+// The minute-logger's unsealed batch (keep in sync with its OPEN_BATCH_FILE).
+const TRACK_OPEN_FILE = "hrtrack_open.json";
+// If the open batch hasn't grown in this long, tracking has stopped — seal it so the
+// samples can drain even if the user never pressed Stop (they synced via the wrong
+// button, closed the app mid-workout, etc.). ~2.5 missed one-minute wakes.
+const TRACK_OPEN_STALE_MS = 150_000;
 // Workout-scoped: tracking self-terminates after this long (matches the recorder's
 // old battery guard). Long enough for any gym session, short enough that a forgotten
 // toggle costs an afternoon, not a week.
@@ -157,7 +163,22 @@ Page(
       if (collectTimer != null) deleteTimer(collectTimer);
     },
 
+    /**
+     * Recover a stuck tracking batch: if the open (unsealed) file has samples but has
+     * gone stale (tracking stopped without the final batch being sealed), seal it into
+     * a drainable file. Runs on app open and each tick, so simply opening the app after
+     * a workout syncs the data — no reliance on pressing Stop or the right button.
+     * Won't touch an actively-growing open batch (last sample < stale threshold).
+     */
+    flushStaleTrackBatch() {
+      const open = readJsonFile(TRACK_OPEN_FILE);
+      if (!open || !Array.isArray(open.s) || open.s.length === 0 || !(open.t0 > 0)) return;
+      const lastAt = open.t0 + open.s[open.s.length - 1][0] * 1000;
+      if (Date.now() - lastAt > TRACK_OPEN_STALE_MS) sealOpenBatch(TRACK_OPEN_FILE);
+    },
+
     tick() {
+      this.flushStaleTrackBatch(); // recover any stuck partial batch before draining
       const pending = listBatchFiles(); // null = fs listing broken (shown, not hidden)
       const running = serviceRunning();
       const st = readStatus();
@@ -513,9 +534,11 @@ Page(
         } catch (e) {
           /* stale id — clearing the config is what matters */
         }
+        // Seal the final partial batch so this workout's tail syncs on the next tick.
+        const sealed = sealOpenBatch(TRACK_OPEN_FILE);
         writeJsonFile(TRACK_CFG_FILE, { alarmId: 0 });
         if (trackBtn) trackBtn.setProperty(hmUI.prop.TEXT, "Track Workout");
-        notify("Tracking off");
+        notify(sealed ? `Tracking off · ${sealed} samples queued` : "Tracking off");
         return;
       }
       // Defensive: clear any orphaned alarms from a previous install before arming,
