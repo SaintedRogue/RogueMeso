@@ -2,8 +2,8 @@ import * as hmUI from "@zos/ui";
 import { px } from "@zos/utils";
 import { DEVICE_WIDTH } from "../utils/device";
 
-// Square-display layout (390 design width, 450 tall). Same design system as the
-// round layout: OLED black, HERO orange primary, slate secondary, dim diagnostics.
+// Square-display layout (390 design width, 450 tall). Same design system as round:
+// OLED black, HERO orange primary. Two actions only: Track Workout + Ping.
 
 const COLOR = {
   primary: 0xff6a2b,
@@ -11,7 +11,6 @@ const COLOR = {
   onPrimary: 0x1a0f08,
   surface: 0x1c2733,
   surfacePress: 0x33475c,
-  surfaceDim: 0x141b24,
   card: 0x141b24,
   text: 0xf8fafc,
   textDim: 0x9fb0c0,
@@ -19,13 +18,13 @@ const COLOR = {
 
 export const ICON_IMG = {
   x: (DEVICE_WIDTH - px(44)) / 2,
-  y: px(22),
+  y: px(34),
   src: "icon_sm.png",
 };
 
 export const TITLE_TEXT = {
   x: px(60),
-  y: px(70),
+  y: px(84),
   w: DEVICE_WIDTH - 2 * px(60),
   h: px(28),
   color: COLOR.textDim,
@@ -36,18 +35,18 @@ export const TITLE_TEXT = {
 
 export const STATUS_CARD = {
   x: px(28),
-  y: px(104),
+  y: px(124),
   w: DEVICE_WIDTH - 2 * px(28),
-  h: px(96),
+  h: px(104),
   radius: px(20),
   color: COLOR.card,
 };
 
 export const STATUS_TEXT = {
   x: px(40),
-  y: px(110),
+  y: px(130),
   w: DEVICE_WIDTH - 2 * px(40),
-  h: px(84),
+  h: px(92),
   color: COLOR.text,
   text_size: px(24),
   align_h: hmUI.align.CENTER_H,
@@ -57,64 +56,25 @@ export const STATUS_TEXT = {
 
 export const TRACK_BUTTON = {
   x: px(28),
-  y: px(210),
+  y: px(250),
   w: DEVICE_WIDTH - 2 * px(28),
-  h: px(60),
+  h: px(64),
   text_size: px(28),
-  radius: px(30),
+  radius: px(32),
   normal_color: COLOR.primary,
   press_color: COLOR.primaryPress,
   color: COLOR.onPrimary,
   text: "Track Workout",
 };
 
-export const SYNC_BUTTON = {
-  x: px(28),
-  y: px(280),
-  w: px(162),
-  h: px(54),
-  text_size: px(24),
-  radius: px(27),
-  normal_color: COLOR.surface,
-  press_color: COLOR.surfacePress,
-  color: COLOR.text,
-  text: "Sync HR",
-};
-
-export const WELLNESS_BUTTON = {
-  x: DEVICE_WIDTH - px(28) - px(162),
-  y: px(280),
-  w: px(162),
-  h: px(54),
-  text_size: px(24),
-  radius: px(27),
-  normal_color: COLOR.surface,
-  press_color: COLOR.surfacePress,
-  color: COLOR.text,
-  text: "Wellness",
-};
-
-export const RECORD_BUTTON = {
-  x: px(28),
-  y: px(344),
-  w: px(162),
-  h: px(44),
-  text_size: px(20),
-  radius: px(22),
-  normal_color: COLOR.surfaceDim,
-  press_color: COLOR.surfacePress,
-  color: COLOR.textDim,
-  text: "Record",
-};
-
 export const PING_BUTTON = {
-  x: DEVICE_WIDTH - px(28) - px(162),
-  y: px(344),
-  w: px(162),
-  h: px(44),
-  text_size: px(20),
-  radius: px(22),
-  normal_color: COLOR.surfaceDim,
+  x: (DEVICE_WIDTH - px(200)) / 2,
+  y: px(330),
+  w: px(200),
+  h: px(54),
+  text_size: px(24),
+  radius: px(27),
+  normal_color: COLOR.surface,
   press_color: COLOR.surfacePress,
   color: COLOR.textDim,
   text: "Ping",

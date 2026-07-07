@@ -1,12 +1,11 @@
-// Shared batch store between the recorder App Service (writer) and the Device App page
-// (drainer). One file per sealed batch — the service never rewrites a sealed file and
-// the page deletes a file only after the SERVER ack, so there is no shared-file race
-// and the watch filesystem is the single source of truth for unsynced data (spec §2).
+// Shared batch store between the minute-logger App Service (writer) and the Device App
+// page (drainer). One file per sealed batch — the service never rewrites a sealed file
+// and the page deletes a file only after the SERVER ack, so there is no shared-file race
+// and the watch filesystem is the single source of truth for unsynced data.
 
 import { readFileSync, writeFileSync, readdirSync, rmSync, statSync } from "@zos/fs";
 
 export const BATCH_PREFIX = "hrbatch_";
-export const STATUS_FILE = "hrstatus.json";
 
 export function writeBatchFile(seq, batch) {
   writeFileSync({ path: `${BATCH_PREFIX}${String(seq).padStart(6, "0")}.json`, data: JSON.stringify(batch) });
@@ -47,26 +46,6 @@ export function removeBatchFile(name) {
     rmSync({ path: name });
   } catch (e) {
     /* already gone */
-  }
-}
-
-/** Service heartbeat, polled by the page while open. */
-export function writeStatus(status) {
-  try {
-    writeFileSync({ path: STATUS_FILE, data: JSON.stringify(status) });
-  } catch (e) {
-    /* status is best-effort */
-  }
-}
-
-export function readStatus() {
-  try {
-    if (!statSync({ path: STATUS_FILE })) return null;
-    const raw = readFileSync({ path: STATUS_FILE });
-    const text = typeof raw === "string" ? raw : arrayBufferToStr(raw);
-    return JSON.parse(text);
-  } catch (e) {
-    return null;
   }
 }
 
