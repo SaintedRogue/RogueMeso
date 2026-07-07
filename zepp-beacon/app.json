@@ -5,8 +5,8 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 13,
-      "name": "0.9.0"
+      "code": 14,
+      "name": "0.9.1"
     },
     "icon": "icon.png",
     "vender": "roguemeso",

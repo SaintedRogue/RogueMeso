@@ -27,15 +27,17 @@ import {
   removeBatchFile,
   readJsonFile,
   writeJsonFile,
+  sealOpenBatch,
 } from "../utils/recorderStore";
 
 const OPEN_BATCH_FILE = "hrtrack_open.json";
 export const TRACK_STATUS_FILE = "hrtrack.json";
 // Must match the page's TRACK_CFG_FILE — the toggle writes it, this service enforces it.
 const TRACK_CFG_FILE = "hrtrack_cfg.json";
-// 30 samples ≈ 30 min per sealed file; small enough for one BLE send, few enough
-// files that a once-a-day drain stays quick.
-const SEAL_AT = 30;
+// 10 samples ≈ 10 min per sealed file. Kept small so an in-progress workout banks
+// drainable data often (little sits unsealed if the app is opened mid-session); the
+// seal-on-stop + stale-flush recovery catches whatever remains.
+const SEAL_AT = 10;
 // Rolling cap on unsynced sealed batches (~50 h at one per 30 min). If the app isn't
 // opened for days, oldest HR drops first rather than exhausting mini-app storage.
 const MAX_PENDING_BATCHES = 100;
@@ -84,6 +86,7 @@ function pruneSealedBatches() {
 function pastDeadline() {
   const cfg = readJsonFile(TRACK_CFG_FILE);
   if (!cfg || !cfg.alarmId || !cfg.until || Date.now() <= cfg.until) return false;
+  sealOpenBatch(OPEN_BATCH_FILE); // flush the final partial batch so it can drain
   try {
     alarmMgr.cancel(cfg.alarmId);
   } catch (e) {
