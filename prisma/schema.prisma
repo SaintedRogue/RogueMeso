@@ -96,7 +96,6 @@ model User {
   weightEntries WeightEntry[]
   readinessEntries ReadinessEntry[] // daily recovery check-ins (Recovery hub)
   hrSamples     HrSample[] // wearable heart-rate readings captured during sessions
-  wellnessSnapshots WellnessSnapshot[] // on-demand wellness syncs from the watch
   activities    Activity[] // community feed posts authored by this user
   reactions     Reaction[] // kudos this user gave
 
@@ -317,23 +316,6 @@ model HrSample {
 
   @@index([dayId, at])
   @@index([userId, at])
-}
-
-// Wearables: one row per wellness snapshot synced on demand from the watch app.
-// `payload` holds the whitelisted per-domain sections exactly as collected (sleep,
-// stress, SpO2, activity, PAI, body temp, workouts, environment, device metadata) —
-// schema-on-read by design: the watch API's shapes are firmware-dependent and still
-// being characterized per device, so ingestion validates bounds (lib/wellness.ts)
-// but deliberately does not normalize into columns yet.
-model WellnessSnapshot {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collectedAt DateTime // watch collection time, skew-corrected server-side
-  payload     Json
-  createdAt   DateTime @default(now())
-
-  @@index([userId, collectedAt])
 }
 
 // Physical Therapy Lens: one movement-quality & symptom check-in per session (MesoDay).

@@ -7,8 +7,8 @@
 // to kill, and every sample is timestamped at capture — the one mapping we can trust.
 //
 // Data path: samples accumulate in an open-batch file, sealed every SEAL_AT samples
-// into the SAME {seq, t0, s: [[secSinceT0, bpm]]} batch files the session recorder
-// writes — so the page drain → Side Service → server pipeline is reused unchanged.
+// into {seq, t0, s: [[secSinceT0, bpm]]} batch files that the page drains → Side
+// Service → server. This is the app's only HR capture path.
 //
 // Resolution note: getLast() returns the system's most recent measurement (denser in
 // workout mode, sparser idle), sampled here on a 1-minute clock. Consecutive repeats
@@ -66,8 +66,7 @@ function sampleOnce() {
     pruneSealedBatches();
   }
   writeJsonFile(OPEN_BATCH_FILE, open);
-  // Heartbeat for the page UI ("Track ●" + last sample). Distinct from the session
-  // recorder's hrstatus.json — the two services must not clobber each other.
+  // Heartbeat for the page UI ("● Tracking" + last sample).
   writeJsonFile(TRACK_STATUS_FILE, { bpm, at: now, pending: open.s.length });
 }
 

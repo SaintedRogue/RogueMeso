@@ -1,16 +1,13 @@
-// Receiver for the Zepp OS mini-app (zepp-beacon/): pings from the spike and, as of
-// recorder R1, HR sample batches from the on-watch recorder. The caller is the
-// mini-app's Side Service fetch()-ing from inside the Zepp phone app — no session
-// cookie — so auth is a per-user bearer token: the presented token's sha256 is looked
-// up in User.zeppTokenHash (generated/revoked in Profile → Wearables, shown once).
-// Design: docs/superpowers/specs/2026-07-02-hr-recorder-design.md
+// Receiver for the Zepp OS mini-app (zepp-beacon/): HR sample batches from the on-watch
+// workout tracker, plus connectivity pings. The caller is the mini-app's Side Service
+// fetch()-ing from inside the Zepp phone app — no session cookie — so auth is a per-user
+// bearer token: the presented token's sha256 is looked up in User.zeppTokenHash
+// (generated/revoked in Profile → Wearables, shown once).
 import { NextResponse, type NextRequest } from "next/server";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { RateLimiter } from "@/lib/rateLimit";
 import { hashBeaconToken } from "@/lib/wearableTokens";
 import { clockSkewMs, decodeHrBatch, sanitizeBatch, HR_WATCH_MAX_AGE_MS } from "@/lib/heartRate";
-import { parseWellnessSnapshot } from "@/lib/wellness";
 
 // Generous for one household, hostile to guessing: 20 bad tokens in 10 min locks 30 min.
 const limiter = new RateLimiter({
@@ -72,60 +69,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, seq: body.seq ?? null, stored: rows.length, serverAt: now });
   }
 
-  if (body.type === "window") {
-    // The watch's on-demand "Sync HR" asks: when was my latest workout? Answer with the
-    // set-log bounds ±5 min so the watch sends only workout-relevant minutes. Sessions
-    // older than 36h don't count — nothing recent means nothing to sync.
-    const latestSet = await prisma.exerciseSet.findFirst({
-      where: {
-        finishedAt: { not: null, gte: new Date(Date.now() - 36 * 60 * 60_000) },
-        dayExercise: { day: { meso: { userId: user.id } } },
-      },
-      orderBy: { finishedAt: "desc" },
-      select: { dayExercise: { select: { dayId: true } } },
-    });
-    if (!latestSet) return NextResponse.json({ ok: true, from: null, to: null });
-    const bounds = await prisma.exerciseSet.aggregate({
-      where: { dayExercise: { dayId: latestSet.dayExercise.dayId }, finishedAt: { not: null } },
-      _min: { finishedAt: true },
-      _max: { finishedAt: true },
-    });
-    const pad = 5 * 60_000;
-    return NextResponse.json({
-      ok: true,
-      from: bounds._min.finishedAt!.getTime() - pad,
-      to: bounds._max.finishedAt!.getTime() + pad,
-    });
-  }
-
-  if (body.type === "wellness") {
-    // Full wellness snapshot, reassembled by the Side Service from per-domain parts.
-    // Stored as-collected (schema-on-read; see WellnessSnapshot model note) after the
-    // whitelist/size/clock gate in lib/wellness. The {ok:true} ack is what lets the
-    // watch delete its buffered snapshot file — only send it after the row is durable.
-    const now = Date.now();
-    const parsed = parseWellnessSnapshot(body, now);
-    if (!parsed) return NextResponse.json({ ok: false }, { status: 400 });
-    await prisma.wellnessSnapshot.create({
-      data: {
-        userId: user.id,
-        collectedAt: new Date(parsed.collectedAt),
-        payload: { sections: parsed.sections, errors: parsed.errors } as Prisma.InputJsonValue,
-      },
-    });
-    const domains = Object.keys(parsed.sections);
-    console.log(
-      `[zepp-beacon] wellness user=${user.id} domains=${domains.join(",")}` +
-        (Object.keys(parsed.errors).length ? ` errors=${JSON.stringify(parsed.errors).slice(0, 300)}` : ""),
-    );
-    return NextResponse.json({ ok: true, stored: domains.length, serverAt: now });
-  }
-
-  // Anything else (pings, diag, raw dumps): log-and-echo observability, bounded.
-  // Raw-array dump chunks must land whole (200 values ≈ 1KB); everything else stays tight.
+  // Anything else (connectivity pings): log-and-echo, bounded.
   console.log(
     `[zepp-beacon] ${typeof body.type === "string" ? body.type : "?"} user=${user.id}`,
-    JSON.stringify(body).slice(0, body.type === "dump" ? 4000 : 500),
+    JSON.stringify(body).slice(0, 500),
   );
   return NextResponse.json({ ok: true, serverAt: Date.now() });
 }

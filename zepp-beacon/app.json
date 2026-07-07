@@ -5,26 +5,16 @@
     "appName": "RogueMeso Beacon",
     "appType": "app",
     "version": {
-      "code": 14,
-      "name": "0.9.1"
+      "code": 15,
+      "name": "0.10.0"
     },
     "icon": "icon.png",
     "vender": "roguemeso",
-    "description": "RogueMeso wearable beacon: HR recorder + wellness snapshot sync"
+    "description": "RogueMeso wearable beacon: workout heart-rate tracking"
   },
   "permissions": [
     "data:os.device.info",
     "data:user.hd.heart_rate",
-    "data:user.hd.spo2",
-    "data:user.hd.sleep",
-    "data:user.hd.stress",
-    "data:user.hd.step",
-    "data:user.hd.calorie",
-    "data:user.hd.distance",
-    "data:user.hd.pai",
-    "data:user.hd.workout",
-    "data:user.hd.body_temp",
-    "device:os.barometer",
     "device:os.bg_service",
     "device:os.alarm"
   ],
@@ -51,7 +41,6 @@
         },
         "app-service": {
           "services": [
-            "app-service/recorder",
             "app-service/minute-logger"
           ]
         }
