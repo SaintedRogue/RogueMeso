@@ -23,8 +23,16 @@ const isEngaged = (set: SugSet) => DONE_STATUSES.has(set.status) || set.weight !
 // mesocycles. The normalize mirrors exerciseMatch's compact() so we match the @map value
 // ("bodyweight-only") or the enum identifier ("bodyweightOnly") interchangeably.
 const BODYWEIGHT_TYPES = new Set(["bodyweightonly", "bodyweightloadable", "machineassistance"]);
+const normalizeType = (type: string) => type.toLowerCase().replace(/[^a-z0-9]/g, "");
 export function isBodyweightType(type: string | null | undefined): boolean {
-  return !!type && BODYWEIGHT_TYPES.has(type.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  return !!type && BODYWEIGHT_TYPES.has(normalizeType(type));
+}
+
+// Narrower than isBodyweightType: ONLY `bodyweightOnly`, where the lifter's body weight IS the
+// load (calf raises, push-ups). Loadable/assist are excluded because their "weight" field is an
+// added/assist load, not body weight — so we never overwrite it with the lifter's mass.
+export function isPureBodyweightType(type: string | null | undefined): boolean {
+  return !!type && normalizeType(type) === "bodyweightonly";
 }
 
 /**
@@ -51,9 +59,34 @@ export function buildBodyweightSeeds(
 }
 
 /**
+ * Pure-bodyweight seed: for `bodyweightOnly` exercises the load IS the lifter's current body
+ * weight, so seed each still-unlogged set's weight with it, keyed by current set id. Returns the
+ * weight alone (not a full suggestion) because reps come from the last-week progression — callers
+ * overlay this onto the weight field and keep last week's reps. `bodyWeight` arrives already in the
+ * user's display unit; null (no weigh-in on record) seeds nothing, so callers fall back cleanly.
+ */
+export function buildBodyweightOnlySeeds(
+  currentExercises: SugExercise[],
+  bodyWeight: number | null,
+): Record<number, number> {
+  const out: Record<number, number> = {};
+  if (bodyWeight == null) return out;
+  for (const ex of currentExercises) {
+    if (!ex.exercise || !isPureBodyweightType(ex.exercise.exerciseType)) continue;
+    for (const set of ex.sets) {
+      if (isEngaged(set)) continue;
+      out[set.id] = bodyWeight;
+    }
+  }
+  return out;
+}
+
+/**
  * Map current-set id → suggested {weight, reps}, for sets that are still unlogged and whose
  * matching set last week was actually completed. Exercises are matched by exercise id, sets by
  * position. Weight repeats last week's load; reps climb by the RIR drop (see `suggestedReps`).
+ * A set added this week (no last-week position, e.g. 2 sets → 3) inherits last week's final
+ * completed set so every set gets a target — not just the ones that existed last week.
  */
 export function buildSetSuggestions(
   currentExercises: SugExercise[],
@@ -79,10 +112,20 @@ export function buildSetSuggestions(
     seen.set(ex.exercise.id, occurrence + 1);
     const prev = prevByExercise.get(ex.exercise.id)?.[occurrence];
     if (!prev) continue;
+    // Last week's final completed set, used to seed any set ADDED this week (positions last week
+    // never reached, e.g. 2 sets → 3). Extra sets "assume the same effort again" as the final set,
+    // matching the within-session carry-down. Highest-position completed set wins (a trailing skip
+    // is ignored). Undefined when last week had no completed set at all.
+    const lastCompleted = prev.sets
+      .filter((p) => p.status === "complete" && p.weight != null && p.reps != null)
+      .reduce<SugSet | undefined>((best, p) => (best && best.position > p.position ? best : p), undefined);
     for (const set of ex.sets) {
       // Only suggest into a set the user hasn't engaged with yet.
       if (isEngaged(set)) continue;
-      const prevSet = prev.sets.find((p) => p.position === set.position);
+      // Match by position; a set with no last-week counterpart (added this week) inherits the final
+      // completed set. A position that DID exist but wasn't completed is left as-is (no fallback).
+      const matched = prev.sets.find((p) => p.position === set.position);
+      const prevSet = matched ?? lastCompleted;
       if (!prevSet || prevSet.status !== "complete" || prevSet.weight == null || prevSet.reps == null) continue;
       out[set.id] = {
         weight: prevSet.weight,

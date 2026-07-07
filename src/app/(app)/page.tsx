@@ -54,6 +54,7 @@ export default async function Home() {
     current.position,
     active.weeksCount,
     me.id,
+    me.unit,
     day.exercises,
   );
 

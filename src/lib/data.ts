@@ -7,10 +7,12 @@ import { downsampleHr, hrSessionStats, mergePerSecond, setRecoveryDrop, type HrS
 import {
   buildSetSuggestions,
   buildBodyweightSeeds,
+  buildBodyweightOnlySeeds,
   isBodyweightType,
   type SetSuggestion,
   type SugExercise,
 } from "@/lib/suggestions";
+import { fromKg } from "@/lib/format";
 
 // All queries are scoped to a user. Mesocycles are private; exercises/templates are the shared
 // shared library (userId null) PLUS the user's own creations (userId === me).
@@ -195,6 +197,7 @@ export async function getDaySuggestions(
   position: number,
   weeksCount: number,
   userId: number,
+  unit: string,
   currentExercises: SugExercise[],
 ): Promise<Record<number, SetSuggestion>> {
   let lastWeek: Record<number, SetSuggestion> = {};
@@ -214,7 +217,32 @@ export async function getDaySuggestions(
   );
   const lastLogged = await getLastLoggedWeights(userId, bodyweightIds);
   const bodyweightSeeds = buildBodyweightSeeds(currentExercises, lastLogged);
-  return { ...bodyweightSeeds, ...lastWeek };
+  const merged: Record<number, SetSuggestion> = { ...bodyweightSeeds, ...lastWeek };
+  // Pure-bodyweight exercises (calf raises, push-ups): the load IS today's body weight, and it's
+  // fresher than last week's logged value — overlay it onto the weight field while keeping last
+  // week's reps progression. Null body weight (no weigh-in) leaves the existing seed untouched.
+  const bodyWeight = await getCurrentBodyweight(userId, unit);
+  const bwSeeds = buildBodyweightOnlySeeds(currentExercises, bodyWeight);
+  for (const [id, weight] of Object.entries(bwSeeds)) {
+    const setId = Number(id);
+    merged[setId] = { weight, reps: merged[setId]?.reps };
+  }
+  return merged;
+}
+
+/**
+ * The user's current body weight in their DISPLAY unit (weight is stored canonically in kg), taken
+ * from their most recent weigh-in. Rounded to one decimal so a kg→lb conversion doesn't seed a
+ * noisy value into the set-logger. Null when the user has never logged a weight.
+ */
+export async function getCurrentBodyweight(userId: number, unit: string): Promise<number | null> {
+  const latest = await prisma.weightEntry.findFirst({
+    where: { userId },
+    orderBy: { date: "desc" },
+    select: { weightKg: true },
+  });
+  if (!latest) return null;
+  return Math.round(fromKg(latest.weightKg, unit) * 10) / 10;
 }
 
 /**
