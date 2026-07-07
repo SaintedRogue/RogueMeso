@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { suggestedReps, setRampPreview } from "@/lib/progression";
-import { buildSetSuggestions, buildBodyweightSeeds, isBodyweightType } from "@/lib/suggestions";
+import {
+  buildSetSuggestions,
+  buildBodyweightSeeds,
+  buildBodyweightOnlySeeds,
+  isBodyweightType,
+  isPureBodyweightType,
+} from "@/lib/suggestions";
 
 describe("setRampPreview", () => {
   it("emphasize ramps +1 set/week from MEV toward the MRV cap, with a deload last week", () => {
@@ -117,6 +123,27 @@ describe("buildSetSuggestions", () => {
     const previous = [{ exercise: { id: 9 }, sets: [prev(0, 45, 13)] }];
     expect(buildSetSuggestions(current, previous, 2, 1)).toEqual({});
   });
+
+  it("seeds a set added this week (3 vs last week's 2) from last week's final completed set", () => {
+    const current = [{ exercise: { id: 7 }, sets: [cur(1, 0), cur(2, 1), cur(3, 2)] }];
+    const previous = [{ exercise: { id: 7 }, sets: [prev(0, 45, 13), prev(1, 50, 11)] }];
+    expect(buildSetSuggestions(current, previous, 2, 1)).toEqual({
+      1: { weight: 45, reps: 14 },
+      2: { weight: 50, reps: 12 },
+      3: { weight: 50, reps: 12 }, // no position 2 last week → inherits the final set (position 1)
+    });
+  });
+
+  it("the extra-set fallback uses last week's last COMPLETED set, skipping a trailing skip", () => {
+    const current = [{ exercise: { id: 7 }, sets: [cur(1, 0), cur(2, 1), cur(3, 2)] }];
+    // Last week: set 1 completed, set 2 skipped. The added set 3 should inherit set 1, not the skip.
+    const previous = [{ exercise: { id: 7 }, sets: [prev(0, 45, 13), prev(1, 55, 10, "skipped")] }];
+    expect(buildSetSuggestions(current, previous, 2, 1)).toEqual({
+      1: { weight: 45, reps: 14 }, // position match, completed
+      // set 2 (position 1) matches last week's skipped set → still no suggestion
+      3: { weight: 45, reps: 14 }, // position 2 absent → falls back to last completed (position 0)
+    });
+  });
 });
 
 describe("isBodyweightType", () => {
@@ -180,5 +207,61 @@ describe("buildBodyweightSeeds", () => {
   it("seeds a zero added-load (a logged weight of 0 is a real value, not 'missing')", () => {
     const current = [{ exercise: { id: 7, exerciseType: "bodyweight-only" }, sets: [cur(1, 0)] }];
     expect(buildBodyweightSeeds(current, { 7: 0 })).toEqual({ 1: { weight: 0 } });
+  });
+});
+
+describe("isPureBodyweightType", () => {
+  it("matches only bodyweightOnly (the load IS the lifter), regardless of casing/punctuation", () => {
+    expect(isPureBodyweightType("bodyweight-only")).toBe(true);
+    expect(isPureBodyweightType("bodyweightOnly")).toBe(true);
+  });
+
+  it("rejects loadable/assist (their weight field is an added load) and loaded/empty", () => {
+    expect(isPureBodyweightType("bodyweight-loadable")).toBe(false);
+    expect(isPureBodyweightType("bodyweightLoadable")).toBe(false);
+    expect(isPureBodyweightType("machine-assistance")).toBe(false);
+    expect(isPureBodyweightType("barbell")).toBe(false);
+    expect(isPureBodyweightType(null)).toBe(false);
+    expect(isPureBodyweightType(undefined)).toBe(false);
+  });
+});
+
+describe("buildBodyweightOnlySeeds", () => {
+  const cur = (id: number, position: number, over: Partial<{ weight: number | null; reps: number | null; status: string }> = {}) => ({
+    id,
+    position,
+    weight: null as number | null,
+    reps: null as number | null,
+    status: "pendingWeight",
+    ...over,
+  });
+
+  it("seeds every unlogged set of a bodyweightOnly exercise with the given body weight", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "bodyweight-only" }, sets: [cur(1, 0), cur(2, 1)] }];
+    expect(buildBodyweightOnlySeeds(current, 181)).toEqual({ 1: 181, 2: 181 });
+  });
+
+  it("ignores loadable/assist and loaded exercises (weight there is an added load)", () => {
+    const current = [
+      { exercise: { id: 7, exerciseType: "bodyweight-loadable" }, sets: [cur(1, 0)] },
+      { exercise: { id: 8, exerciseType: "machine-assistance" }, sets: [cur(2, 0)] },
+      { exercise: { id: 9, exerciseType: "barbell" }, sets: [cur(3, 0)] },
+    ];
+    expect(buildBodyweightOnlySeeds(current, 181)).toEqual({});
+  });
+
+  it("seeds nothing when body weight is unknown (no weigh-in yet)", () => {
+    const current = [{ exercise: { id: 7, exerciseType: "bodyweight-only" }, sets: [cur(1, 0)] }];
+    expect(buildBodyweightOnlySeeds(current, null)).toEqual({});
+  });
+
+  it("seeds only sets the user hasn't engaged with (logged, skipped, or weight entered)", () => {
+    const current = [
+      {
+        exercise: { id: 7, exerciseType: "bodyweight-only" },
+        sets: [cur(1, 0, { status: "complete", weight: 181 }), cur(2, 1, { weight: 175 }), cur(3, 2, { status: "skipped" }), cur(4, 3)],
+      },
+    ];
+    expect(buildBodyweightOnlySeeds(current, 181)).toEqual({ 4: 181 });
   });
 });

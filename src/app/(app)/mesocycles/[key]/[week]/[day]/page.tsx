@@ -22,7 +22,7 @@ export default async function DayPage({
 
   const meso = d.meso;
   // Carry the same day from last week forward as a shaded target until the user logs.
-  const suggestions = await getDaySuggestions(key, wk, pos, meso.weeksCount, me.id, d.exercises);
+  const suggestions = await getDaySuggestions(key, wk, pos, meso.weeksCount, me.id, me.unit, d.exercises);
   const { checkIn, lastSession } = await getSessionContext(d.id, me.physicalTherapyLens);
   // Session heart rate captured live over BLE, when there's enough to chart.
   const hr = await getSessionHrView(d.id, me);
